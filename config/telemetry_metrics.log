@@ -1211,3 +1211,4 @@
 [2025-09-01T16:44:19] chore(config): tune microphone audio stream buffer size
 [2025-09-01T20:37:19] test(wake): add test suite for offline speech recognition
 [2025-09-01T10:06:40] fix(ui): prevent UI freeze during voice synthesis
+[2025-09-01T19:52:09] docs(telemetry): record voice engine response latency metrics
