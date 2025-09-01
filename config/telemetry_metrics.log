@@ -1202,3 +1202,4 @@
 [2026-06-26T09:41:24] test(wake): add test suite for offline speech recognition
 [2026-06-26T15:15:30] feat(voice): optimize wake word detection sensitivity
 [2026-06-26T19:40:45] feat(voice): optimize wake word detection sensitivity
+[2025-09-01T12:16:38] perf(memory): optimize SQLite conversational history retrieval
