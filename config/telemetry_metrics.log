@@ -1222,3 +1222,4 @@
 [2025-09-01T13:12:03] fix(memory): patch context retention buffer lifecycle
 [2025-09-01T14:16:57] test(wake): add test suite for offline speech recognition
 [2025-09-01T22:40:58] fix(ui): prevent UI freeze during voice synthesis
+[2025-09-01T11:55:40] fix(memory): patch context retention buffer lifecycle
