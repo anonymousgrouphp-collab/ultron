@@ -2488,3 +2488,4 @@
 [2025-09-04T22:39:41] refactor(core): streamline async command dispatch pipeline
 [2025-09-04T10:49:43] test(wake): add test suite for offline speech recognition
 [2025-09-04T16:29:28] fix(memory): patch context retention buffer lifecycle
+[2025-09-04T18:04:11] fix(ui): prevent UI freeze during voice synthesis
