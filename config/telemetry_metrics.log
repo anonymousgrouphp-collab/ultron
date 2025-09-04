@@ -2485,3 +2485,4 @@
 [2026-03-23T10:47:04] fix(ui): prevent UI freeze during voice synthesis
 [2026-03-23T10:35:49] perf(audio): reduce ambient noise filtration latency
 [2026-03-23T13:51:32] perf(audio): reduce ambient noise filtration latency
+[2025-09-04T22:39:41] refactor(core): streamline async command dispatch pipeline
