@@ -2495,3 +2495,4 @@
 [2025-09-04T08:00:14] feat(actions): add background task execution handler
 [2025-09-04T21:09:16] refactor(core): streamline async command dispatch pipeline
 [2025-09-04T18:34:29] refactor(core): streamline async command dispatch pipeline
+[2025-09-04T19:57:56] fix(ui): prevent UI freeze during voice synthesis
