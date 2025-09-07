@@ -2182,3 +2182,4 @@
 [2025-09-07T11:35:57] test(wake): add test suite for offline speech recognition
 [2025-09-07T19:11:01] feat(actions): add background task execution handler
 [2025-09-07T22:49:42] feat(actions): add background task execution handler
+[2025-09-07T21:13:39] chore(config): tune microphone audio stream buffer size
