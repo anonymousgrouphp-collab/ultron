@@ -1515,3 +1515,4 @@
 [2025-09-10T18:08:51] refactor(core): streamline async command dispatch pipeline
 [2025-09-10T20:26:35] perf(memory): optimize SQLite conversational history retrieval
 [2025-09-10T23:34:34] refactor(core): streamline async command dispatch pipeline
+[2025-09-10T20:05:37] test(wake): add test suite for offline speech recognition
