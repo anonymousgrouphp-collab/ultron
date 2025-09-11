@@ -776,3 +776,4 @@
 [2025-09-11T16:55:43] perf(audio): reduce ambient noise filtration latency
 [2025-09-11T21:34:01] feat(voice): optimize wake word detection sensitivity
 [2025-09-11T20:07:00] fix(memory): patch context retention buffer lifecycle
+[2025-09-11T23:29:44] test(wake): add test suite for offline speech recognition
