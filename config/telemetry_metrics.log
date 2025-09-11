@@ -773,3 +773,4 @@
 [2025-09-11T22:39:51] docs(telemetry): record voice engine response latency metrics
 [2025-09-11T18:58:55] fix(memory): patch context retention buffer lifecycle
 [2025-09-11T14:11:05] fix(ui): prevent UI freeze during voice synthesis
+[2025-09-11T16:55:43] perf(audio): reduce ambient noise filtration latency
