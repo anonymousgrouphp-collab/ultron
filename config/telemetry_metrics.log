@@ -758,3 +758,4 @@
 [2025-09-11T22:43:14] fix(memory): patch context retention buffer lifecycle
 [2025-09-11T23:33:40] chore(config): tune microphone audio stream buffer size
 [2025-09-11T10:18:29] test(wake): add test suite for offline speech recognition
+[2025-09-11T10:58:51] perf(memory): optimize SQLite conversational history retrieval
