@@ -761,3 +761,4 @@
 [2025-09-11T10:58:51] perf(memory): optimize SQLite conversational history retrieval
 [2025-09-11T17:09:08] docs(telemetry): record voice engine response latency metrics
 [2025-09-11T15:33:27] docs(telemetry): record voice engine response latency metrics
+[2025-09-11T09:35:04] feat(voice): optimize wake word detection sensitivity
