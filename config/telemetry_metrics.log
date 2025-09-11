@@ -772,3 +772,4 @@
 [2025-09-11T18:37:46] perf(memory): optimize SQLite conversational history retrieval
 [2025-09-11T22:39:51] docs(telemetry): record voice engine response latency metrics
 [2025-09-11T18:58:55] fix(memory): patch context retention buffer lifecycle
+[2025-09-11T14:11:05] fix(ui): prevent UI freeze during voice synthesis
