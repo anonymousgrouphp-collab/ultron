@@ -17,3 +17,4 @@
 [2025-09-14T15:50:05] docs(telemetry): record voice engine response latency metrics
 [2025-09-14T11:29:10] perf(audio): reduce ambient noise filtration latency
 [2025-09-14T13:09:49] refactor(core): streamline async command dispatch pipeline
+[2025-09-14T21:16:51] feat(voice): optimize wake word detection sensitivity
