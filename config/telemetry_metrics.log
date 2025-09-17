@@ -51,3 +51,4 @@
 [2025-09-17T13:44:13] docs(telemetry): record voice engine response latency metrics
 [2025-09-17T14:38:10] fix(memory): patch context retention buffer lifecycle
 [2025-09-17T10:56:27] docs(telemetry): record voice engine response latency metrics
+[2025-09-17T18:24:53] fix(memory): patch context retention buffer lifecycle
