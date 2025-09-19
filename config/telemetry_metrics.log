@@ -64,3 +64,4 @@
 [2025-09-19T20:34:52] chore(config): tune microphone audio stream buffer size
 [2025-09-19T16:04:00] fix(ui): prevent UI freeze during voice synthesis
 [2025-09-19T11:00:04] perf(stt): optimize streaming audio buffer conversion
+[2025-09-19T22:19:39] perf(audio): reduce ambient noise filtration latency
