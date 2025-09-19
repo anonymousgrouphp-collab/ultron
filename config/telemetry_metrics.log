@@ -60,3 +60,4 @@
 [2025-09-18T18:01:49] refactor(core): streamline async command dispatch pipeline
 [2025-09-19T19:29:53] refactor(core): streamline async command dispatch pipeline
 [2025-09-19T16:09:03] perf(memory): optimize SQLite conversational history retrieval
+[2025-09-19T20:18:13] feat(voice): optimize wake word detection sensitivity
