@@ -81,3 +81,4 @@
 [2025-09-20T18:22:34] feat(nlp): calibrate intent classifier confidence threshold
 [2025-09-20T09:12:16] docs(telemetry): record voice engine response latency metrics
 [2025-09-20T21:01:24] feat(actions): add background task execution handler
+[2025-09-20T11:42:22] refactor(core): streamline async command dispatch pipeline
