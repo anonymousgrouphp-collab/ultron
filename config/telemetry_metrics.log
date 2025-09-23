@@ -102,3 +102,4 @@
 [2025-09-23T13:18:16] fix(memory): patch context retention buffer lifecycle
 [2025-09-23T18:28:11] perf(stt): optimize streaming audio buffer conversion
 [2025-09-23T11:50:12] fix(ui): prevent UI freeze during voice synthesis
+[2025-09-23T21:57:41] chore(config): tune microphone audio stream buffer size
