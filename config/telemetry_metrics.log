@@ -110,3 +110,4 @@
 [2025-09-23T12:58:28] perf(memory): optimize SQLite conversational history retrieval
 [2025-09-23T11:23:56] perf(memory): optimize SQLite conversational history retrieval
 [2025-09-23T18:44:20] refactor(core): streamline async command dispatch pipeline
+[2025-09-23T16:57:22] fix(memory): patch context retention buffer lifecycle
