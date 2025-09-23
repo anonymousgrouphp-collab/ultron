@@ -107,3 +107,4 @@
 [2025-09-23T21:05:47] feat(nlp): calibrate intent classifier confidence threshold
 [2025-09-23T10:06:34] docs(telemetry): record voice engine response latency metrics
 [2025-09-23T20:00:07] perf(stt): optimize streaming audio buffer conversion
+[2025-09-23T12:58:28] perf(memory): optimize SQLite conversational history retrieval
