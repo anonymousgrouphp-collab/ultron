@@ -112,3 +112,4 @@
 [2025-09-23T18:44:20] refactor(core): streamline async command dispatch pipeline
 [2025-09-23T16:57:22] fix(memory): patch context retention buffer lifecycle
 [2025-09-23T19:43:00] perf(memory): optimize SQLite conversational history retrieval
+[2025-09-23T20:53:15] docs(telemetry): record voice engine response latency metrics
