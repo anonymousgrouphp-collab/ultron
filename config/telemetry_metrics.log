@@ -104,3 +104,4 @@
 [2025-09-23T11:50:12] fix(ui): prevent UI freeze during voice synthesis
 [2025-09-23T21:57:41] chore(config): tune microphone audio stream buffer size
 [2025-09-23T22:58:36] test(wake): add test suite for offline speech recognition
+[2025-09-23T21:05:47] feat(nlp): calibrate intent classifier confidence threshold
