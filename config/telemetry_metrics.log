@@ -97,3 +97,4 @@
 [2025-09-21T22:13:13] fix(memory): patch context retention buffer lifecycle
 [2025-09-21T22:09:39] perf(memory): optimize SQLite conversational history retrieval
 [2025-09-21T14:06:11] feat(actions): add background task execution handler
+[2025-09-23T17:03:39] feat(nlp): calibrate intent classifier confidence threshold
