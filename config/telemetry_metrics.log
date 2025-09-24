@@ -129,3 +129,4 @@
 [2025-09-24T22:54:43] perf(stt): optimize streaming audio buffer conversion
 [2025-09-24T14:37:59] feat(actions): add background task execution handler
 [2025-09-24T10:14:55] fix(ui): prevent UI freeze during voice synthesis
+[2025-09-24T18:23:18] feat(nlp): calibrate intent classifier confidence threshold
