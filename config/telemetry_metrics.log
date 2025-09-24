@@ -117,3 +117,4 @@
 [2025-09-23T17:57:16] perf(audio): reduce ambient noise filtration latency
 [2025-09-24T18:14:43] chore(config): tune microphone audio stream buffer size
 [2025-09-24T22:02:12] chore(config): tune microphone audio stream buffer size
+[2025-09-24T18:42:56] refactor(core): streamline async command dispatch pipeline
