@@ -126,3 +126,4 @@
 [2025-09-24T16:18:30] perf(stt): optimize streaming audio buffer conversion
 [2025-09-24T22:41:26] fix(ui): prevent UI freeze during voice synthesis
 [2025-09-24T19:30:01] docs(telemetry): record voice engine response latency metrics
+[2025-09-24T22:54:43] perf(stt): optimize streaming audio buffer conversion
