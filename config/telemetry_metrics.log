@@ -120,3 +120,4 @@
 [2025-09-24T18:42:56] refactor(core): streamline async command dispatch pipeline
 [2025-09-24T21:30:47] test(wake): add test suite for offline speech recognition
 [2025-09-24T11:22:49] feat(voice): optimize wake word detection sensitivity
+[2025-09-24T20:14:49] perf(audio): reduce ambient noise filtration latency
