@@ -1460,3 +1460,4 @@
 [2025-09-27T09:41:15] refactor(core): streamline async command dispatch pipeline
 [2025-09-27T11:00:41] feat(actions): add background task execution handler
 [2025-09-27T19:20:05] chore(config): tune microphone audio stream buffer size
+[2025-09-27T16:46:08] test(wake): add test suite for offline speech recognition
