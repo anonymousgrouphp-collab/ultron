@@ -1450,3 +1450,4 @@
 [2025-09-27T20:35:49] test(wake): add test suite for offline speech recognition
 [2025-09-27T20:38:17] refactor(core): streamline async command dispatch pipeline
 [2025-09-27T13:00:10] fix(ui): prevent UI freeze during voice synthesis
+[2025-09-27T14:37:44] feat(voice): optimize wake word detection sensitivity
