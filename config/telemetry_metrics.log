@@ -1458,3 +1458,4 @@
 [2025-09-27T15:18:02] fix(memory): patch context retention buffer lifecycle
 [2025-09-27T16:59:08] docs(telemetry): record voice engine response latency metrics
 [2025-09-27T09:41:15] refactor(core): streamline async command dispatch pipeline
+[2025-09-27T11:00:41] feat(actions): add background task execution handler
