@@ -1440,3 +1440,4 @@
 [2025-09-27T12:02:08] refactor(core): streamline async command dispatch pipeline
 [2025-09-27T21:35:45] docs(telemetry): record voice engine response latency metrics
 [2025-09-27T19:57:23] perf(memory): optimize SQLite conversational history retrieval
+[2025-09-27T11:58:27] perf(audio): reduce ambient noise filtration latency
