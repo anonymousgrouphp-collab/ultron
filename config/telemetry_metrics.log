@@ -1446,3 +1446,4 @@
 [2025-09-27T12:18:02] fix(ui): prevent UI freeze during voice synthesis
 [2025-09-27T09:50:44] refactor(core): streamline async command dispatch pipeline
 [2025-09-27T20:31:43] chore(config): tune microphone audio stream buffer size
+[2025-09-27T10:10:28] chore(config): tune microphone audio stream buffer size
