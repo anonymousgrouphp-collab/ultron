@@ -1462,3 +1462,4 @@
 [2025-09-27T19:20:05] chore(config): tune microphone audio stream buffer size
 [2025-09-27T16:46:08] test(wake): add test suite for offline speech recognition
 [2025-09-27T17:20:03] feat(voice): optimize wake word detection sensitivity
+[2025-09-27T19:14:46] docs(telemetry): record voice engine response latency metrics
