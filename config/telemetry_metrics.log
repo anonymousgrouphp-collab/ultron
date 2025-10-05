@@ -2400,3 +2400,4 @@
 [2025-10-05T19:41:09] fix(ui): prevent UI freeze during voice synthesis
 [2025-10-05T18:33:23] test(wake): add test suite for offline speech recognition
 [2025-10-05T23:41:10] chore(config): tune microphone audio stream buffer size
+[2025-10-05T23:11:30] test(wake): add test suite for offline speech recognition
