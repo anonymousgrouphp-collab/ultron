@@ -2402,3 +2402,4 @@
 [2025-10-05T23:41:10] chore(config): tune microphone audio stream buffer size
 [2025-10-05T23:11:30] test(wake): add test suite for offline speech recognition
 [2025-10-05T08:42:04] feat(actions): add background task execution handler
+[2025-10-05T15:19:13] refactor(core): streamline async command dispatch pipeline
