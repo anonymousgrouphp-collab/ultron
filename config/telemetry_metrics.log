@@ -1108,3 +1108,4 @@
 [2025-11-11T23:29:29] fix(ui): prevent UI freeze during voice synthesis
 [2025-10-10T09:47:05] docs(telemetry): record voice engine response latency metrics
 [2025-10-10T22:22:44] docs(telemetry): record voice engine response latency metrics
+[2025-10-10T20:39:52] fix(memory): patch context retention buffer lifecycle
