@@ -1128,3 +1128,4 @@
 [2025-10-10T15:45:28] fix(memory): patch context retention buffer lifecycle
 [2025-10-10T23:52:17] fix(memory): patch context retention buffer lifecycle
 [2025-10-10T13:53:01] fix(ui): prevent UI freeze during voice synthesis
+[2025-10-10T11:11:18] perf(audio): reduce ambient noise filtration latency
