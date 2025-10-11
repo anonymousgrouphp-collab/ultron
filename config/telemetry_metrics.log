@@ -936,3 +936,4 @@
 [2025-10-11T09:59:58] perf(memory): optimize SQLite conversational history retrieval
 [2025-10-11T16:38:16] test(wake): add test suite for offline speech recognition
 [2025-10-11T19:53:40] refactor(core): streamline async command dispatch pipeline
+[2025-10-11T17:02:10] chore(config): tune microphone audio stream buffer size
