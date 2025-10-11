@@ -962,3 +962,4 @@
 [2025-10-11T14:00:12] test(wake): add test suite for offline speech recognition
 [2025-10-11T11:55:17] fix(ui): prevent UI freeze during voice synthesis
 [2025-10-11T23:10:35] refactor(core): streamline async command dispatch pipeline
+[2025-10-11T13:04:37] fix(memory): patch context retention buffer lifecycle
