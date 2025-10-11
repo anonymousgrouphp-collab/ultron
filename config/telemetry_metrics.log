@@ -934,3 +934,4 @@
 [2025-10-11T09:00:52] perf(memory): optimize SQLite conversational history retrieval
 [2025-10-11T17:41:10] feat(voice): optimize wake word detection sensitivity
 [2025-10-11T09:59:58] perf(memory): optimize SQLite conversational history retrieval
+[2025-10-11T16:38:16] test(wake): add test suite for offline speech recognition
