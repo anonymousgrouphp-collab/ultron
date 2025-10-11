@@ -945,3 +945,4 @@
 [2025-10-11T16:15:42] feat(actions): add background task execution handler
 [2025-10-11T18:13:29] fix(ui): prevent UI freeze during voice synthesis
 [2025-10-11T18:01:58] fix(memory): patch context retention buffer lifecycle
+[2025-10-11T08:38:30] feat(voice): optimize wake word detection sensitivity
