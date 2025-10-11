@@ -940,3 +940,4 @@
 [2025-10-11T10:19:05] test(wake): add test suite for offline speech recognition
 [2025-10-11T11:53:08] chore(config): tune microphone audio stream buffer size
 [2025-10-11T16:56:27] refactor(core): streamline async command dispatch pipeline
+[2025-10-11T18:56:43] feat(actions): add background task execution handler
