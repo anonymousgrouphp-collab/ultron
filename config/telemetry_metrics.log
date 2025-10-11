@@ -965,3 +965,4 @@
 [2025-10-11T13:04:37] fix(memory): patch context retention buffer lifecycle
 [2025-10-11T10:08:16] fix(ui): prevent UI freeze during voice synthesis
 [2025-10-11T15:56:33] docs(telemetry): record voice engine response latency metrics
+[2025-10-11T14:54:43] feat(voice): optimize wake word detection sensitivity
