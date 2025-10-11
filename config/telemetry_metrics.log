@@ -959,3 +959,4 @@
 [2025-10-11T17:51:45] refactor(core): streamline async command dispatch pipeline
 [2025-10-11T15:31:23] feat(voice): optimize wake word detection sensitivity
 [2025-10-11T16:31:57] fix(ui): prevent UI freeze during voice synthesis
+[2025-10-11T14:00:12] test(wake): add test suite for offline speech recognition
