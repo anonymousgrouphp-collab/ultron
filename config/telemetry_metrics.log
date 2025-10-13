@@ -160,3 +160,4 @@
 [2025-10-13T11:00:42] chore(config): tune microphone audio stream buffer size
 [2025-10-13T20:58:06] feat(nlp): calibrate intent classifier confidence threshold
 [2025-10-13T21:34:20] test(wake): add test suite for offline speech recognition
+[2025-10-13T20:03:53] feat(voice): optimize wake word detection sensitivity
