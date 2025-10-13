@@ -156,3 +156,4 @@
 [2025-10-13T11:54:34] feat(nlp): calibrate intent classifier confidence threshold
 [2025-10-13T15:02:12] perf(stt): optimize streaming audio buffer conversion
 [2025-10-13T19:01:28] chore(config): tune microphone audio stream buffer size
+[2025-10-13T17:04:38] feat(voice): optimize wake word detection sensitivity
