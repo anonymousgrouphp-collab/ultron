@@ -153,3 +153,4 @@
 [2025-10-13T21:37:25] perf(memory): optimize SQLite conversational history retrieval
 [2025-10-13T10:49:40] refactor(core): streamline async command dispatch pipeline
 [2025-10-13T18:57:37] chore(config): tune microphone audio stream buffer size
+[2025-10-13T11:54:34] feat(nlp): calibrate intent classifier confidence threshold
