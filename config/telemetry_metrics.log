@@ -141,3 +141,4 @@
 [2025-09-28T20:01:03] fix(ui): prevent UI freeze during voice synthesis
 [2025-09-28T14:33:23] feat(nlp): calibrate intent classifier confidence threshold
 [2025-10-13T12:59:02] chore(config): tune microphone audio stream buffer size
+[2025-10-13T17:43:28] chore(config): tune microphone audio stream buffer size
