@@ -2374,3 +2374,4 @@
 [2025-10-16T11:45:49] fix(ui): prevent UI freeze during voice synthesis
 [2025-10-16T08:28:30] feat(voice): optimize wake word detection sensitivity
 [2025-10-16T17:51:25] feat(voice): optimize wake word detection sensitivity
+[2025-10-16T19:25:45] chore(config): tune microphone audio stream buffer size
