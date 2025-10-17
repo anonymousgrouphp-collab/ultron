@@ -2268,3 +2268,4 @@
 [2025-10-17T08:14:56] fix(ui): prevent UI freeze during voice synthesis
 [2025-10-17T13:49:15] feat(actions): add background task execution handler
 [2025-10-17T19:21:32] feat(voice): optimize wake word detection sensitivity
+[2025-10-17T20:58:04] refactor(core): streamline async command dispatch pipeline
