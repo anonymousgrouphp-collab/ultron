@@ -2258,3 +2258,4 @@
 [2026-06-25T14:27:05] refactor(core): streamline async command dispatch pipeline
 [2026-06-25T12:43:35] feat(actions): add background task execution handler
 [2025-10-17T08:30:10] feat(actions): add background task execution handler
+[2025-10-17T11:30:35] test(wake): add test suite for offline speech recognition
