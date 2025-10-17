@@ -2265,3 +2265,4 @@
 [2025-10-17T20:49:20] docs(telemetry): record voice engine response latency metrics
 [2025-10-17T21:38:25] chore(config): tune microphone audio stream buffer size
 [2025-10-17T10:22:31] fix(ui): prevent UI freeze during voice synthesis
+[2025-10-17T08:14:56] fix(ui): prevent UI freeze during voice synthesis
