@@ -689,3 +689,4 @@
 [2025-10-20T15:58:05] perf(memory): optimize SQLite conversational history retrieval
 [2025-10-20T14:16:44] fix(memory): patch context retention buffer lifecycle
 [2025-10-20T09:25:39] test(wake): add test suite for offline speech recognition
+[2025-10-20T16:09:05] feat(actions): add background task execution handler
