@@ -697,3 +697,4 @@
 [2025-10-20T17:47:31] test(wake): add test suite for offline speech recognition
 [2025-10-20T12:27:54] refactor(core): streamline async command dispatch pipeline
 [2025-10-20T14:52:18] refactor(core): streamline async command dispatch pipeline
+[2025-10-20T21:11:26] fix(memory): patch context retention buffer lifecycle
