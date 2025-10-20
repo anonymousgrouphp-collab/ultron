@@ -687,3 +687,4 @@
 [2025-10-20T20:56:24] fix(ui): prevent UI freeze during voice synthesis
 [2025-10-20T15:01:01] chore(config): tune microphone audio stream buffer size
 [2025-10-20T15:58:05] perf(memory): optimize SQLite conversational history retrieval
+[2025-10-20T14:16:44] fix(memory): patch context retention buffer lifecycle
