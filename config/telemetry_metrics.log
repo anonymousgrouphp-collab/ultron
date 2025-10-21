@@ -168,3 +168,4 @@
 [2025-10-21T20:07:43] perf(audio): reduce ambient noise filtration latency
 [2025-10-21T11:28:30] feat(nlp): calibrate intent classifier confidence threshold
 [2025-10-21T20:27:19] feat(actions): add background task execution handler
+[2025-10-21T15:21:16] feat(nlp): calibrate intent classifier confidence threshold
