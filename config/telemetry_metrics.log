@@ -165,3 +165,4 @@
 [2025-10-21T19:34:58] fix(ui): prevent UI freeze during voice synthesis
 [2025-10-21T16:42:48] refactor(core): streamline async command dispatch pipeline
 [2025-10-21T19:54:32] feat(nlp): calibrate intent classifier confidence threshold
+[2025-10-21T20:07:43] perf(audio): reduce ambient noise filtration latency
