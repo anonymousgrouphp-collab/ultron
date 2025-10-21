@@ -164,3 +164,4 @@
 [2025-10-21T09:11:29] fix(ui): prevent UI freeze during voice synthesis
 [2025-10-21T19:34:58] fix(ui): prevent UI freeze during voice synthesis
 [2025-10-21T16:42:48] refactor(core): streamline async command dispatch pipeline
+[2025-10-21T19:54:32] feat(nlp): calibrate intent classifier confidence threshold
