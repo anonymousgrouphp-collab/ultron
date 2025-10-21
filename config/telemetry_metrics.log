@@ -169,3 +169,4 @@
 [2025-10-21T11:28:30] feat(nlp): calibrate intent classifier confidence threshold
 [2025-10-21T20:27:19] feat(actions): add background task execution handler
 [2025-10-21T15:21:16] feat(nlp): calibrate intent classifier confidence threshold
+[2025-10-21T15:04:41] chore(config): tune microphone audio stream buffer size
