@@ -177,3 +177,4 @@
 [2025-10-22T20:34:31] feat(actions): add background task execution handler
 [2025-10-22T14:59:51] refactor(core): streamline async command dispatch pipeline
 [2025-10-22T15:38:36] docs(telemetry): record voice engine response latency metrics
+[2025-10-22T10:16:13] feat(voice): optimize wake word detection sensitivity
