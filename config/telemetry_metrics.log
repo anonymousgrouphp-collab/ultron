@@ -174,3 +174,4 @@
 [2025-10-22T20:39:26] feat(nlp): calibrate intent classifier confidence threshold
 [2025-10-22T10:59:25] fix(memory): patch context retention buffer lifecycle
 [2025-10-22T19:35:51] perf(audio): reduce ambient noise filtration latency
+[2025-10-22T20:34:31] feat(actions): add background task execution handler
