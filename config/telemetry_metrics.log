@@ -195,3 +195,4 @@
 [2025-10-23T10:02:55] fix(ui): prevent UI freeze during voice synthesis
 [2025-10-23T20:54:24] fix(ui): prevent UI freeze during voice synthesis
 [2025-10-23T10:43:43] feat(actions): add background task execution handler
+[2025-10-23T22:28:21] docs(telemetry): record voice engine response latency metrics
