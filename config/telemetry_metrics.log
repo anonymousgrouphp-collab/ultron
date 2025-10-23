@@ -191,3 +191,4 @@
 [2025-10-23T09:21:24] feat(actions): add background task execution handler
 [2025-10-23T22:41:40] fix(ui): prevent UI freeze during voice synthesis
 [2025-10-23T22:03:36] perf(memory): optimize SQLite conversational history retrieval
+[2025-10-23T12:38:54] refactor(core): streamline async command dispatch pipeline
