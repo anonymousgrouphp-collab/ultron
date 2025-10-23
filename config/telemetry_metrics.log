@@ -197,3 +197,4 @@
 [2025-10-23T10:43:43] feat(actions): add background task execution handler
 [2025-10-23T22:28:21] docs(telemetry): record voice engine response latency metrics
 [2025-10-23T18:43:10] perf(stt): optimize streaming audio buffer conversion
+[2025-10-23T09:10:15] feat(voice): optimize wake word detection sensitivity
