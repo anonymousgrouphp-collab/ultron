@@ -1545,3 +1545,4 @@
 [2025-10-23T20:11:52] chore(config): tune microphone audio stream buffer size
 [2025-10-23T10:52:44] perf(memory): optimize SQLite conversational history retrieval
 [2025-10-23T23:20:41] test(wake): add test suite for offline speech recognition
+[2025-10-23T20:10:03] feat(actions): add background task execution handler
