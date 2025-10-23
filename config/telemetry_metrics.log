@@ -1543,3 +1543,4 @@
 [2025-10-23T20:08:47] refactor(core): streamline async command dispatch pipeline
 [2025-10-23T20:39:03] refactor(core): streamline async command dispatch pipeline
 [2025-10-23T20:11:52] chore(config): tune microphone audio stream buffer size
+[2025-10-23T10:52:44] perf(memory): optimize SQLite conversational history retrieval
