@@ -192,3 +192,4 @@
 [2025-10-23T22:41:40] fix(ui): prevent UI freeze during voice synthesis
 [2025-10-23T22:03:36] perf(memory): optimize SQLite conversational history retrieval
 [2025-10-23T12:38:54] refactor(core): streamline async command dispatch pipeline
+[2025-10-23T10:02:55] fix(ui): prevent UI freeze during voice synthesis
