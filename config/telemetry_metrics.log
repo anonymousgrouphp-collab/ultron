@@ -1579,3 +1579,4 @@
 [2025-10-28T19:05:04] fix(memory): patch context retention buffer lifecycle
 [2025-10-28T22:16:30] docs(telemetry): record voice engine response latency metrics
 [2025-10-28T22:41:59] fix(memory): patch context retention buffer lifecycle
+[2025-10-28T11:36:31] feat(voice): optimize wake word detection sensitivity
