@@ -1570,3 +1570,4 @@
 [2025-10-28T18:18:23] fix(ui): prevent UI freeze during voice synthesis
 [2025-10-28T21:02:57] test(wake): add test suite for offline speech recognition
 [2025-10-28T15:13:39] fix(ui): prevent UI freeze during voice synthesis
+[2025-10-28T10:09:36] perf(memory): optimize SQLite conversational history retrieval
