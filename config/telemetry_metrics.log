@@ -1561,3 +1561,4 @@
 [2025-10-23T11:21:26] chore(config): tune microphone audio stream buffer size
 [2025-10-28T11:32:51] fix(memory): patch context retention buffer lifecycle
 [2025-10-28T08:37:50] test(wake): add test suite for offline speech recognition
+[2025-10-28T23:37:55] feat(voice): optimize wake word detection sensitivity
