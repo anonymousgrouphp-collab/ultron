@@ -1559,3 +1559,4 @@
 [2025-10-23T20:32:12] feat(actions): add background task execution handler
 [2025-10-23T20:46:22] fix(memory): patch context retention buffer lifecycle
 [2025-10-23T11:21:26] chore(config): tune microphone audio stream buffer size
+[2025-10-28T11:32:51] fix(memory): patch context retention buffer lifecycle
