@@ -1577,3 +1577,4 @@
 [2025-10-28T13:59:18] fix(memory): patch context retention buffer lifecycle
 [2025-10-28T10:17:36] feat(actions): add background task execution handler
 [2025-10-28T19:05:04] fix(memory): patch context retention buffer lifecycle
+[2025-10-28T22:16:30] docs(telemetry): record voice engine response latency metrics
