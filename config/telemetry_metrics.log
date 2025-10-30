@@ -1994,3 +1994,4 @@
 [2025-10-30T21:04:41] test(wake): add test suite for offline speech recognition
 [2025-10-30T17:09:01] feat(actions): add background task execution handler
 [2025-10-30T19:21:26] feat(actions): add background task execution handler
+[2025-10-30T23:18:39] feat(voice): optimize wake word detection sensitivity
