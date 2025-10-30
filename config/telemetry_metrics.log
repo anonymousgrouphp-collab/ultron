@@ -1997,3 +1997,4 @@
 [2025-10-30T23:18:39] feat(voice): optimize wake word detection sensitivity
 [2025-10-30T13:23:02] docs(telemetry): record voice engine response latency metrics
 [2025-10-30T12:58:37] feat(voice): optimize wake word detection sensitivity
+[2025-10-30T11:38:13] feat(actions): add background task execution handler
