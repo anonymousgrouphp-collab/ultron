@@ -2003,3 +2003,4 @@
 [2025-10-30T20:48:41] perf(audio): reduce ambient noise filtration latency
 [2025-10-30T10:59:14] fix(ui): prevent UI freeze during voice synthesis
 [2025-10-30T21:34:46] perf(audio): reduce ambient noise filtration latency
+[2025-10-30T09:38:30] chore(config): tune microphone audio stream buffer size
