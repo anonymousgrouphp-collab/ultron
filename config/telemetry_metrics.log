@@ -1951,3 +1951,4 @@
 [2025-11-03T11:23:46] fix(memory): patch context retention buffer lifecycle
 [2025-11-03T09:15:44] perf(memory): optimize SQLite conversational history retrieval
 [2025-11-03T22:07:01] perf(memory): optimize SQLite conversational history retrieval
+[2025-11-03T09:17:17] fix(ui): prevent UI freeze during voice synthesis
