@@ -1944,3 +1944,4 @@
 [2026-06-03T19:49:35] docs(telemetry): record voice engine response latency metrics
 [2025-11-03T15:33:57] docs(telemetry): record voice engine response latency metrics
 [2025-11-03T18:44:34] chore(config): tune microphone audio stream buffer size
+[2025-11-03T11:03:22] test(wake): add test suite for offline speech recognition
