@@ -1954,3 +1954,4 @@
 [2025-11-03T09:17:17] fix(ui): prevent UI freeze during voice synthesis
 [2025-11-03T20:19:52] perf(audio): reduce ambient noise filtration latency
 [2025-11-03T09:17:54] fix(ui): prevent UI freeze during voice synthesis
+[2025-11-03T20:31:01] test(wake): add test suite for offline speech recognition
