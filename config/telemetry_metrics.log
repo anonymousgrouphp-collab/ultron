@@ -2049,3 +2049,4 @@
 [2025-11-04T12:06:13] chore(config): tune microphone audio stream buffer size
 [2025-11-04T13:01:38] feat(voice): optimize wake word detection sensitivity
 [2025-11-04T14:00:31] feat(voice): optimize wake word detection sensitivity
+[2025-11-04T19:13:18] fix(ui): prevent UI freeze during voice synthesis
