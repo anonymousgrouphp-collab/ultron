@@ -2047,3 +2047,4 @@
 [2025-11-04T17:58:16] fix(ui): prevent UI freeze during voice synthesis
 [2025-11-04T11:59:14] docs(telemetry): record voice engine response latency metrics
 [2025-11-04T12:06:13] chore(config): tune microphone audio stream buffer size
+[2025-11-04T13:01:38] feat(voice): optimize wake word detection sensitivity
