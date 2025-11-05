@@ -2441,3 +2441,4 @@
 [2026-05-29T23:06:43] docs(telemetry): record voice engine response latency metrics
 [2025-11-05T14:36:43] fix(memory): patch context retention buffer lifecycle
 [2025-11-05T18:10:12] test(wake): add test suite for offline speech recognition
+[2025-11-05T13:54:10] fix(ui): prevent UI freeze during voice synthesis
