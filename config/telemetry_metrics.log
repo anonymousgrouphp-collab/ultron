@@ -2448,3 +2448,4 @@
 [2025-11-05T17:23:09] docs(telemetry): record voice engine response latency metrics
 [2025-11-05T18:46:22] feat(actions): add background task execution handler
 [2025-11-05T22:19:27] fix(ui): prevent UI freeze during voice synthesis
+[2025-11-05T20:48:26] feat(voice): optimize wake word detection sensitivity
