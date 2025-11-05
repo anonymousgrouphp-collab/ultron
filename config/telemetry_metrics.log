@@ -2443,3 +2443,4 @@
 [2025-11-05T18:10:12] test(wake): add test suite for offline speech recognition
 [2025-11-05T13:54:10] fix(ui): prevent UI freeze during voice synthesis
 [2025-11-05T13:20:33] perf(memory): optimize SQLite conversational history retrieval
+[2025-11-05T21:49:46] docs(telemetry): record voice engine response latency metrics
