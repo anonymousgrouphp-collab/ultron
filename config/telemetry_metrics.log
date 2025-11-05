@@ -2446,3 +2446,4 @@
 [2025-11-05T21:49:46] docs(telemetry): record voice engine response latency metrics
 [2025-11-05T15:59:16] perf(memory): optimize SQLite conversational history retrieval
 [2025-11-05T17:23:09] docs(telemetry): record voice engine response latency metrics
+[2025-11-05T18:46:22] feat(actions): add background task execution handler
