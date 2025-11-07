@@ -2121,3 +2121,4 @@
 [2025-11-07T15:24:01] perf(memory): optimize SQLite conversational history retrieval
 [2025-11-07T20:23:48] chore(config): tune microphone audio stream buffer size
 [2025-11-07T11:28:14] fix(ui): prevent UI freeze during voice synthesis
+[2025-11-07T08:25:49] refactor(core): streamline async command dispatch pipeline
