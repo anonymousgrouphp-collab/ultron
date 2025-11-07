@@ -2125,3 +2125,4 @@
 [2025-11-07T22:23:30] fix(ui): prevent UI freeze during voice synthesis
 [2025-11-07T11:41:19] feat(actions): add background task execution handler
 [2025-11-07T12:51:40] perf(audio): reduce ambient noise filtration latency
+[2025-11-07T11:35:10] refactor(core): streamline async command dispatch pipeline
