@@ -206,3 +206,4 @@
 [2025-11-08T15:31:14] chore(config): tune microphone audio stream buffer size
 [2025-11-08T18:28:54] test(wake): add test suite for offline speech recognition
 [2025-11-08T17:04:18] chore(config): tune microphone audio stream buffer size
+[2025-11-08T14:53:18] test(wake): add test suite for offline speech recognition
