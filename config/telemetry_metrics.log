@@ -210,3 +210,4 @@
 [2025-11-08T18:40:38] fix(memory): patch context retention buffer lifecycle
 [2025-11-08T12:07:04] chore(config): tune microphone audio stream buffer size
 [2025-11-08T15:38:32] fix(ui): prevent UI freeze during voice synthesis
+[2025-11-08T16:46:39] test(wake): add test suite for offline speech recognition
