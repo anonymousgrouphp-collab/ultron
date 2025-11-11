@@ -1098,3 +1098,4 @@
 [2025-11-11T20:10:07] fix(memory): patch context retention buffer lifecycle
 [2025-11-11T21:30:47] perf(audio): reduce ambient noise filtration latency
 [2025-11-11T20:57:55] refactor(core): streamline async command dispatch pipeline
+[2025-11-11T12:55:13] docs(telemetry): record voice engine response latency metrics
