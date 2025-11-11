@@ -215,3 +215,4 @@
 [2025-11-08T13:14:13] docs(telemetry): record voice engine response latency metrics
 [2025-11-08T22:26:03] feat(nlp): calibrate intent classifier confidence threshold
 [2025-11-08T15:41:59] refactor(core): streamline async command dispatch pipeline
+[2025-11-11T15:19:15] fix(ui): prevent UI freeze during voice synthesis
