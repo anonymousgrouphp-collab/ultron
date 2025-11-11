@@ -1087,3 +1087,4 @@
 [2025-11-11T20:24:13] test(wake): add test suite for offline speech recognition
 [2025-11-11T10:34:24] refactor(core): streamline async command dispatch pipeline
 [2025-11-11T23:06:21] fix(ui): prevent UI freeze during voice synthesis
+[2025-11-11T22:40:57] docs(telemetry): record voice engine response latency metrics
