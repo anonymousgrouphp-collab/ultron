@@ -218,3 +218,4 @@
 [2025-11-11T15:19:15] fix(ui): prevent UI freeze during voice synthesis
 [2025-11-11T13:29:48] feat(voice): optimize wake word detection sensitivity
 [2025-11-11T13:49:34] perf(stt): optimize streaming audio buffer conversion
+[2025-11-11T20:14:52] perf(memory): optimize SQLite conversational history retrieval
