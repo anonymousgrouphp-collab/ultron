@@ -220,3 +220,4 @@
 [2025-11-11T13:49:34] perf(stt): optimize streaming audio buffer conversion
 [2025-11-11T20:14:52] perf(memory): optimize SQLite conversational history retrieval
 [2025-11-11T16:44:11] docs(telemetry): record voice engine response latency metrics
+[2025-11-11T17:54:56] fix(memory): patch context retention buffer lifecycle
