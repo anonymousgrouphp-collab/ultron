@@ -222,3 +222,4 @@
 [2025-11-11T16:44:11] docs(telemetry): record voice engine response latency metrics
 [2025-11-11T17:54:56] fix(memory): patch context retention buffer lifecycle
 [2025-11-11T22:21:17] perf(memory): optimize SQLite conversational history retrieval
+[2025-11-11T22:50:30] perf(stt): optimize streaming audio buffer conversion
