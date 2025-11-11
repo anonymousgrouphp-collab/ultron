@@ -1076,3 +1076,4 @@
 [2026-07-14T18:50:05] feat(actions): add background task execution handler
 [2026-07-14T14:27:49] test(wake): add test suite for offline speech recognition
 [2025-11-11T14:28:28] chore(config): tune microphone audio stream buffer size
+[2025-11-11T08:23:08] fix(ui): prevent UI freeze during voice synthesis
