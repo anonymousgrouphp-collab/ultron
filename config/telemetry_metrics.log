@@ -233,3 +233,4 @@
 [2025-11-15T22:03:45] feat(nlp): calibrate intent classifier confidence threshold
 [2025-11-15T22:57:45] feat(actions): add background task execution handler
 [2025-11-15T18:19:40] fix(memory): patch context retention buffer lifecycle
+[2025-11-15T17:07:34] feat(nlp): calibrate intent classifier confidence threshold
