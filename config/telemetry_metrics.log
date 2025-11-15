@@ -225,3 +225,4 @@
 [2025-11-11T22:50:30] perf(stt): optimize streaming audio buffer conversion
 [2025-11-11T09:40:59] perf(audio): reduce ambient noise filtration latency
 [2025-11-11T10:50:13] chore(config): tune microphone audio stream buffer size
+[2025-11-15T10:52:15] feat(nlp): calibrate intent classifier confidence threshold
