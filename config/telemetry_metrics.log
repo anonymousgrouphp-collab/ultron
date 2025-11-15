@@ -226,3 +226,4 @@
 [2025-11-11T09:40:59] perf(audio): reduce ambient noise filtration latency
 [2025-11-11T10:50:13] chore(config): tune microphone audio stream buffer size
 [2025-11-15T10:52:15] feat(nlp): calibrate intent classifier confidence threshold
+[2025-11-15T11:28:57] test(wake): add test suite for offline speech recognition
