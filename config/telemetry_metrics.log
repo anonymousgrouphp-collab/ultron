@@ -2229,3 +2229,4 @@
 [2025-11-15T21:22:41] docs(telemetry): record voice engine response latency metrics
 [2025-11-15T14:21:44] chore(config): tune microphone audio stream buffer size
 [2025-11-15T16:05:32] refactor(core): streamline async command dispatch pipeline
+[2025-11-15T16:13:29] docs(telemetry): record voice engine response latency metrics
