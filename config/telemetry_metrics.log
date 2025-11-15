@@ -228,3 +228,4 @@
 [2025-11-15T10:52:15] feat(nlp): calibrate intent classifier confidence threshold
 [2025-11-15T11:28:57] test(wake): add test suite for offline speech recognition
 [2025-11-15T14:59:42] chore(config): tune microphone audio stream buffer size
+[2025-11-15T10:56:11] docs(telemetry): record voice engine response latency metrics
