@@ -230,3 +230,4 @@
 [2025-11-15T14:59:42] chore(config): tune microphone audio stream buffer size
 [2025-11-15T10:56:11] docs(telemetry): record voice engine response latency metrics
 [2025-11-15T15:51:36] fix(ui): prevent UI freeze during voice synthesis
+[2025-11-15T22:03:45] feat(nlp): calibrate intent classifier confidence threshold
