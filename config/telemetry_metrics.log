@@ -1175,3 +1175,4 @@
 [2025-11-17T14:03:40] fix(memory): patch context retention buffer lifecycle
 [2025-11-17T14:08:05] fix(memory): patch context retention buffer lifecycle
 [2025-11-17T14:15:32] perf(audio): reduce ambient noise filtration latency
+[2025-11-17T21:46:29] docs(telemetry): record voice engine response latency metrics
