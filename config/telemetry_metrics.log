@@ -1856,3 +1856,4 @@
 [2025-11-19T17:25:30] fix(memory): patch context retention buffer lifecycle
 [2025-11-19T15:53:54] chore(config): tune microphone audio stream buffer size
 [2025-11-19T16:52:39] perf(memory): optimize SQLite conversational history retrieval
+[2025-11-19T11:27:09] feat(voice): optimize wake word detection sensitivity
