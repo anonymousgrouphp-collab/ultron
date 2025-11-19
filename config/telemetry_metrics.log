@@ -1863,3 +1863,4 @@
 [2025-11-19T17:42:06] fix(ui): prevent UI freeze during voice synthesis
 [2025-11-19T23:23:42] docs(telemetry): record voice engine response latency metrics
 [2025-11-19T20:24:44] perf(audio): reduce ambient noise filtration latency
+[2025-11-19T22:26:52] test(wake): add test suite for offline speech recognition
