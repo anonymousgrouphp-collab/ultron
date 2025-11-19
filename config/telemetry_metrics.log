@@ -1845,3 +1845,4 @@
 [2026-03-26T23:44:21] feat(voice): optimize wake word detection sensitivity
 [2026-03-26T11:47:37] chore(config): tune microphone audio stream buffer size
 [2025-11-19T09:44:13] chore(config): tune microphone audio stream buffer size
+[2025-11-19T12:35:47] perf(memory): optimize SQLite conversational history retrieval
