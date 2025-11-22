@@ -240,3 +240,4 @@
 [2025-11-22T19:46:48] feat(voice): optimize wake word detection sensitivity
 [2025-11-22T11:05:00] fix(ui): prevent UI freeze during voice synthesis
 [2025-11-22T15:00:06] feat(nlp): calibrate intent classifier confidence threshold
+[2025-11-22T17:13:45] perf(stt): optimize streaming audio buffer conversion
