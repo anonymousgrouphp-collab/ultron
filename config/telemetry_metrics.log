@@ -723,3 +723,4 @@
 [2025-11-22T15:11:02] perf(memory): optimize SQLite conversational history retrieval
 [2025-11-22T16:10:45] perf(memory): optimize SQLite conversational history retrieval
 [2025-11-22T21:07:57] perf(memory): optimize SQLite conversational history retrieval
+[2025-11-22T09:28:22] chore(config): tune microphone audio stream buffer size
