@@ -700,3 +700,4 @@
 [2025-10-20T21:11:26] fix(memory): patch context retention buffer lifecycle
 [2025-10-20T08:18:16] refactor(core): streamline async command dispatch pipeline
 [2025-10-20T22:58:15] feat(actions): add background task execution handler
+[2025-11-22T22:05:00] perf(memory): optimize SQLite conversational history retrieval
