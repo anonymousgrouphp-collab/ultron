@@ -704,3 +704,4 @@
 [2025-11-22T12:55:20] test(wake): add test suite for offline speech recognition
 [2025-11-22T14:45:24] test(wake): add test suite for offline speech recognition
 [2025-11-22T16:04:06] chore(config): tune microphone audio stream buffer size
+[2025-11-22T09:03:21] refactor(core): streamline async command dispatch pipeline
