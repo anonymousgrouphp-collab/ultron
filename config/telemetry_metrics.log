@@ -734,3 +734,4 @@
 [2025-11-22T18:01:18] perf(audio): reduce ambient noise filtration latency
 [2025-11-22T20:23:37] perf(audio): reduce ambient noise filtration latency
 [2025-11-22T18:09:01] perf(audio): reduce ambient noise filtration latency
+[2025-11-22T22:53:45] perf(memory): optimize SQLite conversational history retrieval
