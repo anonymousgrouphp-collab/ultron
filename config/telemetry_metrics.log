@@ -714,3 +714,4 @@
 [2025-11-22T12:05:20] chore(config): tune microphone audio stream buffer size
 [2025-11-22T21:09:16] perf(audio): reduce ambient noise filtration latency
 [2025-11-22T18:02:08] perf(memory): optimize SQLite conversational history retrieval
+[2025-11-22T16:47:23] test(wake): add test suite for offline speech recognition
