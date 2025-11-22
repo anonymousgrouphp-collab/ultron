@@ -243,3 +243,4 @@
 [2025-11-22T17:13:45] perf(stt): optimize streaming audio buffer conversion
 [2025-11-22T09:34:35] fix(memory): patch context retention buffer lifecycle
 [2025-11-22T22:39:22] fix(memory): patch context retention buffer lifecycle
+[2025-11-22T17:11:46] feat(actions): add background task execution handler
