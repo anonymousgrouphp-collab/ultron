@@ -2453,3 +2453,4 @@
 [2025-11-05T12:29:49] docs(telemetry): record voice engine response latency metrics
 [2025-11-05T08:52:45] refactor(core): streamline async command dispatch pipeline
 [2025-11-05T14:42:45] docs(telemetry): record voice engine response latency metrics
+[2025-11-23T17:53:23] feat(voice): optimize wake word detection sensitivity
