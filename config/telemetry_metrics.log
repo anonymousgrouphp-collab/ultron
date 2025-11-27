@@ -255,3 +255,4 @@
 [2025-11-27T14:12:01] feat(actions): add background task execution handler
 [2025-11-27T13:57:32] feat(actions): add background task execution handler
 [2025-11-27T15:57:13] fix(ui): prevent UI freeze during voice synthesis
+[2025-11-27T10:06:32] chore(config): tune microphone audio stream buffer size
