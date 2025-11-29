@@ -2013,3 +2013,4 @@
 [2025-11-29T10:58:23] perf(memory): optimize SQLite conversational history retrieval
 [2025-11-29T15:28:50] test(wake): add test suite for offline speech recognition
 [2025-11-29T15:36:52] fix(memory): patch context retention buffer lifecycle
+[2025-11-29T15:49:58] test(wake): add test suite for offline speech recognition
