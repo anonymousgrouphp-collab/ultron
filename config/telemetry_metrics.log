@@ -1613,3 +1613,4 @@
 [2025-12-01T21:22:58] fix(ui): prevent UI freeze during voice synthesis
 [2025-12-01T20:52:00] chore(config): tune microphone audio stream buffer size
 [2025-12-01T14:04:46] fix(ui): prevent UI freeze during voice synthesis
+[2025-12-01T12:20:42] feat(actions): add background task execution handler
