@@ -1624,3 +1624,4 @@
 [2025-12-01T21:44:34] fix(memory): patch context retention buffer lifecycle
 [2025-12-01T20:13:22] refactor(core): streamline async command dispatch pipeline
 [2025-12-01T14:43:36] feat(voice): optimize wake word detection sensitivity
+[2025-12-01T19:52:23] feat(voice): optimize wake word detection sensitivity
