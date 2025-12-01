@@ -1625,3 +1625,4 @@
 [2025-12-01T20:13:22] refactor(core): streamline async command dispatch pipeline
 [2025-12-01T14:43:36] feat(voice): optimize wake word detection sensitivity
 [2025-12-01T19:52:23] feat(voice): optimize wake word detection sensitivity
+[2025-12-01T17:57:19] chore(config): tune microphone audio stream buffer size
