@@ -262,3 +262,4 @@
 [2025-12-04T15:28:32] perf(memory): optimize SQLite conversational history retrieval
 [2025-12-04T18:31:11] perf(memory): optimize SQLite conversational history retrieval
 [2025-12-04T19:22:18] docs(telemetry): record voice engine response latency metrics
+[2025-12-04T09:59:30] fix(memory): patch context retention buffer lifecycle
