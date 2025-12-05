@@ -275,3 +275,4 @@
 [2025-12-05T22:08:40] fix(memory): patch context retention buffer lifecycle
 [2025-12-05T17:21:12] perf(memory): optimize SQLite conversational history retrieval
 [2025-12-05T18:00:20] feat(nlp): calibrate intent classifier confidence threshold
+[2025-12-05T20:31:20] docs(telemetry): record voice engine response latency metrics
