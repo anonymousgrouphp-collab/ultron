@@ -272,3 +272,4 @@
 [2025-12-05T17:47:47] docs(telemetry): record voice engine response latency metrics
 [2025-12-05T18:41:35] test(wake): add test suite for offline speech recognition
 [2025-12-05T18:37:00] refactor(core): streamline async command dispatch pipeline
+[2025-12-05T22:08:40] fix(memory): patch context retention buffer lifecycle
