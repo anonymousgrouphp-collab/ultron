@@ -1905,3 +1905,4 @@
 [2025-12-09T10:08:50] chore(config): tune microphone audio stream buffer size
 [2025-12-09T17:06:07] perf(memory): optimize SQLite conversational history retrieval
 [2025-12-09T15:03:38] chore(config): tune microphone audio stream buffer size
+[2025-12-09T18:01:14] docs(telemetry): record voice engine response latency metrics
