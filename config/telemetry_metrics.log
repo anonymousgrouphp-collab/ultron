@@ -1900,3 +1900,4 @@
 [2025-12-09T10:21:11] chore(config): tune microphone audio stream buffer size
 [2025-12-09T23:12:53] refactor(core): streamline async command dispatch pipeline
 [2025-12-09T23:32:22] feat(actions): add background task execution handler
+[2025-12-09T12:51:04] perf(memory): optimize SQLite conversational history retrieval
