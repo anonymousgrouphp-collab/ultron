@@ -1889,3 +1889,4 @@
 [2025-12-09T09:54:47] perf(audio): reduce ambient noise filtration latency
 [2025-12-09T22:48:23] fix(ui): prevent UI freeze during voice synthesis
 [2025-12-09T08:59:11] feat(actions): add background task execution handler
+[2025-12-09T11:44:28] test(wake): add test suite for offline speech recognition
