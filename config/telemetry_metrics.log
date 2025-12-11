@@ -2588,3 +2588,4 @@
 [2025-12-11T15:25:50] fix(memory): patch context retention buffer lifecycle
 [2025-12-11T21:25:37] refactor(core): streamline async command dispatch pipeline
 [2025-12-11T15:53:22] perf(audio): reduce ambient noise filtration latency
+[2025-12-11T15:17:08] test(wake): add test suite for offline speech recognition
