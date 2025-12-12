@@ -296,3 +296,4 @@
 [2025-12-09T17:45:47] fix(ui): prevent UI freeze during voice synthesis
 [2025-12-09T19:05:13] test(wake): add test suite for offline speech recognition
 [2025-12-09T21:42:14] perf(memory): optimize SQLite conversational history retrieval
+[2025-12-12T14:18:09] feat(nlp): calibrate intent classifier confidence threshold
