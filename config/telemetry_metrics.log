@@ -309,3 +309,4 @@
 [2025-12-12T11:37:44] docs(telemetry): record voice engine response latency metrics
 [2025-12-12T18:33:11] fix(ui): prevent UI freeze during voice synthesis
 [2025-12-12T15:22:31] test(wake): add test suite for offline speech recognition
+[2025-12-12T13:58:21] test(wake): add test suite for offline speech recognition
