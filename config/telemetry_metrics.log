@@ -2063,3 +2063,4 @@
 [2025-12-13T09:27:06] chore(config): tune microphone audio stream buffer size
 [2025-12-13T18:12:53] chore(config): tune microphone audio stream buffer size
 [2025-12-13T09:40:40] feat(voice): optimize wake word detection sensitivity
+[2025-12-13T15:08:37] test(wake): add test suite for offline speech recognition
