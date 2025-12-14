@@ -318,3 +318,4 @@
 [2025-12-12T21:00:04] docs(telemetry): record voice engine response latency metrics
 [2025-12-12T16:31:56] fix(memory): patch context retention buffer lifecycle
 [2025-12-12T09:06:23] feat(voice): optimize wake word detection sensitivity
+[2025-12-14T12:33:36] feat(voice): optimize wake word detection sensitivity
