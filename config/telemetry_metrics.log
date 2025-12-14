@@ -323,3 +323,4 @@
 [2025-12-14T12:51:32] perf(stt): optimize streaming audio buffer conversion
 [2025-12-14T15:29:59] feat(voice): optimize wake word detection sensitivity
 [2025-12-14T11:58:30] refactor(core): streamline async command dispatch pipeline
+[2025-12-14T21:12:00] test(wake): add test suite for offline speech recognition
