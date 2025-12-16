@@ -334,3 +334,4 @@
 [2025-12-16T11:56:20] chore(config): tune microphone audio stream buffer size
 [2025-12-16T10:33:37] feat(voice): optimize wake word detection sensitivity
 [2025-12-16T16:56:11] fix(ui): prevent UI freeze during voice synthesis
+[2025-12-16T13:24:22] refactor(core): streamline async command dispatch pipeline
