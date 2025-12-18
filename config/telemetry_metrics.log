@@ -1324,3 +1324,4 @@
 [2026-07-20T10:07:32] docs(telemetry): record voice engine response latency metrics
 [2026-07-20T19:34:10] test(wake): add test suite for offline speech recognition
 [2025-12-18T08:15:19] feat(voice): optimize wake word detection sensitivity
+[2025-12-18T17:42:34] perf(memory): optimize SQLite conversational history retrieval
