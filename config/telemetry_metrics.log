@@ -341,3 +341,4 @@
 [2025-12-18T18:49:09] chore(config): tune microphone audio stream buffer size
 [2025-12-18T12:46:39] feat(voice): optimize wake word detection sensitivity
 [2025-12-18T15:08:18] feat(nlp): calibrate intent classifier confidence threshold
+[2025-12-18T19:03:58] refactor(core): streamline async command dispatch pipeline
