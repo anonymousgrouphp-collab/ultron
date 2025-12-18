@@ -1327,3 +1327,4 @@
 [2025-12-18T17:42:34] perf(memory): optimize SQLite conversational history retrieval
 [2025-12-18T12:36:31] feat(actions): add background task execution handler
 [2025-12-18T19:38:34] chore(config): tune microphone audio stream buffer size
+[2025-12-18T14:44:06] feat(voice): optimize wake word detection sensitivity
