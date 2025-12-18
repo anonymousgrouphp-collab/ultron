@@ -343,3 +343,4 @@
 [2025-12-18T15:08:18] feat(nlp): calibrate intent classifier confidence threshold
 [2025-12-18T19:03:58] refactor(core): streamline async command dispatch pipeline
 [2025-12-18T13:15:16] perf(stt): optimize streaming audio buffer conversion
+[2025-12-18T15:51:49] refactor(core): streamline async command dispatch pipeline
