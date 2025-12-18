@@ -342,3 +342,4 @@
 [2025-12-18T12:46:39] feat(voice): optimize wake word detection sensitivity
 [2025-12-18T15:08:18] feat(nlp): calibrate intent classifier confidence threshold
 [2025-12-18T19:03:58] refactor(core): streamline async command dispatch pipeline
+[2025-12-18T13:15:16] perf(stt): optimize streaming audio buffer conversion
