@@ -1731,3 +1731,4 @@
 [2025-12-23T08:08:06] feat(actions): add background task execution handler
 [2025-12-23T21:14:10] perf(audio): reduce ambient noise filtration latency
 [2025-12-23T14:46:57] feat(actions): add background task execution handler
+[2025-12-23T08:59:44] feat(voice): optimize wake word detection sensitivity
