@@ -1748,3 +1748,4 @@
 [2025-12-23T14:29:52] test(wake): add test suite for offline speech recognition
 [2025-12-23T14:31:06] feat(actions): add background task execution handler
 [2025-12-23T14:52:37] chore(config): tune microphone audio stream buffer size
+[2025-12-23T18:48:19] perf(memory): optimize SQLite conversational history retrieval
