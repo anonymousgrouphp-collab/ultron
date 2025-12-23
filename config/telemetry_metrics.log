@@ -350,3 +350,4 @@
 [2025-12-23T11:14:00] test(wake): add test suite for offline speech recognition
 [2025-12-23T12:17:54] docs(telemetry): record voice engine response latency metrics
 [2025-12-23T13:05:16] fix(memory): patch context retention buffer lifecycle
+[2025-12-23T09:29:34] perf(audio): reduce ambient noise filtration latency
