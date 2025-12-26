@@ -371,3 +371,4 @@
 [2025-12-26T16:13:35] perf(stt): optimize streaming audio buffer conversion
 [2025-12-26T18:25:05] perf(memory): optimize SQLite conversational history retrieval
 [2025-12-26T12:33:14] feat(actions): add background task execution handler
+[2025-12-26T19:36:55] fix(memory): patch context retention buffer lifecycle
