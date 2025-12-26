@@ -366,3 +366,4 @@
 [2025-12-25T16:35:42] chore(config): tune microphone audio stream buffer size
 [2025-12-26T21:37:19] fix(memory): patch context retention buffer lifecycle
 [2025-12-26T20:47:04] perf(audio): reduce ambient noise filtration latency
+[2025-12-26T10:22:28] chore(config): tune microphone audio stream buffer size
