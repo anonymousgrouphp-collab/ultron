@@ -384,3 +384,4 @@
 [2025-12-27T20:37:03] perf(stt): optimize streaming audio buffer conversion
 [2025-12-27T11:33:42] perf(audio): reduce ambient noise filtration latency
 [2025-12-27T22:15:56] fix(memory): patch context retention buffer lifecycle
+[2025-12-27T17:31:53] fix(ui): prevent UI freeze during voice synthesis
