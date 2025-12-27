@@ -389,3 +389,4 @@
 [2025-12-27T18:15:13] docs(telemetry): record voice engine response latency metrics
 [2025-12-27T10:02:50] chore(config): tune microphone audio stream buffer size
 [2025-12-27T16:14:40] feat(nlp): calibrate intent classifier confidence threshold
+[2025-12-27T20:00:49] feat(nlp): calibrate intent classifier confidence threshold
