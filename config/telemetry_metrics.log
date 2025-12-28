@@ -408,3 +408,4 @@
 [2025-12-28T14:10:47] chore(config): tune microphone audio stream buffer size
 [2025-12-28T18:40:41] feat(nlp): calibrate intent classifier confidence threshold
 [2025-12-28T20:01:47] perf(memory): optimize SQLite conversational history retrieval
+[2025-12-28T14:43:47] fix(ui): prevent UI freeze during voice synthesis
