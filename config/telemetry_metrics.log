@@ -409,3 +409,4 @@
 [2025-12-28T18:40:41] feat(nlp): calibrate intent classifier confidence threshold
 [2025-12-28T20:01:47] perf(memory): optimize SQLite conversational history retrieval
 [2025-12-28T14:43:47] fix(ui): prevent UI freeze during voice synthesis
+[2025-12-28T12:13:07] test(wake): add test suite for offline speech recognition
