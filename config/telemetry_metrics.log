@@ -427,3 +427,4 @@
 [2026-01-04T12:16:06] fix(memory): patch context retention buffer lifecycle
 [2026-01-04T11:25:09] fix(memory): patch context retention buffer lifecycle
 [2026-01-04T18:49:31] test(wake): add test suite for offline speech recognition
+[2026-01-04T13:53:33] refactor(core): streamline async command dispatch pipeline
