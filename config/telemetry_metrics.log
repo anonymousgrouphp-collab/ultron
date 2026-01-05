@@ -431,3 +431,4 @@
 [2026-01-04T20:04:06] perf(stt): optimize streaming audio buffer conversion
 [2026-01-04T12:02:45] chore(config): tune microphone audio stream buffer size
 [2026-01-04T14:14:03] chore(config): tune microphone audio stream buffer size
+[2026-01-05T11:22:19] perf(memory): optimize SQLite conversational history retrieval
