@@ -436,3 +436,4 @@
 [2026-01-05T14:26:44] refactor(core): streamline async command dispatch pipeline
 [2026-01-05T19:01:42] docs(telemetry): record voice engine response latency metrics
 [2026-01-05T13:26:33] test(wake): add test suite for offline speech recognition
+[2026-01-05T19:51:55] fix(ui): prevent UI freeze during voice synthesis
