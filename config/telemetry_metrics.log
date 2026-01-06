@@ -441,3 +441,4 @@
 [2026-01-05T14:28:10] chore(config): tune microphone audio stream buffer size
 [2026-01-05T22:36:38] feat(voice): optimize wake word detection sensitivity
 [2026-01-06T12:06:13] perf(stt): optimize streaming audio buffer conversion
+[2026-01-06T18:52:23] refactor(core): streamline async command dispatch pipeline
