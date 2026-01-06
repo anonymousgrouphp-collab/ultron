@@ -449,3 +449,4 @@
 [2026-01-06T13:03:32] fix(ui): prevent UI freeze during voice synthesis
 [2026-01-06T19:22:49] feat(voice): optimize wake word detection sensitivity
 [2026-01-06T22:45:40] chore(config): tune microphone audio stream buffer size
+[2026-01-06T18:14:56] refactor(core): streamline async command dispatch pipeline
