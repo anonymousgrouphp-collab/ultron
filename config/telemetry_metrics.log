@@ -443,3 +443,4 @@
 [2026-01-06T12:06:13] perf(stt): optimize streaming audio buffer conversion
 [2026-01-06T18:52:23] refactor(core): streamline async command dispatch pipeline
 [2026-01-06T10:58:17] chore(config): tune microphone audio stream buffer size
+[2026-01-06T19:29:08] test(wake): add test suite for offline speech recognition
