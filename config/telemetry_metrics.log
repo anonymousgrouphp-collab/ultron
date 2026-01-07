@@ -1873,3 +1873,4 @@
 [2026-01-07T14:22:57] chore(config): tune microphone audio stream buffer size
 [2026-01-07T20:32:04] fix(memory): patch context retention buffer lifecycle
 [2026-01-07T12:22:41] fix(ui): prevent UI freeze during voice synthesis
+[2026-01-07T18:29:45] fix(memory): patch context retention buffer lifecycle
