@@ -455,3 +455,4 @@
 [2026-01-06T12:28:09] perf(memory): optimize SQLite conversational history retrieval
 [2026-01-06T14:01:48] feat(nlp): calibrate intent classifier confidence threshold
 [2026-01-06T10:07:48] test(wake): add test suite for offline speech recognition
+[2026-01-09T19:49:00] chore(config): tune microphone audio stream buffer size
