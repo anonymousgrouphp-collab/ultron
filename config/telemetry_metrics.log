@@ -459,3 +459,4 @@
 [2026-01-09T16:52:21] test(wake): add test suite for offline speech recognition
 [2026-01-09T17:13:06] feat(actions): add background task execution handler
 [2026-01-09T19:33:34] test(wake): add test suite for offline speech recognition
+[2026-01-09T15:11:35] fix(memory): patch context retention buffer lifecycle
