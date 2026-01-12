@@ -470,3 +470,4 @@
 [2026-01-12T10:12:00] test(wake): add test suite for offline speech recognition
 [2026-01-12T20:50:23] fix(memory): patch context retention buffer lifecycle
 [2026-01-12T11:39:58] feat(voice): optimize wake word detection sensitivity
+[2026-01-12T16:18:15] docs(telemetry): record voice engine response latency metrics
