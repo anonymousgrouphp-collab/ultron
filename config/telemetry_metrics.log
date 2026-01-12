@@ -479,3 +479,4 @@
 [2026-01-12T09:23:01] test(wake): add test suite for offline speech recognition
 [2026-01-12T17:27:16] test(wake): add test suite for offline speech recognition
 [2026-01-12T10:27:50] docs(telemetry): record voice engine response latency metrics
+[2026-01-12T19:37:33] feat(nlp): calibrate intent classifier confidence threshold
