@@ -481,3 +481,4 @@
 [2026-01-12T10:27:50] docs(telemetry): record voice engine response latency metrics
 [2026-01-12T19:37:33] feat(nlp): calibrate intent classifier confidence threshold
 [2026-01-14T14:14:10] perf(audio): reduce ambient noise filtration latency
+[2026-01-14T12:23:54] feat(voice): optimize wake word detection sensitivity
