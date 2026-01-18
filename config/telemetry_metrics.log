@@ -490,3 +490,4 @@
 [2026-01-18T13:34:39] fix(ui): prevent UI freeze during voice synthesis
 [2026-01-18T15:33:50] perf(stt): optimize streaming audio buffer conversion
 [2026-01-18T21:57:12] fix(memory): patch context retention buffer lifecycle
+[2026-01-18T16:00:29] fix(ui): prevent UI freeze during voice synthesis
