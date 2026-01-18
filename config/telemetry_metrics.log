@@ -494,3 +494,4 @@
 [2026-01-18T17:36:48] docs(telemetry): record voice engine response latency metrics
 [2026-01-18T13:55:38] perf(memory): optimize SQLite conversational history retrieval
 [2026-01-18T17:35:31] test(wake): add test suite for offline speech recognition
+[2026-01-18T14:52:39] fix(ui): prevent UI freeze during voice synthesis
