@@ -487,3 +487,4 @@
 [2026-01-14T21:57:24] fix(ui): prevent UI freeze during voice synthesis
 [2026-01-14T09:34:10] perf(stt): optimize streaming audio buffer conversion
 [2026-01-18T16:28:12] test(wake): add test suite for offline speech recognition
+[2026-01-18T13:34:39] fix(ui): prevent UI freeze during voice synthesis
