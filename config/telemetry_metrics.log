@@ -496,3 +496,4 @@
 [2026-01-18T17:35:31] test(wake): add test suite for offline speech recognition
 [2026-01-18T14:52:39] fix(ui): prevent UI freeze during voice synthesis
 [2026-01-18T12:52:56] feat(nlp): calibrate intent classifier confidence threshold
+[2026-01-18T19:55:03] perf(stt): optimize streaming audio buffer conversion
