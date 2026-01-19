@@ -499,3 +499,4 @@
 [2026-01-18T19:55:03] perf(stt): optimize streaming audio buffer conversion
 [2026-01-19T18:02:07] refactor(core): streamline async command dispatch pipeline
 [2026-01-19T12:21:21] feat(voice): optimize wake word detection sensitivity
+[2026-01-19T10:45:50] perf(audio): reduce ambient noise filtration latency
