@@ -503,3 +503,4 @@
 [2026-01-19T11:59:19] feat(nlp): calibrate intent classifier confidence threshold
 [2026-01-19T12:53:35] feat(nlp): calibrate intent classifier confidence threshold
 [2026-01-19T14:00:14] feat(nlp): calibrate intent classifier confidence threshold
+[2026-01-19T13:18:38] chore(config): tune microphone audio stream buffer size
