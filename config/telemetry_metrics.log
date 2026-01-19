@@ -501,3 +501,4 @@
 [2026-01-19T12:21:21] feat(voice): optimize wake word detection sensitivity
 [2026-01-19T10:45:50] perf(audio): reduce ambient noise filtration latency
 [2026-01-19T11:59:19] feat(nlp): calibrate intent classifier confidence threshold
+[2026-01-19T12:53:35] feat(nlp): calibrate intent classifier confidence threshold
