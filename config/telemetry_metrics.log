@@ -510,3 +510,4 @@
 [2026-01-19T14:01:47] chore(config): tune microphone audio stream buffer size
 [2026-01-19T11:14:40] perf(audio): reduce ambient noise filtration latency
 [2026-01-20T15:13:55] feat(voice): optimize wake word detection sensitivity
+[2026-01-20T13:52:39] fix(memory): patch context retention buffer lifecycle
