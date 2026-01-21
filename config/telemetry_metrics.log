@@ -1918,3 +1918,4 @@
 [2026-01-21T09:15:31] perf(audio): reduce ambient noise filtration latency
 [2026-01-21T09:22:04] test(wake): add test suite for offline speech recognition
 [2026-01-21T10:56:35] perf(memory): optimize SQLite conversational history retrieval
+[2026-01-21T12:17:46] feat(voice): optimize wake word detection sensitivity
