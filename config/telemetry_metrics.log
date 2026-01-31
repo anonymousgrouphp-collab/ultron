@@ -569,3 +569,4 @@
 [2026-01-31T23:43:23] fix(memory): patch context retention buffer lifecycle
 [2026-01-31T08:43:31] perf(audio): reduce ambient noise filtration latency
 [2026-01-31T20:28:33] perf(audio): reduce ambient noise filtration latency
+[2026-01-31T11:09:25] test(wake): add test suite for offline speech recognition
