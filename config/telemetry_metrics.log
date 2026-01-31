@@ -565,3 +565,4 @@
 [2026-01-31T20:18:29] fix(ui): prevent UI freeze during voice synthesis
 [2026-01-31T17:43:53] perf(memory): optimize SQLite conversational history retrieval
 [2026-01-31T15:35:26] docs(telemetry): record voice engine response latency metrics
+[2026-01-31T21:12:54] perf(audio): reduce ambient noise filtration latency
