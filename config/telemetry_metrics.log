@@ -586,3 +586,4 @@
 [2026-01-31T20:38:43] feat(actions): add background task execution handler
 [2026-01-31T12:19:39] fix(ui): prevent UI freeze during voice synthesis
 [2026-01-31T11:48:04] chore(config): tune microphone audio stream buffer size
+[2026-01-31T23:50:29] refactor(core): streamline async command dispatch pipeline
