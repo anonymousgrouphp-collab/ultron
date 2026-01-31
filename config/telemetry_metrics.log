@@ -563,3 +563,4 @@
 [2026-01-31T17:35:46] feat(voice): optimize wake word detection sensitivity
 [2026-01-31T10:20:31] perf(audio): reduce ambient noise filtration latency
 [2026-01-31T20:18:29] fix(ui): prevent UI freeze during voice synthesis
+[2026-01-31T17:43:53] perf(memory): optimize SQLite conversational history retrieval
