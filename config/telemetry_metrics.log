@@ -571,3 +571,4 @@
 [2026-01-31T20:28:33] perf(audio): reduce ambient noise filtration latency
 [2026-01-31T11:09:25] test(wake): add test suite for offline speech recognition
 [2026-01-31T11:47:59] fix(memory): patch context retention buffer lifecycle
+[2026-01-31T10:23:12] feat(actions): add background task execution handler
