@@ -577,3 +577,4 @@
 [2026-01-31T23:17:48] fix(ui): prevent UI freeze during voice synthesis
 [2026-01-31T16:48:50] test(wake): add test suite for offline speech recognition
 [2026-01-31T19:30:42] fix(ui): prevent UI freeze during voice synthesis
+[2026-01-31T20:31:32] docs(telemetry): record voice engine response latency metrics
