@@ -559,3 +559,4 @@
 [2026-02-17T21:13:32] refactor(core): streamline async command dispatch pipeline
 [2026-02-17T21:07:48] feat(actions): add background task execution handler
 [2026-02-17T11:29:07] chore(config): tune microphone audio stream buffer size
+[2026-01-31T12:31:48] feat(actions): add background task execution handler
