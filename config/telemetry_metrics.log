@@ -1973,3 +1973,4 @@
 [2026-02-03T16:42:16] fix(ui): prevent UI freeze during voice synthesis
 [2026-02-03T08:07:19] fix(ui): prevent UI freeze during voice synthesis
 [2026-02-03T18:53:16] fix(memory): patch context retention buffer lifecycle
+[2026-02-03T22:29:01] perf(memory): optimize SQLite conversational history retrieval
