@@ -1970,3 +1970,4 @@
 [2025-12-07T10:15:49] chore(config): tune microphone audio stream buffer size
 [2025-12-07T17:21:36] test(wake): add test suite for offline speech recognition
 [2026-02-03T09:39:17] feat(actions): add background task execution handler
+[2026-02-03T16:42:16] fix(ui): prevent UI freeze during voice synthesis
