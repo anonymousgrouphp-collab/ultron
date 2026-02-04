@@ -621,3 +621,4 @@
 [2026-02-04T17:36:25] refactor(core): streamline async command dispatch pipeline
 [2026-02-04T10:45:54] fix(ui): prevent UI freeze during voice synthesis
 [2026-02-04T11:37:21] docs(telemetry): record voice engine response latency metrics
+[2026-02-04T10:36:51] chore(config): tune microphone audio stream buffer size
