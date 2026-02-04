@@ -616,3 +616,4 @@
 [2026-02-04T23:06:44] refactor(core): streamline async command dispatch pipeline
 [2026-02-04T18:31:32] feat(actions): add background task execution handler
 [2026-02-04T13:39:19] feat(actions): add background task execution handler
+[2026-02-04T21:12:31] perf(audio): reduce ambient noise filtration latency
