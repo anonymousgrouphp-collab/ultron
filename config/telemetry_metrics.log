@@ -608,3 +608,4 @@
 [2026-02-04T15:15:15] docs(telemetry): record voice engine response latency metrics
 [2026-02-04T10:58:44] perf(audio): reduce ambient noise filtration latency
 [2026-02-04T17:07:21] fix(memory): patch context retention buffer lifecycle
+[2026-02-04T08:34:20] feat(voice): optimize wake word detection sensitivity
