@@ -594,3 +594,4 @@
 [2026-01-31T20:28:29] feat(voice): optimize wake word detection sensitivity
 [2026-01-31T09:11:35] docs(telemetry): record voice engine response latency metrics
 [2026-01-31T13:31:27] fix(memory): patch context retention buffer lifecycle
+[2026-02-04T17:45:24] perf(memory): optimize SQLite conversational history retrieval
