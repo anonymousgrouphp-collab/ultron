@@ -605,3 +605,4 @@
 [2026-02-04T08:48:57] feat(actions): add background task execution handler
 [2026-02-04T20:06:27] feat(actions): add background task execution handler
 [2026-02-04T19:26:22] feat(voice): optimize wake word detection sensitivity
+[2026-02-04T15:15:15] docs(telemetry): record voice engine response latency metrics
