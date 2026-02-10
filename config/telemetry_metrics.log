@@ -2385,3 +2385,4 @@
 [2026-02-10T15:48:16] feat(actions): add background task execution handler
 [2026-02-10T17:44:28] feat(actions): add background task execution handler
 [2026-02-10T22:44:16] fix(ui): prevent UI freeze during voice synthesis
+[2026-02-10T16:38:02] fix(memory): patch context retention buffer lifecycle
