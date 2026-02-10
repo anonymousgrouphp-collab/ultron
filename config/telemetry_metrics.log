@@ -2384,3 +2384,4 @@
 [2026-01-20T22:57:45] perf(memory): optimize SQLite conversational history retrieval
 [2026-02-10T15:48:16] feat(actions): add background task execution handler
 [2026-02-10T17:44:28] feat(actions): add background task execution handler
+[2026-02-10T22:44:16] fix(ui): prevent UI freeze during voice synthesis
