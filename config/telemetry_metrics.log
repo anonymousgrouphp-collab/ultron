@@ -522,3 +522,4 @@
 [2026-02-17T10:32:12] fix(memory): patch context retention buffer lifecycle
 [2026-02-17T11:38:48] fix(memory): patch context retention buffer lifecycle
 [2026-02-17T18:55:20] docs(telemetry): record voice engine response latency metrics
+[2026-02-17T16:43:44] feat(actions): add background task execution handler
