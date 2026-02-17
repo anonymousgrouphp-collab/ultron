@@ -543,3 +543,4 @@
 [2026-02-17T09:50:42] chore(config): tune microphone audio stream buffer size
 [2026-02-17T09:30:07] docs(telemetry): record voice engine response latency metrics
 [2026-02-17T09:04:19] feat(voice): optimize wake word detection sensitivity
+[2026-02-17T11:50:07] fix(ui): prevent UI freeze during voice synthesis
