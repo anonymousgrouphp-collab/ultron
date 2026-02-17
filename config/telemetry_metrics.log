@@ -526,3 +526,4 @@
 [2026-02-17T11:34:37] feat(actions): add background task execution handler
 [2026-02-17T12:00:08] chore(config): tune microphone audio stream buffer size
 [2026-02-17T17:23:49] perf(memory): optimize SQLite conversational history retrieval
+[2026-02-17T21:21:58] fix(memory): patch context retention buffer lifecycle
