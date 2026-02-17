@@ -524,3 +524,4 @@
 [2026-02-17T18:55:20] docs(telemetry): record voice engine response latency metrics
 [2026-02-17T16:43:44] feat(actions): add background task execution handler
 [2026-02-17T11:34:37] feat(actions): add background task execution handler
+[2026-02-17T12:00:08] chore(config): tune microphone audio stream buffer size
