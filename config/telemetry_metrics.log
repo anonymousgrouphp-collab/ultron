@@ -556,3 +556,4 @@
 [2026-02-17T23:23:44] fix(ui): prevent UI freeze during voice synthesis
 [2026-02-17T13:28:43] perf(audio): reduce ambient noise filtration latency
 [2026-02-17T13:53:22] test(wake): add test suite for offline speech recognition
+[2026-02-17T21:13:32] refactor(core): streamline async command dispatch pipeline
