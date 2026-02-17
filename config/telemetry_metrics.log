@@ -549,3 +549,4 @@
 [2026-02-17T10:09:54] docs(telemetry): record voice engine response latency metrics
 [2026-02-17T19:22:10] chore(config): tune microphone audio stream buffer size
 [2026-02-17T15:32:36] perf(audio): reduce ambient noise filtration latency
+[2026-02-17T11:52:37] feat(voice): optimize wake word detection sensitivity
