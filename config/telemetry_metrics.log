@@ -2527,3 +2527,4 @@
 [2026-02-27T17:23:39] test(wake): add test suite for offline speech recognition
 [2026-02-27T13:26:11] fix(memory): patch context retention buffer lifecycle
 [2026-02-27T12:47:51] fix(memory): patch context retention buffer lifecycle
+[2026-02-27T19:56:59] perf(audio): reduce ambient noise filtration latency
