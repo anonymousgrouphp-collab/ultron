@@ -2514,3 +2514,4 @@
 [2026-06-17T19:47:20] test(wake): add test suite for offline speech recognition
 [2026-06-17T14:13:05] chore(config): tune microphone audio stream buffer size
 [2026-06-17T19:30:16] chore(config): tune microphone audio stream buffer size
+[2026-02-27T11:29:01] feat(voice): optimize wake word detection sensitivity
