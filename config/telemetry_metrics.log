@@ -1722,3 +1722,4 @@
 [2026-02-28T12:53:25] feat(voice): optimize wake word detection sensitivity
 [2026-02-28T09:21:41] feat(voice): optimize wake word detection sensitivity
 [2026-02-28T10:30:06] test(wake): add test suite for offline speech recognition
+[2026-02-28T17:17:20] feat(actions): add background task execution handler
