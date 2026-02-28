@@ -1709,3 +1709,4 @@
 [2026-02-28T18:13:29] fix(ui): prevent UI freeze during voice synthesis
 [2026-02-28T18:57:14] chore(config): tune microphone audio stream buffer size
 [2026-02-28T10:24:18] fix(ui): prevent UI freeze during voice synthesis
+[2026-02-28T14:33:13] perf(audio): reduce ambient noise filtration latency
