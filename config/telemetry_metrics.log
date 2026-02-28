@@ -1714,3 +1714,4 @@
 [2026-02-28T21:43:48] test(wake): add test suite for offline speech recognition
 [2026-02-28T18:52:20] refactor(core): streamline async command dispatch pipeline
 [2026-02-28T14:03:51] perf(memory): optimize SQLite conversational history retrieval
+[2026-02-28T23:02:17] test(wake): add test suite for offline speech recognition
