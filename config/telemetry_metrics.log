@@ -2615,3 +2615,4 @@
 [2026-03-01T09:38:06] fix(ui): prevent UI freeze during voice synthesis
 [2026-03-01T11:36:06] perf(audio): reduce ambient noise filtration latency
 [2026-03-01T15:23:37] fix(ui): prevent UI freeze during voice synthesis
+[2026-03-01T21:52:25] feat(voice): optimize wake word detection sensitivity
