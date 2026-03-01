@@ -2613,3 +2613,4 @@
 [2026-03-01T11:49:52] perf(memory): optimize SQLite conversational history retrieval
 [2026-03-01T20:38:33] test(wake): add test suite for offline speech recognition
 [2026-03-01T09:38:06] fix(ui): prevent UI freeze during voice synthesis
+[2026-03-01T11:36:06] perf(audio): reduce ambient noise filtration latency
