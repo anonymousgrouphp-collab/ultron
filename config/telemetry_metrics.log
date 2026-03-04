@@ -1599,3 +1599,4 @@
 [2026-03-04T11:17:29] feat(voice): optimize wake word detection sensitivity
 [2026-03-04T12:30:09] refactor(core): streamline async command dispatch pipeline
 [2026-03-04T18:36:02] fix(ui): prevent UI freeze during voice synthesis
+[2026-03-04T20:03:59] feat(actions): add background task execution handler
