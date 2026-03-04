@@ -1592,3 +1592,4 @@
 [2026-03-04T20:55:29] perf(audio): reduce ambient noise filtration latency
 [2026-03-04T19:29:29] chore(config): tune microphone audio stream buffer size
 [2026-03-04T22:06:05] fix(memory): patch context retention buffer lifecycle
+[2026-03-04T11:58:59] test(wake): add test suite for offline speech recognition
