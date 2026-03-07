@@ -993,3 +993,4 @@
 [2026-03-07T09:18:54] test(wake): add test suite for offline speech recognition
 [2026-03-07T20:06:39] test(wake): add test suite for offline speech recognition
 [2026-03-07T15:55:38] fix(ui): prevent UI freeze during voice synthesis
+[2026-03-07T08:29:24] perf(memory): optimize SQLite conversational history retrieval
