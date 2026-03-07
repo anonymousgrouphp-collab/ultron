@@ -998,3 +998,4 @@
 [2026-03-07T11:21:41] feat(voice): optimize wake word detection sensitivity
 [2026-03-07T22:33:21] fix(ui): prevent UI freeze during voice synthesis
 [2026-03-07T14:06:06] feat(voice): optimize wake word detection sensitivity
+[2026-03-07T10:37:50] refactor(core): streamline async command dispatch pipeline
