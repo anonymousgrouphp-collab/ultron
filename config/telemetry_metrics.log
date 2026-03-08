@@ -2200,3 +2200,4 @@
 [2026-08-26T18:06:54] chore(config): tune microphone audio stream buffer size
 [2026-03-08T16:54:12] fix(ui): prevent UI freeze during voice synthesis
 [2026-03-08T08:21:53] feat(actions): add background task execution handler
+[2026-03-08T13:57:37] feat(actions): add background task execution handler
