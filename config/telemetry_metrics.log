@@ -1484,3 +1484,4 @@
 [2026-03-11T16:09:40] fix(ui): prevent UI freeze during voice synthesis
 [2026-03-11T08:50:00] perf(audio): reduce ambient noise filtration latency
 [2026-03-11T18:54:45] perf(audio): reduce ambient noise filtration latency
+[2026-03-11T14:08:30] fix(ui): prevent UI freeze during voice synthesis
