@@ -1474,3 +1474,4 @@
 [2026-03-11T13:52:55] fix(memory): patch context retention buffer lifecycle
 [2026-03-11T14:36:31] fix(memory): patch context retention buffer lifecycle
 [2026-03-11T17:01:19] fix(memory): patch context retention buffer lifecycle
+[2026-03-11T13:52:25] fix(ui): prevent UI freeze during voice synthesis
