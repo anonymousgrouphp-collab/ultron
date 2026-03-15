@@ -1985,3 +1985,4 @@
 [2026-03-15T09:14:07] feat(voice): optimize wake word detection sensitivity
 [2026-03-15T13:43:32] perf(memory): optimize SQLite conversational history retrieval
 [2026-03-15T18:02:35] refactor(core): streamline async command dispatch pipeline
+[2026-03-15T09:45:16] docs(telemetry): record voice engine response latency metrics
