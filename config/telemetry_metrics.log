@@ -1003,3 +1003,4 @@
 [2026-03-07T19:26:30] fix(ui): prevent UI freeze during voice synthesis
 [2026-03-07T22:11:15] fix(memory): patch context retention buffer lifecycle
 [2026-03-19T09:03:08] docs(telemetry): record voice engine response latency metrics
+[2026-03-19T21:32:41] feat(actions): add background task execution handler
