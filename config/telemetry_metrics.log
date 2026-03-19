@@ -1037,3 +1037,4 @@
 [2026-03-19T19:20:38] test(wake): add test suite for offline speech recognition
 [2026-03-19T15:58:02] fix(ui): prevent UI freeze during voice synthesis
 [2026-03-19T14:54:34] docs(telemetry): record voice engine response latency metrics
+[2026-03-19T12:20:15] feat(voice): optimize wake word detection sensitivity
