@@ -1028,3 +1028,4 @@
 [2026-03-19T13:53:16] perf(audio): reduce ambient noise filtration latency
 [2026-03-19T08:53:43] fix(memory): patch context retention buffer lifecycle
 [2026-03-19T20:41:50] perf(audio): reduce ambient noise filtration latency
+[2026-03-19T18:59:13] docs(telemetry): record voice engine response latency metrics
