@@ -1837,3 +1837,4 @@
 [2026-03-26T15:37:32] feat(actions): add background task execution handler
 [2026-03-26T12:39:34] fix(ui): prevent UI freeze during voice synthesis
 [2026-03-26T17:03:48] test(wake): add test suite for offline speech recognition
+[2026-03-26T12:25:42] feat(voice): optimize wake word detection sensitivity
