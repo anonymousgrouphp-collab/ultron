@@ -1835,3 +1835,4 @@
 [2026-03-26T08:49:26] perf(audio): reduce ambient noise filtration latency
 [2026-03-26T12:39:58] docs(telemetry): record voice engine response latency metrics
 [2026-03-26T15:37:32] feat(actions): add background task execution handler
+[2026-03-26T12:39:34] fix(ui): prevent UI freeze during voice synthesis
