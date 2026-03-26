@@ -1831,3 +1831,4 @@
 [2026-03-26T11:08:33] perf(memory): optimize SQLite conversational history retrieval
 [2026-03-26T18:32:59] feat(actions): add background task execution handler
 [2026-03-26T22:22:27] perf(memory): optimize SQLite conversational history retrieval
+[2026-03-26T21:26:29] feat(voice): optimize wake word detection sensitivity
