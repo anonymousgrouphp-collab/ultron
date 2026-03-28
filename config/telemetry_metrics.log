@@ -644,3 +644,4 @@
 [2026-03-28T08:16:50] docs(telemetry): record voice engine response latency metrics
 [2026-03-28T13:41:54] feat(voice): optimize wake word detection sensitivity
 [2026-03-28T23:50:01] feat(voice): optimize wake word detection sensitivity
+[2026-03-28T10:20:38] docs(telemetry): record voice engine response latency metrics
