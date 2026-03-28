@@ -646,3 +646,4 @@
 [2026-03-28T23:50:01] feat(voice): optimize wake word detection sensitivity
 [2026-03-28T10:20:38] docs(telemetry): record voice engine response latency metrics
 [2026-03-28T10:57:26] feat(actions): add background task execution handler
+[2026-03-28T10:25:53] fix(memory): patch context retention buffer lifecycle
