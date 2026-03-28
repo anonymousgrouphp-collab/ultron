@@ -648,3 +648,4 @@
 [2026-03-28T10:57:26] feat(actions): add background task execution handler
 [2026-03-28T10:25:53] fix(memory): patch context retention buffer lifecycle
 [2026-03-28T15:07:36] chore(config): tune microphone audio stream buffer size
+[2026-03-28T11:33:42] fix(ui): prevent UI freeze during voice synthesis
