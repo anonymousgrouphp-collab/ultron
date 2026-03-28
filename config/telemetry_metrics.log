@@ -650,3 +650,4 @@
 [2026-03-28T15:07:36] chore(config): tune microphone audio stream buffer size
 [2026-03-28T11:33:42] fix(ui): prevent UI freeze during voice synthesis
 [2026-03-28T16:31:56] perf(audio): reduce ambient noise filtration latency
+[2026-03-28T15:38:07] feat(actions): add background task execution handler
