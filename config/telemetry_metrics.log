@@ -1301,3 +1301,4 @@
 [2026-04-03T13:03:07] chore(config): tune microphone audio stream buffer size
 [2026-04-03T18:37:27] fix(memory): patch context retention buffer lifecycle
 [2026-04-03T20:15:02] perf(audio): reduce ambient noise filtration latency
+[2026-04-03T15:25:31] docs(telemetry): record voice engine response latency metrics
