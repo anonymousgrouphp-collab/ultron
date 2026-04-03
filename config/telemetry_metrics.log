@@ -1289,3 +1289,4 @@
 [2026-04-03T10:33:46] docs(telemetry): record voice engine response latency metrics
 [2026-04-03T17:44:59] refactor(core): streamline async command dispatch pipeline
 [2026-04-03T20:06:08] feat(actions): add background task execution handler
+[2026-04-03T09:54:59] docs(telemetry): record voice engine response latency metrics
