@@ -1295,3 +1295,4 @@
 [2026-04-03T17:57:09] refactor(core): streamline async command dispatch pipeline
 [2026-04-03T14:51:47] refactor(core): streamline async command dispatch pipeline
 [2026-04-03T08:23:46] fix(ui): prevent UI freeze during voice synthesis
+[2026-04-03T11:43:50] fix(memory): patch context retention buffer lifecycle
