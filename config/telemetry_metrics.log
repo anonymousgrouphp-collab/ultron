@@ -1286,3 +1286,4 @@
 [2026-04-03T13:01:35] test(wake): add test suite for offline speech recognition
 [2026-04-03T18:27:43] perf(memory): optimize SQLite conversational history retrieval
 [2026-04-03T19:48:25] test(wake): add test suite for offline speech recognition
+[2026-04-03T10:33:46] docs(telemetry): record voice engine response latency metrics
