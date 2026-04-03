@@ -1284,3 +1284,4 @@
 [2026-04-03T09:59:55] fix(memory): patch context retention buffer lifecycle
 [2026-04-03T23:46:25] docs(telemetry): record voice engine response latency metrics
 [2026-04-03T13:01:35] test(wake): add test suite for offline speech recognition
+[2026-04-03T18:27:43] perf(memory): optimize SQLite conversational history retrieval
