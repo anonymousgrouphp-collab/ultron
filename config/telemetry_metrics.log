@@ -1292,3 +1292,4 @@
 [2026-04-03T09:54:59] docs(telemetry): record voice engine response latency metrics
 [2026-04-03T22:41:10] fix(ui): prevent UI freeze during voice synthesis
 [2026-04-03T12:28:44] perf(memory): optimize SQLite conversational history retrieval
+[2026-04-03T17:57:09] refactor(core): streamline async command dispatch pipeline
