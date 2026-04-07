@@ -1408,3 +1408,4 @@
 [2026-04-07T21:38:47] feat(voice): optimize wake word detection sensitivity
 [2026-04-07T21:30:18] docs(telemetry): record voice engine response latency metrics
 [2026-04-07T23:05:48] test(wake): add test suite for offline speech recognition
+[2026-04-07T15:39:09] chore(config): tune microphone audio stream buffer size
