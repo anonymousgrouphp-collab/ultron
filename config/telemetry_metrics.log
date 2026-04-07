@@ -1396,3 +1396,4 @@
 [2026-04-07T13:08:22] test(wake): add test suite for offline speech recognition
 [2026-04-07T08:22:56] refactor(core): streamline async command dispatch pipeline
 [2026-04-07T11:12:18] feat(voice): optimize wake word detection sensitivity
+[2026-04-07T12:25:26] feat(actions): add background task execution handler
