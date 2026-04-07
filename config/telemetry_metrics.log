@@ -1397,3 +1397,4 @@
 [2026-04-07T08:22:56] refactor(core): streamline async command dispatch pipeline
 [2026-04-07T11:12:18] feat(voice): optimize wake word detection sensitivity
 [2026-04-07T12:25:26] feat(actions): add background task execution handler
+[2026-04-07T09:10:42] refactor(core): streamline async command dispatch pipeline
