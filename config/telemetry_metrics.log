@@ -2605,3 +2605,4 @@
 [2026-04-15T19:15:55] perf(memory): optimize SQLite conversational history retrieval
 [2026-04-15T21:26:03] perf(audio): reduce ambient noise filtration latency
 [2026-04-15T16:53:46] docs(telemetry): record voice engine response latency metrics
+[2026-04-15T16:40:32] feat(actions): add background task execution handler
