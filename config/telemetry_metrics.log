@@ -2599,3 +2599,4 @@
 [2026-04-15T22:09:04] feat(actions): add background task execution handler
 [2026-04-15T16:02:24] docs(telemetry): record voice engine response latency metrics
 [2026-04-15T11:40:29] test(wake): add test suite for offline speech recognition
+[2026-04-15T13:56:45] perf(memory): optimize SQLite conversational history retrieval
