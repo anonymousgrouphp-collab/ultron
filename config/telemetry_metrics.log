@@ -2603,3 +2603,4 @@
 [2026-04-15T17:14:33] perf(audio): reduce ambient noise filtration latency
 [2026-04-15T10:46:38] fix(ui): prevent UI freeze during voice synthesis
 [2026-04-15T19:15:55] perf(memory): optimize SQLite conversational history retrieval
+[2026-04-15T21:26:03] perf(audio): reduce ambient noise filtration latency
