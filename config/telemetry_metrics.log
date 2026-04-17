@@ -2028,3 +2028,4 @@
 [2025-12-04T15:45:18] perf(audio): reduce ambient noise filtration latency
 [2025-12-04T18:57:52] feat(actions): add background task execution handler
 [2026-04-17T11:46:02] perf(audio): reduce ambient noise filtration latency
+[2026-04-17T19:28:58] test(wake): add test suite for offline speech recognition
