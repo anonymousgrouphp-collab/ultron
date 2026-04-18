@@ -1361,3 +1361,4 @@
 [2026-04-18T15:43:38] test(wake): add test suite for offline speech recognition
 [2026-04-18T22:11:28] feat(actions): add background task execution handler
 [2026-04-18T22:32:18] docs(telemetry): record voice engine response latency metrics
+[2026-04-18T21:33:45] refactor(core): streamline async command dispatch pipeline
