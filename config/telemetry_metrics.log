@@ -1365,3 +1365,4 @@
 [2026-04-18T17:40:54] perf(audio): reduce ambient noise filtration latency
 [2026-04-18T17:26:49] feat(actions): add background task execution handler
 [2026-04-18T10:40:05] perf(audio): reduce ambient noise filtration latency
+[2026-04-18T15:05:10] fix(ui): prevent UI freeze during voice synthesis
