@@ -1766,3 +1766,4 @@
 [2026-04-19T21:12:18] refactor(core): streamline async command dispatch pipeline
 [2026-04-19T20:11:38] docs(telemetry): record voice engine response latency metrics
 [2026-04-19T23:33:27] perf(audio): reduce ambient noise filtration latency
+[2026-04-19T09:41:15] perf(audio): reduce ambient noise filtration latency
