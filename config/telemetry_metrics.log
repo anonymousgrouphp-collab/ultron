@@ -1769,3 +1769,4 @@
 [2026-04-19T09:41:15] perf(audio): reduce ambient noise filtration latency
 [2026-04-19T15:07:03] feat(voice): optimize wake word detection sensitivity
 [2026-04-19T16:15:04] chore(config): tune microphone audio stream buffer size
+[2026-04-19T11:17:14] fix(ui): prevent UI freeze during voice synthesis
