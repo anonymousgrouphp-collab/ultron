@@ -1679,3 +1679,4 @@
 [2026-04-24T13:11:19] feat(voice): optimize wake word detection sensitivity
 [2026-04-24T13:42:36] fix(ui): prevent UI freeze during voice synthesis
 [2026-04-24T09:07:21] feat(actions): add background task execution handler
+[2026-04-24T23:39:38] chore(config): tune microphone audio stream buffer size
