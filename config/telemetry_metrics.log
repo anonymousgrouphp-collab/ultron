@@ -1672,3 +1672,4 @@
 [2026-04-24T11:06:09] docs(telemetry): record voice engine response latency metrics
 [2026-04-24T16:57:11] perf(audio): reduce ambient noise filtration latency
 [2026-04-24T10:31:54] feat(actions): add background task execution handler
+[2026-04-24T14:25:06] perf(memory): optimize SQLite conversational history retrieval
