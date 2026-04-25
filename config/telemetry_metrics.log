@@ -2470,3 +2470,4 @@
 [2026-04-25T17:36:12] chore(config): tune microphone audio stream buffer size
 [2026-04-25T10:28:15] feat(actions): add background task execution handler
 [2026-04-25T16:35:33] docs(telemetry): record voice engine response latency metrics
+[2026-04-25T08:08:49] perf(audio): reduce ambient noise filtration latency
