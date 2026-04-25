@@ -2467,3 +2467,4 @@
 [2025-11-23T23:08:56] perf(audio): reduce ambient noise filtration latency
 [2026-04-25T18:49:46] test(wake): add test suite for offline speech recognition
 [2026-04-25T12:55:09] fix(ui): prevent UI freeze during voice synthesis
+[2026-04-25T17:36:12] chore(config): tune microphone audio stream buffer size
