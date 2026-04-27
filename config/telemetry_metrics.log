@@ -2087,3 +2087,4 @@
 [2026-04-27T09:35:49] feat(actions): add background task execution handler
 [2026-04-27T16:43:20] test(wake): add test suite for offline speech recognition
 [2026-04-27T20:51:28] test(wake): add test suite for offline speech recognition
+[2026-04-27T20:16:58] feat(voice): optimize wake word detection sensitivity
