@@ -2079,3 +2079,4 @@
 [2026-04-27T11:14:07] docs(telemetry): record voice engine response latency metrics
 [2026-04-27T21:28:20] refactor(core): streamline async command dispatch pipeline
 [2026-04-27T21:07:11] perf(memory): optimize SQLite conversational history retrieval
+[2026-04-27T18:42:07] feat(actions): add background task execution handler
