@@ -2081,3 +2081,4 @@
 [2026-04-27T21:07:11] perf(memory): optimize SQLite conversational history retrieval
 [2026-04-27T18:42:07] feat(actions): add background task execution handler
 [2026-04-27T20:45:08] perf(memory): optimize SQLite conversational history retrieval
+[2026-04-27T23:38:26] refactor(core): streamline async command dispatch pipeline
