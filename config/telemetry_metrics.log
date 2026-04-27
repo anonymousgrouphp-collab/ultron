@@ -2078,3 +2078,4 @@
 [2025-12-13T19:34:30] docs(telemetry): record voice engine response latency metrics
 [2026-04-27T11:14:07] docs(telemetry): record voice engine response latency metrics
 [2026-04-27T21:28:20] refactor(core): streamline async command dispatch pipeline
+[2026-04-27T21:07:11] perf(memory): optimize SQLite conversational history retrieval
