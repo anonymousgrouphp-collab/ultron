@@ -844,3 +844,4 @@
 [2026-04-28T12:57:36] feat(voice): optimize wake word detection sensitivity
 [2026-04-28T17:26:25] chore(config): tune microphone audio stream buffer size
 [2026-04-28T17:46:47] feat(actions): add background task execution handler
+[2026-04-28T19:00:52] docs(telemetry): record voice engine response latency metrics
