@@ -836,3 +836,4 @@
 [2026-04-28T12:48:48] chore(config): tune microphone audio stream buffer size
 [2026-04-28T21:50:14] fix(memory): patch context retention buffer lifecycle
 [2026-04-28T21:26:58] test(wake): add test suite for offline speech recognition
+[2026-04-28T22:54:33] feat(actions): add background task execution handler
