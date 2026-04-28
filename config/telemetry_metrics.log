@@ -827,3 +827,4 @@
 [2026-04-28T17:45:28] chore(config): tune microphone audio stream buffer size
 [2026-04-28T23:46:55] perf(audio): reduce ambient noise filtration latency
 [2026-04-28T12:41:23] feat(actions): add background task execution handler
+[2026-04-28T12:07:54] refactor(core): streamline async command dispatch pipeline
