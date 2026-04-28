@@ -834,3 +834,4 @@
 [2026-04-28T10:17:23] test(wake): add test suite for offline speech recognition
 [2026-04-28T19:40:42] refactor(core): streamline async command dispatch pipeline
 [2026-04-28T12:48:48] chore(config): tune microphone audio stream buffer size
+[2026-04-28T21:50:14] fix(memory): patch context retention buffer lifecycle
