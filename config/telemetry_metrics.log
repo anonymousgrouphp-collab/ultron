@@ -825,3 +825,4 @@
 [2026-04-28T11:10:40] perf(audio): reduce ambient noise filtration latency
 [2026-04-28T14:58:23] fix(memory): patch context retention buffer lifecycle
 [2026-04-28T17:45:28] chore(config): tune microphone audio stream buffer size
+[2026-04-28T23:46:55] perf(audio): reduce ambient noise filtration latency
