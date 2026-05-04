@@ -881,3 +881,4 @@
 [2026-05-04T17:02:33] fix(memory): patch context retention buffer lifecycle
 [2026-05-04T11:23:19] feat(actions): add background task execution handler
 [2026-05-04T17:18:31] feat(voice): optimize wake word detection sensitivity
+[2026-05-04T12:09:50] fix(ui): prevent UI freeze during voice synthesis
