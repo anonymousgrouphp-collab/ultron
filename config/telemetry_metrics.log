@@ -853,3 +853,4 @@
 [2026-04-28T12:33:34] docs(telemetry): record voice engine response latency metrics
 [2026-04-28T14:05:32] chore(config): tune microphone audio stream buffer size
 [2026-04-28T17:33:21] fix(memory): patch context retention buffer lifecycle
+[2026-05-04T08:01:56] chore(config): tune microphone audio stream buffer size
