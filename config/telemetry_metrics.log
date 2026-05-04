@@ -870,3 +870,4 @@
 [2026-05-04T14:28:04] feat(actions): add background task execution handler
 [2026-05-04T20:37:35] chore(config): tune microphone audio stream buffer size
 [2026-05-04T20:55:16] fix(ui): prevent UI freeze during voice synthesis
+[2026-05-04T23:40:27] perf(memory): optimize SQLite conversational history retrieval
