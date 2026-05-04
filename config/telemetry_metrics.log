@@ -858,3 +858,4 @@
 [2026-05-04T21:32:07] feat(voice): optimize wake word detection sensitivity
 [2026-05-04T19:16:40] chore(config): tune microphone audio stream buffer size
 [2026-05-04T19:07:03] perf(audio): reduce ambient noise filtration latency
+[2026-05-04T22:19:36] feat(voice): optimize wake word detection sensitivity
