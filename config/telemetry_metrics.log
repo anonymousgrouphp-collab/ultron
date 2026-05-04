@@ -884,3 +884,4 @@
 [2026-05-04T12:09:50] fix(ui): prevent UI freeze during voice synthesis
 [2026-05-04T21:03:59] docs(telemetry): record voice engine response latency metrics
 [2026-05-04T17:13:11] perf(memory): optimize SQLite conversational history retrieval
+[2026-05-04T08:07:35] feat(actions): add background task execution handler
