@@ -1151,3 +1151,4 @@
 [2026-05-05T15:04:42] docs(telemetry): record voice engine response latency metrics
 [2026-05-05T19:02:04] refactor(core): streamline async command dispatch pipeline
 [2026-05-05T21:19:49] fix(ui): prevent UI freeze during voice synthesis
+[2026-05-05T23:06:45] chore(config): tune microphone audio stream buffer size
