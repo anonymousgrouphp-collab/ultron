@@ -1367,3 +1367,4 @@
 [2026-04-18T10:40:05] perf(audio): reduce ambient noise filtration latency
 [2026-04-18T15:05:10] fix(ui): prevent UI freeze during voice synthesis
 [2026-05-06T09:05:47] docs(telemetry): record voice engine response latency metrics
+[2026-05-06T23:51:55] feat(voice): optimize wake word detection sensitivity
