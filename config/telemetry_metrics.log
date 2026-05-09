@@ -1278,3 +1278,4 @@
 [2026-05-09T09:38:20] docs(telemetry): record voice engine response latency metrics
 [2026-05-09T11:17:54] fix(ui): prevent UI freeze during voice synthesis
 [2026-05-09T23:40:53] refactor(core): streamline async command dispatch pipeline
+[2026-05-09T23:18:45] test(wake): add test suite for offline speech recognition
