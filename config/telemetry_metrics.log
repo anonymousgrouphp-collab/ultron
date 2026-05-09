@@ -1269,3 +1269,4 @@
 [2026-05-09T19:08:54] feat(actions): add background task execution handler
 [2026-05-09T20:36:47] feat(voice): optimize wake word detection sensitivity
 [2026-05-09T17:03:37] chore(config): tune microphone audio stream buffer size
+[2026-05-09T14:54:24] test(wake): add test suite for offline speech recognition
