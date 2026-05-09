@@ -1256,3 +1256,4 @@
 [2026-05-28T10:06:27] feat(voice): optimize wake word detection sensitivity
 [2026-05-09T13:59:59] feat(actions): add background task execution handler
 [2026-05-09T20:49:17] refactor(core): streamline async command dispatch pipeline
+[2026-05-09T16:42:30] perf(audio): reduce ambient noise filtration latency
