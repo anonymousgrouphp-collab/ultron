@@ -1701,3 +1701,4 @@
 [2026-05-10T22:10:56] feat(voice): optimize wake word detection sensitivity
 [2026-05-10T16:37:26] docs(telemetry): record voice engine response latency metrics
 [2026-05-10T19:25:01] perf(audio): reduce ambient noise filtration latency
+[2026-05-10T13:51:20] test(wake): add test suite for offline speech recognition
