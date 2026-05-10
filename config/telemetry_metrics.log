@@ -1687,3 +1687,4 @@
 [2026-05-10T14:01:20] fix(memory): patch context retention buffer lifecycle
 [2026-05-10T15:05:46] fix(memory): patch context retention buffer lifecycle
 [2026-05-10T16:17:30] refactor(core): streamline async command dispatch pipeline
+[2026-05-10T10:22:45] chore(config): tune microphone audio stream buffer size
