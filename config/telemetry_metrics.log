@@ -1697,3 +1697,4 @@
 [2026-05-10T21:38:47] docs(telemetry): record voice engine response latency metrics
 [2026-05-10T18:39:06] fix(ui): prevent UI freeze during voice synthesis
 [2026-05-10T20:27:12] fix(ui): prevent UI freeze during voice synthesis
+[2026-05-10T19:23:57] perf(audio): reduce ambient noise filtration latency
