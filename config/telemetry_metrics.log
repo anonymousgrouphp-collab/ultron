@@ -2102,3 +2102,4 @@
 [2026-06-28T15:18:51] fix(memory): patch context retention buffer lifecycle
 [2026-06-28T19:21:26] refactor(core): streamline async command dispatch pipeline
 [2026-05-14T15:00:02] feat(voice): optimize wake word detection sensitivity
+[2026-05-14T11:32:25] perf(memory): optimize SQLite conversational history retrieval
