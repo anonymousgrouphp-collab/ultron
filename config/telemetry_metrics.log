@@ -2106,3 +2106,4 @@
 [2026-05-14T09:10:18] docs(telemetry): record voice engine response latency metrics
 [2026-05-14T08:14:40] refactor(core): streamline async command dispatch pipeline
 [2026-05-14T09:17:47] perf(audio): reduce ambient noise filtration latency
+[2026-05-14T20:41:25] fix(memory): patch context retention buffer lifecycle
