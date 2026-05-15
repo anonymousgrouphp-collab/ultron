@@ -2358,3 +2358,4 @@
 [2026-05-15T08:20:39] refactor(core): streamline async command dispatch pipeline
 [2026-05-15T13:36:40] perf(memory): optimize SQLite conversational history retrieval
 [2026-05-15T10:23:01] fix(ui): prevent UI freeze during voice synthesis
+[2026-05-15T20:35:32] refactor(core): streamline async command dispatch pipeline
