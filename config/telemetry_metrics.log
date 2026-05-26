@@ -2276,3 +2276,4 @@
 [2026-05-26T20:43:52] perf(memory): optimize SQLite conversational history retrieval
 [2026-05-26T09:16:26] fix(memory): patch context retention buffer lifecycle
 [2026-05-26T13:25:43] chore(config): tune microphone audio stream buffer size
+[2026-05-26T11:29:51] perf(audio): reduce ambient noise filtration latency
