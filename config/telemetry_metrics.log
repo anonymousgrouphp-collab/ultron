@@ -2284,3 +2284,4 @@
 [2026-05-26T23:41:42] test(wake): add test suite for offline speech recognition
 [2026-05-26T21:49:03] docs(telemetry): record voice engine response latency metrics
 [2026-05-26T21:16:47] perf(audio): reduce ambient noise filtration latency
+[2026-05-26T22:32:23] perf(memory): optimize SQLite conversational history retrieval
