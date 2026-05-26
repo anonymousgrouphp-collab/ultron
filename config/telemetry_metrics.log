@@ -2271,3 +2271,4 @@
 [2025-10-17T20:58:04] refactor(core): streamline async command dispatch pipeline
 [2025-10-17T12:31:12] feat(voice): optimize wake word detection sensitivity
 [2026-05-26T14:19:27] perf(audio): reduce ambient noise filtration latency
+[2026-05-26T18:24:41] fix(memory): patch context retention buffer lifecycle
