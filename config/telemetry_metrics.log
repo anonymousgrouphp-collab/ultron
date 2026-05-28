@@ -1246,3 +1246,4 @@
 [2026-05-28T22:14:38] perf(memory): optimize SQLite conversational history retrieval
 [2026-05-28T20:47:39] perf(audio): reduce ambient noise filtration latency
 [2026-05-28T19:27:59] perf(memory): optimize SQLite conversational history retrieval
+[2026-05-28T11:46:24] docs(telemetry): record voice engine response latency metrics
