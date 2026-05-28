@@ -1241,3 +1241,4 @@
 [2026-05-28T16:44:48] refactor(core): streamline async command dispatch pipeline
 [2026-05-28T19:28:39] perf(memory): optimize SQLite conversational history retrieval
 [2026-05-28T21:42:12] feat(voice): optimize wake word detection sensitivity
+[2026-05-28T18:01:40] feat(actions): add background task execution handler
