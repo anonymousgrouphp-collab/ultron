@@ -1248,3 +1248,4 @@
 [2026-05-28T19:27:59] perf(memory): optimize SQLite conversational history retrieval
 [2026-05-28T11:46:24] docs(telemetry): record voice engine response latency metrics
 [2026-05-28T14:45:09] chore(config): tune microphone audio stream buffer size
+[2026-05-28T09:08:31] perf(audio): reduce ambient noise filtration latency
