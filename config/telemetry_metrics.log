@@ -2427,3 +2427,4 @@
 [2026-02-18T22:00:16] test(wake): add test suite for offline speech recognition
 [2026-02-18T16:31:40] fix(memory): patch context retention buffer lifecycle
 [2026-05-29T18:32:30] chore(config): tune microphone audio stream buffer size
+[2026-05-29T17:41:19] docs(telemetry): record voice engine response latency metrics
