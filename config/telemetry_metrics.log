@@ -2433,3 +2433,4 @@
 [2026-05-29T13:31:00] feat(actions): add background task execution handler
 [2026-05-29T23:31:10] fix(memory): patch context retention buffer lifecycle
 [2026-05-29T10:48:27] docs(telemetry): record voice engine response latency metrics
+[2026-05-29T11:59:55] perf(memory): optimize SQLite conversational history retrieval
