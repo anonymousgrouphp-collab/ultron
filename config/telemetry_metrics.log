@@ -921,3 +921,4 @@
 [2026-06-02T09:12:15] fix(ui): prevent UI freeze during voice synthesis
 [2026-06-02T15:31:32] chore(config): tune microphone audio stream buffer size
 [2026-06-02T20:07:17] feat(voice): optimize wake word detection sensitivity
+[2026-06-02T18:29:35] test(wake): add test suite for offline speech recognition
