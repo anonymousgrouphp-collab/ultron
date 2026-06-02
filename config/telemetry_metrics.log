@@ -910,3 +910,4 @@
 [2026-06-02T18:27:11] test(wake): add test suite for offline speech recognition
 [2026-06-02T08:55:33] feat(actions): add background task execution handler
 [2026-06-02T20:16:05] perf(audio): reduce ambient noise filtration latency
+[2026-06-02T11:34:10] docs(telemetry): record voice engine response latency metrics
