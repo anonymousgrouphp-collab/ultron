@@ -924,3 +924,4 @@
 [2026-06-02T18:29:35] test(wake): add test suite for offline speech recognition
 [2026-06-02T10:30:01] test(wake): add test suite for offline speech recognition
 [2026-06-02T15:58:56] feat(voice): optimize wake word detection sensitivity
+[2026-06-02T16:35:37] perf(audio): reduce ambient noise filtration latency
