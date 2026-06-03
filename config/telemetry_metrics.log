@@ -1927,3 +1927,4 @@
 [2026-01-21T08:35:30] feat(voice): optimize wake word detection sensitivity
 [2026-06-03T20:49:24] fix(memory): patch context retention buffer lifecycle
 [2026-06-03T21:44:27] chore(config): tune microphone audio stream buffer size
+[2026-06-03T12:07:28] perf(audio): reduce ambient noise filtration latency
