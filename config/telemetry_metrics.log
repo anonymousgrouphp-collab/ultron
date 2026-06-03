@@ -1926,3 +1926,4 @@
 [2026-01-21T14:34:38] test(wake): add test suite for offline speech recognition
 [2026-01-21T08:35:30] feat(voice): optimize wake word detection sensitivity
 [2026-06-03T20:49:24] fix(memory): patch context retention buffer lifecycle
+[2026-06-03T21:44:27] chore(config): tune microphone audio stream buffer size
