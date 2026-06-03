@@ -1930,3 +1930,4 @@
 [2026-06-03T12:07:28] perf(audio): reduce ambient noise filtration latency
 [2026-06-03T19:22:12] feat(actions): add background task execution handler
 [2026-06-03T21:58:03] refactor(core): streamline async command dispatch pipeline
+[2026-06-03T15:05:37] feat(voice): optimize wake word detection sensitivity
