@@ -1936,3 +1936,4 @@
 [2026-06-03T09:04:03] fix(memory): patch context retention buffer lifecycle
 [2026-06-03T22:11:18] feat(voice): optimize wake word detection sensitivity
 [2026-06-03T18:22:38] refactor(core): streamline async command dispatch pipeline
+[2026-06-03T17:08:38] test(wake): add test suite for offline speech recognition
