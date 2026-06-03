@@ -1940,3 +1940,4 @@
 [2026-06-03T23:42:07] perf(audio): reduce ambient noise filtration latency
 [2026-06-03T10:16:34] refactor(core): streamline async command dispatch pipeline
 [2026-06-03T23:45:47] feat(actions): add background task execution handler
+[2026-06-03T15:28:45] docs(telemetry): record voice engine response latency metrics
