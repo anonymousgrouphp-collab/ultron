@@ -2209,3 +2209,4 @@
 [2026-03-08T13:40:47] feat(voice): optimize wake word detection sensitivity
 [2026-06-05T17:17:35] feat(actions): add background task execution handler
 [2026-06-05T11:21:29] fix(ui): prevent UI freeze during voice synthesis
+[2026-06-05T10:36:59] perf(memory): optimize SQLite conversational history retrieval
