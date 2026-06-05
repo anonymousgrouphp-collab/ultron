@@ -2208,3 +2208,4 @@
 [2026-03-08T14:44:32] test(wake): add test suite for offline speech recognition
 [2026-03-08T13:40:47] feat(voice): optimize wake word detection sensitivity
 [2026-06-05T17:17:35] feat(actions): add background task execution handler
+[2026-06-05T11:21:29] fix(ui): prevent UI freeze during voice synthesis
