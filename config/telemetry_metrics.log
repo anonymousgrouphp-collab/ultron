@@ -2216,3 +2216,4 @@
 [2026-06-05T13:50:00] refactor(core): streamline async command dispatch pipeline
 [2026-06-05T19:29:05] refactor(core): streamline async command dispatch pipeline
 [2026-06-05T17:53:43] refactor(core): streamline async command dispatch pipeline
+[2026-06-05T12:19:03] test(wake): add test suite for offline speech recognition
