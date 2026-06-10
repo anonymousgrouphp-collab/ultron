@@ -2242,3 +2242,4 @@
 [2026-06-10T08:28:51] fix(ui): prevent UI freeze during voice synthesis
 [2026-06-10T22:37:36] test(wake): add test suite for offline speech recognition
 [2026-06-10T20:30:53] refactor(core): streamline async command dispatch pipeline
+[2026-06-10T16:46:23] fix(ui): prevent UI freeze during voice synthesis
