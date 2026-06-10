@@ -2235,3 +2235,4 @@
 [2026-06-10T18:23:36] test(wake): add test suite for offline speech recognition
 [2026-06-10T09:20:44] perf(audio): reduce ambient noise filtration latency
 [2026-06-10T19:55:57] feat(voice): optimize wake word detection sensitivity
+[2026-06-10T13:26:30] feat(actions): add background task execution handler
