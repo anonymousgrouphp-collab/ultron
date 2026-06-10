@@ -2239,3 +2239,4 @@
 [2026-06-10T18:41:57] perf(audio): reduce ambient noise filtration latency
 [2026-06-10T13:58:22] docs(telemetry): record voice engine response latency metrics
 [2026-06-10T13:29:34] fix(memory): patch context retention buffer lifecycle
+[2026-06-10T08:28:51] fix(ui): prevent UI freeze during voice synthesis
