@@ -2511,3 +2511,4 @@
 [2026-06-17T11:05:11] chore(config): tune microphone audio stream buffer size
 [2026-06-17T11:10:48] refactor(core): streamline async command dispatch pipeline
 [2026-06-17T11:31:47] fix(ui): prevent UI freeze during voice synthesis
+[2026-06-17T19:47:20] test(wake): add test suite for offline speech recognition
