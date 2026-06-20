@@ -2405,3 +2405,4 @@
 [2025-10-05T15:19:13] refactor(core): streamline async command dispatch pipeline
 [2026-06-20T12:17:38] perf(audio): reduce ambient noise filtration latency
 [2026-06-20T14:22:31] perf(memory): optimize SQLite conversational history retrieval
+[2026-06-20T08:53:47] chore(config): tune microphone audio stream buffer size
