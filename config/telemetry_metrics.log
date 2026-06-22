@@ -780,3 +780,4 @@
 [2025-09-11T23:19:39] fix(ui): prevent UI freeze during voice synthesis
 [2026-06-22T19:44:43] test(wake): add test suite for offline speech recognition
 [2026-06-22T17:05:08] fix(memory): patch context retention buffer lifecycle
+[2026-06-22T08:12:07] feat(voice): optimize wake word detection sensitivity
