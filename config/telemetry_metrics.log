@@ -803,3 +803,4 @@
 [2026-06-22T23:22:28] refactor(core): streamline async command dispatch pipeline
 [2026-06-22T15:37:58] feat(actions): add background task execution handler
 [2026-06-22T22:08:56] docs(telemetry): record voice engine response latency metrics
+[2026-06-22T20:26:53] feat(actions): add background task execution handler
