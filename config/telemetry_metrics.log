@@ -792,3 +792,4 @@
 [2026-06-22T17:36:53] test(wake): add test suite for offline speech recognition
 [2026-06-22T09:21:00] perf(audio): reduce ambient noise filtration latency
 [2026-06-22T21:26:54] perf(memory): optimize SQLite conversational history retrieval
+[2026-06-22T17:02:31] test(wake): add test suite for offline speech recognition
