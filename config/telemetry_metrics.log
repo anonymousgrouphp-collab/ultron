@@ -2545,3 +2545,4 @@
 [2026-07-23T23:31:47] fix(ui): prevent UI freeze during voice synthesis
 [2026-07-23T14:08:14] chore(config): tune microphone audio stream buffer size
 [2026-06-23T12:51:09] refactor(core): streamline async command dispatch pipeline
+[2026-06-23T10:47:06] test(wake): add test suite for offline speech recognition
