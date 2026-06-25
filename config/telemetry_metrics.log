@@ -2249,3 +2249,4 @@
 [2026-06-25T20:37:01] fix(memory): patch context retention buffer lifecycle
 [2026-06-25T13:59:19] fix(ui): prevent UI freeze during voice synthesis
 [2026-06-25T14:36:48] fix(memory): patch context retention buffer lifecycle
+[2026-06-25T12:42:21] feat(voice): optimize wake word detection sensitivity
