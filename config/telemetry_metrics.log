@@ -1192,3 +1192,4 @@
 [2026-06-26T23:12:09] refactor(core): streamline async command dispatch pipeline
 [2026-06-26T08:00:55] chore(config): tune microphone audio stream buffer size
 [2026-06-26T19:31:25] test(wake): add test suite for offline speech recognition
+[2026-06-26T20:47:23] test(wake): add test suite for offline speech recognition
