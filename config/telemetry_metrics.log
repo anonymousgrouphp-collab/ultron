@@ -1180,3 +1180,4 @@
 [2026-06-26T21:11:38] refactor(core): streamline async command dispatch pipeline
 [2026-06-26T17:18:36] perf(memory): optimize SQLite conversational history retrieval
 [2026-06-26T14:17:55] perf(memory): optimize SQLite conversational history retrieval
+[2026-06-26T10:23:25] test(wake): add test suite for offline speech recognition
