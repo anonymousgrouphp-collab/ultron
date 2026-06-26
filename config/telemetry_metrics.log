@@ -1188,3 +1188,4 @@
 [2026-06-26T12:35:46] fix(memory): patch context retention buffer lifecycle
 [2026-06-26T16:24:29] docs(telemetry): record voice engine response latency metrics
 [2026-06-26T22:18:24] chore(config): tune microphone audio stream buffer size
+[2026-06-26T23:04:21] fix(memory): patch context retention buffer lifecycle
