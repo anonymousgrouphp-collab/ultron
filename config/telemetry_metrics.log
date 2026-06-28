@@ -2098,3 +2098,4 @@
 [2026-06-28T19:49:49] chore(config): tune microphone audio stream buffer size
 [2026-06-28T10:41:03] chore(config): tune microphone audio stream buffer size
 [2026-06-28T14:23:34] refactor(core): streamline async command dispatch pipeline
+[2026-06-28T13:53:34] test(wake): add test suite for offline speech recognition
