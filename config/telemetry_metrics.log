@@ -2092,3 +2092,4 @@
 [2026-06-28T18:40:52] feat(voice): optimize wake word detection sensitivity
 [2026-06-28T17:28:26] refactor(core): streamline async command dispatch pipeline
 [2026-06-28T13:34:13] perf(audio): reduce ambient noise filtration latency
+[2026-06-28T18:08:38] chore(config): tune microphone audio stream buffer size
