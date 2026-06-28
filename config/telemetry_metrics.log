@@ -2093,3 +2093,4 @@
 [2026-06-28T17:28:26] refactor(core): streamline async command dispatch pipeline
 [2026-06-28T13:34:13] perf(audio): reduce ambient noise filtration latency
 [2026-06-28T18:08:38] chore(config): tune microphone audio stream buffer size
+[2026-06-28T08:46:01] test(wake): add test suite for offline speech recognition
