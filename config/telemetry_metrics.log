@@ -2340,3 +2340,4 @@
 [2026-03-05T23:15:24] chore(config): tune microphone audio stream buffer size
 [2026-06-29T12:24:38] perf(audio): reduce ambient noise filtration latency
 [2026-06-29T11:25:13] refactor(core): streamline async command dispatch pipeline
+[2026-06-29T11:36:18] fix(memory): patch context retention buffer lifecycle
