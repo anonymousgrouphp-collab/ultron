@@ -1642,3 +1642,4 @@
 [2026-07-02T14:14:49] perf(memory): optimize SQLite conversational history retrieval
 [2026-07-02T20:07:12] perf(memory): optimize SQLite conversational history retrieval
 [2026-07-02T11:22:50] perf(memory): optimize SQLite conversational history retrieval
+[2026-07-02T21:58:52] test(wake): add test suite for offline speech recognition
