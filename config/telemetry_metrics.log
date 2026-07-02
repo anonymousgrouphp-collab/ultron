@@ -1633,3 +1633,4 @@
 [2026-07-02T21:23:11] chore(config): tune microphone audio stream buffer size
 [2026-07-02T13:34:27] test(wake): add test suite for offline speech recognition
 [2026-07-02T17:54:42] test(wake): add test suite for offline speech recognition
+[2026-07-02T17:44:39] perf(audio): reduce ambient noise filtration latency
