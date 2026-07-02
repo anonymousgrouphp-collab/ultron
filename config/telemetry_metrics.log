@@ -1639,3 +1639,4 @@
 [2026-07-02T21:06:31] fix(ui): prevent UI freeze during voice synthesis
 [2026-07-02T11:40:28] chore(config): tune microphone audio stream buffer size
 [2026-07-02T09:42:18] test(wake): add test suite for offline speech recognition
+[2026-07-02T14:14:49] perf(memory): optimize SQLite conversational history retrieval
