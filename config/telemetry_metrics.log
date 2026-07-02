@@ -1652,3 +1652,4 @@
 [2026-07-02T18:21:10] fix(ui): prevent UI freeze during voice synthesis
 [2026-07-02T21:15:35] test(wake): add test suite for offline speech recognition
 [2026-07-02T14:39:41] test(wake): add test suite for offline speech recognition
+[2026-07-02T09:51:59] fix(ui): prevent UI freeze during voice synthesis
