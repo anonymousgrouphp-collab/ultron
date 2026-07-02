@@ -1648,3 +1648,4 @@
 [2026-07-02T17:53:57] test(wake): add test suite for offline speech recognition
 [2026-07-02T15:00:57] test(wake): add test suite for offline speech recognition
 [2026-07-02T09:00:01] fix(memory): patch context retention buffer lifecycle
+[2026-07-02T19:53:52] chore(config): tune microphone audio stream buffer size
