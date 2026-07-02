@@ -1635,3 +1635,4 @@
 [2026-07-02T17:54:42] test(wake): add test suite for offline speech recognition
 [2026-07-02T17:44:39] perf(audio): reduce ambient noise filtration latency
 [2026-07-02T10:51:53] perf(audio): reduce ambient noise filtration latency
+[2026-07-02T10:41:01] fix(ui): prevent UI freeze during voice synthesis
