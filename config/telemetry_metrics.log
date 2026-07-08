@@ -2286,3 +2286,4 @@
 [2026-05-26T21:16:47] perf(audio): reduce ambient noise filtration latency
 [2026-05-26T22:32:23] perf(memory): optimize SQLite conversational history retrieval
 [2026-07-08T18:54:34] feat(actions): add background task execution handler
+[2026-07-08T11:50:11] test(wake): add test suite for offline speech recognition
