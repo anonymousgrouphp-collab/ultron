@@ -2288,3 +2288,4 @@
 [2026-07-08T18:54:34] feat(actions): add background task execution handler
 [2026-07-08T11:50:11] test(wake): add test suite for offline speech recognition
 [2026-07-08T20:55:43] perf(audio): reduce ambient noise filtration latency
+[2026-07-08T12:00:21] fix(ui): prevent UI freeze during voice synthesis
