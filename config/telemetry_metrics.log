@@ -1073,3 +1073,4 @@
 [2026-07-14T20:14:14] refactor(core): streamline async command dispatch pipeline
 [2026-07-14T23:14:33] fix(ui): prevent UI freeze during voice synthesis
 [2026-07-14T22:46:52] perf(memory): optimize SQLite conversational history retrieval
+[2026-07-14T18:50:05] feat(actions): add background task execution handler
