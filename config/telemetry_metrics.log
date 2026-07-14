@@ -1060,3 +1060,4 @@
 [2026-07-14T13:28:14] docs(telemetry): record voice engine response latency metrics
 [2026-07-14T10:22:57] perf(audio): reduce ambient noise filtration latency
 [2026-07-14T17:53:32] chore(config): tune microphone audio stream buffer size
+[2026-07-14T10:50:17] refactor(core): streamline async command dispatch pipeline
