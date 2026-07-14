@@ -1043,3 +1043,4 @@
 [2026-03-19T23:50:42] fix(ui): prevent UI freeze during voice synthesis
 [2026-07-14T10:10:32] test(wake): add test suite for offline speech recognition
 [2026-07-14T19:31:33] perf(memory): optimize SQLite conversational history retrieval
+[2026-07-14T13:20:45] feat(actions): add background task execution handler
