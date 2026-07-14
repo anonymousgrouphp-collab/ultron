@@ -1068,3 +1068,4 @@
 [2026-07-14T14:45:38] fix(memory): patch context retention buffer lifecycle
 [2026-07-14T16:00:49] docs(telemetry): record voice engine response latency metrics
 [2026-07-14T17:52:22] test(wake): add test suite for offline speech recognition
+[2026-07-14T20:52:37] feat(voice): optimize wake word detection sensitivity
