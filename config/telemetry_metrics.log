@@ -1052,3 +1052,4 @@
 [2026-07-14T13:59:53] feat(actions): add background task execution handler
 [2026-07-14T16:35:05] fix(memory): patch context retention buffer lifecycle
 [2026-07-14T10:18:28] chore(config): tune microphone audio stream buffer size
+[2026-07-14T19:14:37] feat(voice): optimize wake word detection sensitivity
