@@ -1065,3 +1065,4 @@
 [2026-07-14T09:34:12] feat(actions): add background task execution handler
 [2026-07-14T14:43:21] docs(telemetry): record voice engine response latency metrics
 [2026-07-14T17:47:52] docs(telemetry): record voice engine response latency metrics
+[2026-07-14T14:45:38] fix(memory): patch context retention buffer lifecycle
