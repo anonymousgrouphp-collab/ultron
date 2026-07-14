@@ -1071,3 +1071,4 @@
 [2026-07-14T20:52:37] feat(voice): optimize wake word detection sensitivity
 [2026-07-14T23:41:32] fix(memory): patch context retention buffer lifecycle
 [2026-07-14T20:14:14] refactor(core): streamline async command dispatch pipeline
+[2026-07-14T23:14:33] fix(ui): prevent UI freeze during voice synthesis
