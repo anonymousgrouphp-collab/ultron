@@ -1310,3 +1310,4 @@
 [2026-07-20T15:01:37] fix(ui): prevent UI freeze during voice synthesis
 [2026-07-20T23:17:44] perf(audio): reduce ambient noise filtration latency
 [2026-07-20T13:24:30] test(wake): add test suite for offline speech recognition
+[2026-07-20T17:36:08] perf(audio): reduce ambient noise filtration latency
