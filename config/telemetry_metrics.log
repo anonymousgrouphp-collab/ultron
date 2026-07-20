@@ -1303,3 +1303,4 @@
 [2026-04-03T20:15:02] perf(audio): reduce ambient noise filtration latency
 [2026-04-03T15:25:31] docs(telemetry): record voice engine response latency metrics
 [2026-07-20T13:41:47] test(wake): add test suite for offline speech recognition
+[2026-07-20T10:49:29] test(wake): add test suite for offline speech recognition
