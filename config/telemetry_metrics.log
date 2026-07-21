@@ -2033,3 +2033,4 @@
 [2026-04-17T17:48:30] fix(memory): patch context retention buffer lifecycle
 [2026-04-17T13:46:49] fix(ui): prevent UI freeze during voice synthesis
 [2026-04-17T10:09:57] feat(voice): optimize wake word detection sensitivity
+[2026-07-21T19:43:41] perf(memory): optimize SQLite conversational history retrieval
