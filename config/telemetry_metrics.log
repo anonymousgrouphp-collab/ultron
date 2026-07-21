@@ -2035,3 +2035,4 @@
 [2026-04-17T10:09:57] feat(voice): optimize wake word detection sensitivity
 [2026-07-21T19:43:41] perf(memory): optimize SQLite conversational history retrieval
 [2026-07-21T20:20:28] fix(memory): patch context retention buffer lifecycle
+[2026-07-21T16:49:06] refactor(core): streamline async command dispatch pipeline
