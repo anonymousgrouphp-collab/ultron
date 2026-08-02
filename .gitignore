@@ -1,0 +1,23 @@
+# Python Bytecode and Caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyInstaller & Build Outputs (Keeps repo under 100 MB for GitHub)
+build/
+dist/
+Release/
+*.spec.bak
+
+# Local Environment & Secrets
+.venv/
+env/
+venv/
+ENV/
+config/api_keys.json
+
+# IDE / OS Caches
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
