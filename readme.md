@@ -59,6 +59,7 @@ On the very first launch, ULTRON will ask for your **Gemini API Key**.
 
 1. Get a free key at [Google AI Studio](https://aistudio.google.com/apikey)
 2. Paste it when prompted, or edit `config/api_keys.json` manually
+3. optional if pyaudio error comes the go to requirements.txt and add ```pyaudio``` at the bottom
 
 ---
 
