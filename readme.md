@@ -1,105 +1,137 @@
-# ⚡ ULTRON AI Desktop Assistant
+# ULTRON AI Desktop Assistant
 
-> **ULTRON** is a next-generation AI Desktop Assistant powered by Google Gemini, PyQt6, and hands-free voice recognition. It features real-time voice synthesis, computer control automation, hardware telemetry monitoring, browser automation, and a remote web dashboard.
-
----
-
-## 🚀 Key Features
-
-- 🤖 **Google Gemini Engine**: Ultra-fast LLM responses powered by native audio and text models.
-- 🎙️ **Hands-Free Voice Recognition & TTS**: Neural speech output and real-time wake word listener ("Wake up Ultron").
-- 💻 **Computer Control & Automation**: Control system volume, brightness, media playback, applications, window management, and custom shortcuts.
-- 🌐 **Automated Web Browsing**: Integrated Playwright engine for automated search, page extraction, and web tasks.
-- 📊 **Hardware Telemetry Monitor**: Real-time CPU, RAM, GPU, battery, network, and process status.
-- 📱 **Remote Control Dashboard**: Web-based control HUD accessible locally and from smartphone browsers.
-- 📦 **1-Click Installer Packaging**: Complete build pipeline using PyInstaller and Inno Setup to create standalone `ULTRON_Setup.exe`.
+> **ULTRON** is a next-generation AI Desktop Assistant powered by Google Gemini. It features hands-free voice recognition, real-time voice synthesis, automated desktop control, browser automation, system monitoring, and a remote web dashboard.
 
 ---
 
-## 📁 Repository Structure
+## Features
 
-```
-ULTRON_GitHub/
-├── START_ULTRON.bat            # 1-Click launcher script for development
-├── Start_ULTRON_Wake_Word.bat  # Background voice wake-word listener
-├── build_release.py            # Automated build script (PyInstaller + Inno Setup)
-├── installer.iss               # Inno Setup installer script
-├── Ultron.spec                 # PyInstaller production spec configuration
-├── main.py                     # Main assistant entry point & event loop
-├── ui.py                       # PyQt6 WebEngine visual HUD interface
-├── wake_service.py              # Always-on voice wake word background service
-├── setup.py                    # Environment configuration script
-├── requirements.txt            # Python dependencies
-├── .gitignore                  # Git exclusion rules (keeps repo < 100 MB)
-├── config/                     # Configuration files & icons
-│   ├── api_keys.json.example   # Configuration template for API keys
-│   └── jarvis.ico              # Application icon
-├── core/                       # LLM client, TTS, STT, and engine logic
-├── actions/                    # Assistant action tools (browser, system, desktop)
-├── dashboard/                  # Remote web dashboard server & web assets
-└── memory/                     # Local assistant memory & preference persistence
-```
+- **Google Gemini Engine** -- Ultra-fast LLM with native audio and text models
+- **Hands-Free Voice** -- Real-time speech recognition, neural TTS, and wake word ("Wake up Ultron")
+- **Computer Control** -- Volume, brightness, media, app launcher, window management, keyboard shortcuts
+- **Web Automation** -- Built-in Playwright engine for automated browsing, search, and page extraction
+- **Hardware Monitor** -- Real-time CPU, RAM, GPU, battery, and network telemetry
+- **Remote Dashboard** -- Web-based control panel accessible from any browser or phone
+- **File Processing** -- Read, write, analyze files and generate presentations
+- **Code Assistant** -- Write, debug, and explain code across languages
 
 ---
 
-## ⚡ Quick Start for Developers
+## Quick Start (Any Windows 10/11 PC)
 
 ### Prerequisites
-- Windows 10 / 11 (64-bit)
-- Python 3.10+ installed and added to `PATH`
 
-### 1️⃣ Clone & Setup
+- **Python 3.10+** installed with "Add python.exe to PATH" checked
+  - Download from [python.org](https://python.org) if needed
+- **Internet connection** for first-time setup (downloads dependencies)
+
+### Option 1: Automatic Setup (Recommended)
+
+```
+1. Download or clone this repository
+2. Double-click SETUP.bat
+3. Done! ULTRON installs all dependencies and launches automatically.
+```
+
+### Option 2: Manual Setup
+
 ```bash
-git clone https://github.com/your-username/ULTRON.git
+git clone https://github.com/morphhyyy-cpu/ULTRON.git
+cd ULTRON
+python ULTRON_SETUP.py
+```
+
+### Option 3: Step-by-Step Manual
+
+```bash
+git clone https://github.com/morphhyyy-cpu/ULTRON.git
 cd ULTRON
 pip install -r requirements.txt
 python -m playwright install chromium
-```
-
-### 2️⃣ Configure Gemini API Key
-1. Copy `config/api_keys.json.example` to `config/api_keys.json`.
-2. Paste your Google Gemini API key into `config/api_keys.json`:
-```json
-{
-    "gemini_api_key": "YOUR_GEMINI_API_KEY_HERE"
-}
-```
-> Get a free API key at [Google AI Studio](https://aistudio.google.com/apikey).
-
-### 3️⃣ Run ULTRON
-Double-click `START_ULTRON.bat` or run:
-```bash
 python main.py
 ```
 
 ---
 
-## 📦 Building the Standalone 1-Click Installer (`ULTRON_Setup.exe`)
+## First Launch
 
-To compile ULTRON into a zero-dependency Windows installer (`ULTRON_Setup.exe`) for end-users:
+On the very first launch, ULTRON will ask for your **Gemini API Key**.
 
-1. Install PyInstaller & Inno Setup 6:
-```bash
-pip install pyinstaller
-winget install JRSoftware.InnoSetup
-```
-2. Run the automated build script:
-```bash
-python build_release.py
-```
-3. The compiled installer will be generated in `Release/ULTRON_Setup.exe`.
+1. Get a free key at [Google AI Studio](https://aistudio.google.com/apikey)
+2. Paste it when prompted, or edit `config/api_keys.json` manually
 
 ---
 
-## 🎤 Hands-Free Wake Word Setup
+## Wake Word (Hands-Free Activation)
 
-To enable background listening:
-- Double-click **`Start_ULTRON_Wake_Word.bat`**.
-- Say **"Wake up ultron"** or **"Hey ultron"** to automatically bring up the assistant!
+To keep ULTRON listening in the background:
+
+- Double-click **`Start_ULTRON_Wake_Word.bat`**
+- Say **"Wake up Ultron"** or **"Hey Ultron"** to activate
 
 ---
 
-## 🛡️ License & Contributing
+## Repository Structure
 
-Contributions, issues, and feature requests are welcome!  
-Feel free to star ⭐ the repository if you enjoy using ULTRON.
+```
+ULTRON/
+|-- ULTRON_SETUP.py              # Portable first-time setup script
+|-- SETUP.bat                    # 1-click setup launcher (runs ULTRON_SETUP.py)
+|-- START_ULTRON.bat             # Main launcher (auto-runs setup on first use)
+|-- Start_ULTRON_Wake_Word.bat   # Wake word background listener
+|-- main.py                      # Main assistant entry point
+|-- ui.py                        # PyQt6 WebEngine visual HUD
+|-- wake_service.py              # Always-on voice wake word service
+|-- requirements.txt             # Python package dependencies
+|-- config/
+|   |-- api_keys.json.example    # Template for API key configuration
+|   |-- __init__.py              # Config loader module
+|   +-- jarvis.ico               # Application icon
+|-- core/                        # LLM client, TTS, STT engines
+|-- actions/                     # Tool modules (browser, system, desktop, etc.)
+|-- dashboard/                   # Remote web dashboard server & assets
++-- memory/                      # Local assistant memory & preferences
+```
+
+---
+
+## How Sharing Works
+
+This project is **fully portable** -- no hardcoded paths.
+
+**To share ULTRON with someone:**
+
+1. Push this repo to GitHub (or send as ZIP)
+2. Recipient clones/extracts to ANY folder on their PC
+3. They double-click `SETUP.bat` (or run `python ULTRON_SETUP.py`)
+4. Everything installs automatically
+5. ULTRON launches and works immediately
+
+**The setup script automatically:**
+- Verifies all project files are present
+- Downloads missing files from GitHub if needed
+- Installs all Python packages (PyQt6, sounddevice, google-genai, etc.)
+- Installs Playwright Chromium browser engine
+- Creates default configuration files
+- Provides manual download links if auto-download fails
+
+---
+
+## Requirements
+
+All dependencies are listed in `requirements.txt` and installed automatically by the setup script:
+
+- PyQt6 + PyQt6-WebEngine
+- sounddevice, PyAudio, SpeechRecognition
+- google-genai, google-generativeai
+- playwright, requests, beautifulsoup4
+- numpy, opencv-python, pillow
+- psutil, pyautogui, pyperclip
+- fastapi, uvicorn, cryptography
+- And more (see requirements.txt)
+
+---
+
+## License
+
+Contributions, issues, and feature requests are welcome!
