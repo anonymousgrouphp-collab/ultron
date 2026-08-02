@@ -1,0 +1,56 @@
+{
+  "identity": {
+    "language": {
+      "value": "Hindi",
+      "updated": "2026-07-29"
+    },
+    "name": {
+      "value": "Sir",
+      "updated": "2026-07-28"
+    },
+    "address": {
+      "value": "Sir",
+      "updated": "2026-07-28"
+    },
+    "birthday": {
+      "value": "July 22",
+      "updated": "2026-07-23"
+    }
+  },
+  "preferences": {
+    "spice_preference": {
+      "value": "less spicy",
+      "updated": "2026-07-27"
+    }
+  },
+  "projects": {},
+  "relationships": {
+    "brother_name": {
+      "value": "Daksh",
+      "updated": "2026-07-23"
+    },
+    "friend_or_family": {
+      "value": "Misali",
+      "updated": "2026-07-23"
+    },
+    "friend": {
+      "value": "Sanjay Gandu",
+      "updated": "2026-07-23"
+    }
+  },
+  "wishes": {},
+  "notes": {
+    "current_activity": {
+      "value": "eating roti, dal, and achar after exercise",
+      "updated": "2026-07-18"
+    },
+    "internet_status": {
+      "value": "disconnected",
+      "updated": "2026-07-18"
+    },
+    "morning_routine": {
+      "value": "wakes up at 5 AM",
+      "updated": "2026-07-18"
+    }
+  }
+}
