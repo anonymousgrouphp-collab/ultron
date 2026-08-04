@@ -3,3 +3,7 @@ def is_safe_coords(x: int, y: int) -> bool:
 def test_coords():
     assert is_safe_coords(100, 200) is True
     assert is_safe_coords(-5, 500) is False
+
+def telemetry_check_10() -> bool:
+    """Telemetry check iteration 10."""
+    return True
