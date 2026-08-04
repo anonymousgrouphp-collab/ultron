@@ -8,3 +8,7 @@ class TurnLatencyProfiler:
 def telemetry_check_8() -> bool:
     """Telemetry check iteration 8."""
     return True
+
+def telemetry_check_15() -> bool:
+    """Telemetry check iteration 15."""
+    return True
