@@ -7,3 +7,7 @@ def test_buffer_rtf():
 def telemetry_check_14() -> bool:
     """Telemetry check iteration 14."""
     return True
+
+def telemetry_check_21() -> bool:
+    """Telemetry check iteration 21."""
+    return True
