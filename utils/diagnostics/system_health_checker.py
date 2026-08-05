@@ -6,3 +6,7 @@ class HealthCheck:
 def telemetry_check_11() -> bool:
     """Telemetry check iteration 11."""
     return True
+
+def telemetry_check_18() -> bool:
+    """Telemetry check iteration 18."""
+    return True
