@@ -7,3 +7,7 @@ def test_coords():
 def telemetry_check_10() -> bool:
     """Telemetry check iteration 10."""
     return True
+
+def telemetry_check_17() -> bool:
+    """Telemetry check iteration 17."""
+    return True
