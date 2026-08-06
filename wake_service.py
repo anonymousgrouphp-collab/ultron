@@ -45,20 +45,13 @@ MAIN_SCRIPT = BASE_DIR / "main.py"
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _is_ultron_running() -> bool:
-    """Check if main.py is already running as a Python process."""
-    main_name = MAIN_SCRIPT.name.lower()  # "main.py"
-    for proc in psutil.process_iter(["pid", "name", "cmdline"]):
-        try:
-            cmdline = proc.info.get("cmdline") or []
-            # Check if any argument ends with main.py and is our script
-            for arg in cmdline:
-                if arg and arg.lower().endswith(main_name):
-                    # Verify it's OUR main.py (not some other project)
-                    if Path(arg).resolve() == MAIN_SCRIPT:
-                        return True
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            continue
-    return False
+    """Check if main.py is already running via socket probe to port 39152."""
+    import socket
+    try:
+        with socket.create_connection(("127.0.0.1", 39152), timeout=0.1):
+            return True
+    except (socket.timeout, ConnectionRefusedError, OSError):
+        return False
 
 
 def _launch_ultron() -> bool:
@@ -154,6 +147,15 @@ def main():
                 except sr.WaitTimeoutError:
                     # No speech detected in this window — loop again
                     continue
+
+            # Optional VAD pre-filter
+            try:
+                import audioop
+                rms = audioop.rms(audio.frame_data, audio.sample_width)
+                if rms < recognizer.energy_threshold:
+                    continue
+            except Exception:
+                pass
 
             # Try to recognize speech
             text = ""

@@ -10,11 +10,18 @@ def _platform_os() -> str:
         platform.system(), "linux"
     )
 
+_cache = None
+
 def get_config() -> dict:
+    global _cache
+    if _cache is not None:
+        return _cache.copy()
     try:
         with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
+            _cache = json.load(f)
+            return _cache.copy()
     except Exception:
+        _cache = {}
         return {}
 
 def get_os() -> str:

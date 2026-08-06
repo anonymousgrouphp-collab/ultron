@@ -3,6 +3,10 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
+import threading
+
+_lock = threading.Lock()
+_cache = None
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 REMINDERS_FILE = BASE_DIR / "memory" / "reminders.json"
@@ -13,16 +17,25 @@ def _ensure_file():
         REMINDERS_FILE.write_text("[]", encoding="utf-8")
 
 def load_reminders() -> list[dict]:
-    _ensure_file()
-    try:
-        data = json.loads(REMINDERS_FILE.read_text(encoding="utf-8"))
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
+    global _cache
+    with _lock:
+        if _cache is not None:
+            return _cache.copy()
+        _ensure_file()
+        try:
+            data = json.loads(REMINDERS_FILE.read_text(encoding="utf-8"))
+            _cache = data if isinstance(data, list) else []
+            return _cache.copy()
+        except Exception:
+            _cache = []
+            return []
 
 def save_reminders(reminders: list[dict]) -> None:
-    _ensure_file()
-    REMINDERS_FILE.write_text(json.dumps(reminders, indent=2), encoding="utf-8")
+    global _cache
+    with _lock:
+        _ensure_file()
+        REMINDERS_FILE.write_text(json.dumps(reminders, indent=2), encoding="utf-8")
+        _cache = reminders.copy()
 
 def add_reminder(text: str, due_datetime: str) -> dict:
     reminders = load_reminders()

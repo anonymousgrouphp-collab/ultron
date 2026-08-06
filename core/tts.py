@@ -8,6 +8,7 @@ ElevenLabs  – cloud API (API key required, best quality)
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import os
 import queue as _queue
 import threading
@@ -107,13 +108,13 @@ class EdgeTTSEngine:
 
     def __init__(self, voice: str = "en-US-ChristopherNeural"):
         self.voice = voice
+        self._loop = asyncio.new_event_loop()
+        self._thread = threading.Thread(target=self._loop.run_forever, daemon=True)
+        self._thread.start()
 
     def speak(self, text: str) -> None:
-        loop = asyncio.new_event_loop()
-        try:
-            audio_bytes = loop.run_until_complete(self._synth(text))
-        finally:
-            loop.close()
+        future = asyncio.run_coroutine_threadsafe(self._synth(text), self._loop)
+        audio_bytes = future.result()
         if audio_bytes:
             _play_audio_bytes(audio_bytes)
 
@@ -228,6 +229,7 @@ class KokoroTTSEngine:
         self.speed     = speed
         self._pipeline = None
         self._lock     = threading.Lock()
+        self.executor  = concurrent.futures.ThreadPoolExecutor(max_workers=2)
         self._init()   # blocking, but called from background thread
 
     @property
@@ -334,8 +336,7 @@ class KokoroTTSEngine:
             finally:
                 audio_q.put(None)                     # sentinel → player exits
 
-        synth_thread = threading.Thread(target=_synth, daemon=True)
-        synth_thread.start()
+        future = self.executor.submit(_synth)
 
         # Player runs in this thread so sd.wait() doesn't block the synth thread.
         while True:
@@ -344,7 +345,7 @@ class KokoroTTSEngine:
                 break
             _play_np(arr, 24000)
 
-        synth_thread.join()
+        future.result()
 
         if synth_error:
             raise synth_error[0]

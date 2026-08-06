@@ -226,6 +226,24 @@ def get_llm_settings() -> tuple[str, str]:
     return url, model
 
 
+def _build_payload(provider: str, model: str, messages: list, tools: list | None, stream: bool = False) -> dict:
+    payload = {
+        "model":    model,
+        "messages": messages,
+        "stream":   stream,
+    }
+    if provider == "openai":
+        payload["max_tokens"] = 150
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
+    else:
+        payload["keep_alive"] = -1
+        payload["options"] = {"num_predict": 150, "num_gpu": 99}
+        if tools:
+            payload["tools"] = tools
+    return payload
+
 def call_llm(
     messages: list,
     tools:    list | None = None,
@@ -242,15 +260,7 @@ def call_llm(
 
     if provider == "openai":
         endpoint = f"{url}/v1/chat/completions"
-        payload: dict = {
-            "model":      model,
-            "messages":   messages,
-            "stream":     False,
-            "max_tokens": 150,
-        }
-        if tools:
-            payload["tools"]       = tools
-            payload["tool_choice"] = "auto"
+        payload = _build_payload(provider, model, messages, tools, stream=False)
         try:
             resp = requests.post(endpoint, json=payload, timeout=timeout)
             resp.raise_for_status()
@@ -280,29 +290,11 @@ def call_llm(
             raise RuntimeError(f"OpenAI-compatible LLM call failed: {e}")
 
     # ── Ollama ──────────────────────────────────────────────────────────────
-    endpoint = f"{url}/api/chat"
-    payload = {
-        "model":      model,
-        "messages":   messages,
-        "stream":     False,
-        "keep_alive": -1,
-        "options":    {"num_predict": 150, "num_gpu": 99},
-    }
-    if tools:
-        payload["tools"] = tools
-
     try:
-        resp = requests.post(endpoint, json=payload, timeout=timeout)
-        resp.raise_for_status()
-        data = resp.json()
-        msg  = data.get("message", {})
-        return {
-            "content":    (msg.get("content") or "").strip(),
-            "tool_calls": msg.get("tool_calls") or [],
-        }
-    except requests.exceptions.ConnectionError as e:
-        print(f"[LLM] ConnectionError — trying to restart Ollama… ({e})")
-        if ensure_ollama_running():
+        endpoint = f"{url}/api/chat"
+        payload = _build_payload(provider, model, messages, tools, stream=False)
+
+        for attempt in range(2):
             try:
                 resp = requests.post(endpoint, json=payload, timeout=timeout)
                 resp.raise_for_status()
@@ -312,20 +304,28 @@ def call_llm(
                     "content":    (msg.get("content") or "").strip(),
                     "tool_calls": msg.get("tool_calls") or [],
                 }
-            except Exception:
-                pass
-        raise RuntimeError(
-            f"Cannot connect to Ollama at {url}. "
-            "Make sure Ollama is installed and run: ollama serve"
-        )
-    except requests.exceptions.Timeout:
-        raise RuntimeError("Ollama request timed out after 120 s.")
-    except requests.exceptions.HTTPError as e:
-        print(f"[LLM] HTTPError: {e.response.status_code} — {e.response.text[:200]}")
-        raise RuntimeError(f"Ollama HTTP error: {e.response.status_code}")
+            except requests.exceptions.ConnectionError as e:
+                if attempt == 0:
+                    print(f"[LLM] ConnectionError — trying to restart Ollama… ({e})")
+                    if not ensure_ollama_running():
+                        raise RuntimeError(
+                            f"Cannot connect to Ollama at {url}. "
+                            "Make sure Ollama is installed and run: ollama serve"
+                        )
+                else:
+                    raise RuntimeError(
+                        f"Cannot connect to Ollama at {url}. "
+                        "Make sure Ollama is installed and run: ollama serve"
+                    )
+            except requests.exceptions.Timeout:
+                raise RuntimeError("Ollama request timed out after 120 s.")
+            except requests.exceptions.HTTPError as e:
+                print(f"[LLM] HTTPError: {e.response.status_code} — {e.response.text[:200]}")
+                raise RuntimeError(f"Ollama HTTP error: {e.response.status_code}")
     except Exception as e:
         print(f"[LLM] Unexpected error: {type(e).__name__}: {e}")
         raise RuntimeError(f"LLM call failed: {e}")
+
 
 
 def call_llm_text(
@@ -350,21 +350,17 @@ def call_llm_text(
     payload = {"model": m, "messages": messages, "stream": False, "keep_alive": -1, "options": {"num_predict": 600}}
 
     try:
-        resp = requests.post(endpoint, json=payload, timeout=timeout)
-        resp.raise_for_status()
-        return (resp.json().get("message", {}).get("content") or "").strip()
-    except requests.exceptions.ConnectionError:
-        if ensure_ollama_running():
+        for attempt in range(2):
             try:
                 resp = requests.post(endpoint, json=payload, timeout=timeout)
                 resp.raise_for_status()
                 return (resp.json().get("message", {}).get("content") or "").strip()
-            except Exception:
-                pass
-        raise RuntimeError(
-            f"Cannot connect to Ollama at {url}. "
-            "Make sure Ollama is installed and run: ollama serve"
-        )
+            except requests.exceptions.ConnectionError as e:
+                if attempt == 0:
+                    if not ensure_ollama_running():
+                        raise RuntimeError(f"Cannot connect to Ollama at {url}. Make sure Ollama is installed and run: ollama serve")
+                else:
+                    raise RuntimeError(f"Cannot connect to Ollama at {url}. Make sure Ollama is installed and run: ollama serve")
     except Exception as e:
         raise RuntimeError(f"LLM text call failed: {e}")
 
@@ -383,15 +379,7 @@ def _stream_openai(
     url, model = get_llm_settings()
     endpoint   = f"{url}/v1/chat/completions"
 
-    payload: dict = {
-        "model":      model,
-        "messages":   messages,
-        "stream":     True,
-        "max_tokens": 150,
-    }
-    if tools:
-        payload["tools"]       = tools
-        payload["tool_choice"] = "auto"
+    payload = _build_payload("openai", model, messages, tools, stream=True)
 
     try:
         with requests.post(endpoint, json=payload, timeout=timeout, stream=True) as resp:
@@ -508,17 +496,7 @@ def call_llm_stream(
     url, model = get_llm_settings()
     endpoint   = f"{url}/api/chat"
 
-    payload: dict = {
-        "model":      model,
-        "messages":   messages,
-        "stream":     True,
-        "keep_alive": -1,
-        # 150 tokens ≈ 100 words ≈ 3-4 sentences — enough for any voice reply.
-        # num_gpu:99 pushes all layers to GPU; num_thread removed (Ollama auto-tunes).
-        "options":    {"num_predict": 150, "num_gpu": 99},
-    }
-    if tools:
-        payload["tools"] = tools
+    payload = _build_payload(provider, model, messages, tools, stream=True)
 
     def _do_stream() -> Generator[dict, None, None]:
         with requests.post(endpoint, json=payload, timeout=timeout, stream=True) as resp:

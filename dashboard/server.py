@@ -75,8 +75,8 @@ _AES_SALT = b'ULTRON-DASHBOARD-v1'
 
 
 def _derive_key(session_key: str) -> bytes:
-    """SHA-256(sessionKey‖salt) → 32-byte AES-256 key (microseconds, no PBKDF2 needed)."""
-    return hashlib.sha256(session_key.encode('utf-8') + _AES_SALT).digest()
+    """PBKDF2-HMAC-SHA256(sessionKey, salt) → 32-byte AES-256 key."""
+    return hashlib.pbkdf2_hmac('sha256', session_key.encode('utf-8'), _AES_SALT, iterations=100000)
 
 
 def _decrypt_cbc(aes_key: bytes, enc_b64: str) -> str:
@@ -419,6 +419,8 @@ class DashboardServer:
         return f"{self._ip}:{PORT}"
 
     def _aes_key(self, session_key: str) -> bytes:
+        if len(self._aes_cache) > 100:
+            self._aes_cache.clear()
         if session_key not in self._aes_cache:
             self._aes_cache[session_key] = _derive_key(session_key)
         return self._aes_cache[session_key]

@@ -1,4 +1,5 @@
 #computer_settings.py
+from utils.env import get_api_key, get_base_dir, get_os
 import json
 import re
 import sys
@@ -21,23 +22,12 @@ try:
 except ImportError:
     _PYPERCLIP = False
 
-_OS = platform.system()  # "Windows" | "Darwin" | "Linux"
 
-if _OS == "Windows":
+if get_os() == "Windows":
     _WIN_HIDE: dict = {"creationflags": subprocess.CREATE_NO_WINDOW}
 else:
     _WIN_HIDE: dict = {}
 
-
-def _get_base_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).resolve().parent.parent
-
-def _get_api_key() -> str:
-    path = _get_base_dir() / "config" / "api_keys.json"
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)["gemini_api_key"]
 
 def _get_macos_wifi_interface() -> str:
     try:
@@ -56,9 +46,9 @@ def _get_macos_wifi_interface() -> str:
     return "en0" 
 
 def volume_up():
-    if _OS == "Windows":
+    if get_os() == "Windows":
         for _ in range(5): pyautogui.press("volumeup")
-    elif _OS == "Darwin":
+    elif get_os() == "Darwin":
         subprocess.run(["osascript", "-e",
             "set volume output volume (output volume of (get volume settings) + 10)"],
             capture_output=True)
@@ -67,9 +57,9 @@ def volume_up():
             capture_output=True)
 
 def volume_down():
-    if _OS == "Windows":
+    if get_os() == "Windows":
         for _ in range(5): pyautogui.press("volumedown")
-    elif _OS == "Darwin":
+    elif get_os() == "Darwin":
         subprocess.run(["osascript", "-e",
             "set volume output volume (output volume of (get volume settings) - 10)"],
             capture_output=True)
@@ -78,9 +68,9 @@ def volume_down():
             capture_output=True)
 
 def volume_mute():
-    if _OS == "Windows":
+    if get_os() == "Windows":
         pyautogui.press("volumemute")
-    elif _OS == "Darwin":
+    elif get_os() == "Darwin":
         subprocess.run(["osascript", "-e", "set volume with output muted"],
             capture_output=True)
     else:
@@ -89,7 +79,7 @@ def volume_mute():
 
 def volume_set(value: int):
     value = max(0, min(100, int(value)))
-    if _OS == "Windows":
+    if get_os() == "Windows":
         try:
             import math
             from ctypes import cast, POINTER
@@ -105,7 +95,7 @@ def volume_set(value: int):
             print(f"[Settings] pycaw failed, using keypress fallback: {e}")
             pyautogui.press("volumemute")
             pyautogui.press("volumemute")
-    elif _OS == "Darwin":
+    elif get_os() == "Darwin":
         subprocess.run(["osascript", "-e", f"set volume output volume {value}"],
             capture_output=True)
         return
@@ -115,11 +105,11 @@ def volume_set(value: int):
         return
 
 def brightness_up():
-    if _OS == "Darwin":
+    if get_os() == "Darwin":
         subprocess.run(["osascript", "-e",
             'tell application "System Events" to key code 144'],
             capture_output=True)
-    elif _OS == "Linux":
+    elif get_os() == "Linux":
         if subprocess.run(["which", "brightnessctl"],
                 capture_output=True).returncode == 0:
             subprocess.run(["brightnessctl", "set", "+10%"], capture_output=True)
@@ -144,11 +134,11 @@ def brightness_up():
             print(f"[Settings] Brightness up failed on Windows: {e}")
 
 def brightness_down():
-    if _OS == "Darwin":
+    if get_os() == "Darwin":
         subprocess.run(["osascript", "-e",
             'tell application "System Events" to key code 145'],
             capture_output=True)
-    elif _OS == "Linux":
+    elif get_os() == "Linux":
         if subprocess.run(["which", "brightnessctl"],
                 capture_output=True).returncode == 0:
             subprocess.run(["brightnessctl", "set", "10%-"], capture_output=True)
@@ -173,28 +163,28 @@ def brightness_down():
             print(f"[Settings] Brightness down failed on Windows: {e}")
 
 def close_app():
-    if _OS == "Darwin": pyautogui.hotkey("command", "q")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "q")
     else:               pyautogui.hotkey("alt", "f4")
 
 def close_window():
-    if _OS == "Darwin": pyautogui.hotkey("command", "w")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "w")
     else:               pyautogui.hotkey("ctrl", "w")
 
 def full_screen():
-    if _OS == "Darwin": pyautogui.hotkey("ctrl", "command", "f")
+    if get_os() == "Darwin": pyautogui.hotkey("ctrl", "command", "f")
     else:               pyautogui.press("f11")
 
 def minimize_window():
-    if _OS == "Darwin": pyautogui.hotkey("command", "m")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "m")
     else:               pyautogui.hotkey("win", "down")
 
 def maximize_window():
-    if _OS == "Darwin":
+    if get_os() == "Darwin":
         subprocess.run(["osascript", "-e",
             'tell application "System Events" to keystroke "f" '
             'using {control down, command down}'],
             capture_output=True)
-    elif _OS == "Windows":
+    elif get_os() == "Windows":
         pyautogui.hotkey("win", "up")
     else:
         try:
@@ -204,9 +194,9 @@ def maximize_window():
             pyautogui.hotkey("super", "up")
 
 def snap_left():
-    if _OS == "Windows":
+    if get_os() == "Windows":
         pyautogui.hotkey("win", "left")
-    elif _OS == "Darwin":
+    elif get_os() == "Darwin":
         # macOS has no built-in snap; try Rectangle app shortcut if installed
         try:
             subprocess.run(["open", "-a", "Rectangle"], capture_output=True, timeout=1)
@@ -221,9 +211,9 @@ def snap_left():
             pass
 
 def snap_right():
-    if _OS == "Windows":
+    if get_os() == "Windows":
         pyautogui.hotkey("win", "right")
-    elif _OS == "Darwin":
+    elif get_os() == "Darwin":
         try:
             subprocess.run(["open", "-a", "Rectangle"], capture_output=True, timeout=1)
         except Exception:
@@ -237,18 +227,18 @@ def snap_right():
             pass
 
 def switch_window():
-    if _OS == "Darwin": pyautogui.hotkey("command", "tab")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "tab")
     else:               pyautogui.hotkey("alt", "tab")
 
 def show_desktop():
-    if _OS == "Darwin":   pyautogui.hotkey("fn", "f11")
-    elif _OS == "Windows": pyautogui.hotkey("win", "d")
+    if get_os() == "Darwin":   pyautogui.hotkey("fn", "f11")
+    elif get_os() == "Windows": pyautogui.hotkey("win", "d")
     else:                  pyautogui.hotkey("super", "d")
 
 def open_task_manager():
-    if _OS == "Windows":
+    if get_os() == "Windows":
         pyautogui.hotkey("ctrl", "shift", "esc")
-    elif _OS == "Darwin":
+    elif get_os() == "Darwin":
         subprocess.Popen(["open", "-a", "Activity Monitor"])
     else:
         for cmd in [["gnome-system-monitor"], ["xfce4-taskmanager"], ["htop"]]:
@@ -258,53 +248,53 @@ def open_task_manager():
 
 
 def focus_search():
-    if _OS == "Darwin": pyautogui.hotkey("command", "l")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "l")
     else:               pyautogui.hotkey("ctrl", "l")
 
 def pause_video():      pyautogui.press("space")
 
 def refresh_page():
-    if _OS == "Darwin": pyautogui.hotkey("command", "r")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "r")
     else:               pyautogui.press("f5")
 
 def close_tab():
-    if _OS == "Darwin": pyautogui.hotkey("command", "w")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "w")
     else:               pyautogui.hotkey("ctrl", "w")
 
 def new_tab():
-    if _OS == "Darwin": pyautogui.hotkey("command", "t")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "t")
     else:               pyautogui.hotkey("ctrl", "t")
 
 def next_tab():
-    if _OS == "Darwin": pyautogui.hotkey("command", "shift", "bracketright")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "shift", "bracketright")
     else:               pyautogui.hotkey("ctrl", "tab")
 
 def prev_tab():
-    if _OS == "Darwin": pyautogui.hotkey("command", "shift", "bracketleft")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "shift", "bracketleft")
     else:               pyautogui.hotkey("ctrl", "shift", "tab")
 
 def go_back():
-    if _OS == "Darwin": pyautogui.hotkey("command", "left")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "left")
     else:               pyautogui.hotkey("alt", "left")
 
 def go_forward():
-    if _OS == "Darwin": pyautogui.hotkey("command", "right")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "right")
     else:               pyautogui.hotkey("alt", "right")
 
 def zoom_in():
-    if _OS == "Darwin": pyautogui.hotkey("command", "equal")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "equal")
     else:               pyautogui.hotkey("ctrl", "equal")
 
 def zoom_out():
-    if _OS == "Darwin": pyautogui.hotkey("command", "minus")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "minus")
     else:               pyautogui.hotkey("ctrl", "minus")
 
 def zoom_reset():
-    if _OS == "Darwin": pyautogui.hotkey("command", "0")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "0")
     else:               pyautogui.hotkey("ctrl", "0")
 
 def find_on_page():
-    if _OS == "Darwin": pyautogui.hotkey("command", "f")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "f")
     else:               pyautogui.hotkey("ctrl", "f")
 
 def reload_page_n(n: int):
@@ -317,11 +307,11 @@ def scroll_up(amount: int = 500):    pyautogui.scroll(amount)
 def scroll_down(amount: int = 500):  pyautogui.scroll(-amount)
 
 def scroll_top():
-    if _OS == "Darwin": pyautogui.hotkey("command", "up")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "up")
     else:               pyautogui.hotkey("ctrl", "home")
 
 def scroll_bottom():
-    if _OS == "Darwin": pyautogui.hotkey("command", "down")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "down")
     else:               pyautogui.hotkey("ctrl", "end")
 
 def page_up():   pyautogui.press("pageup")
@@ -329,31 +319,31 @@ def page_down(): pyautogui.press("pagedown")
 
 
 def copy():
-    if _OS == "Darwin": pyautogui.hotkey("command", "c")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "c")
     else:               pyautogui.hotkey("ctrl", "c")
 
 def paste():
-    if _OS == "Darwin": pyautogui.hotkey("command", "v")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "v")
     else:               pyautogui.hotkey("ctrl", "v")
 
 def cut():
-    if _OS == "Darwin": pyautogui.hotkey("command", "x")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "x")
     else:               pyautogui.hotkey("ctrl", "x")
 
 def undo():
-    if _OS == "Darwin": pyautogui.hotkey("command", "z")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "z")
     else:               pyautogui.hotkey("ctrl", "z")
 
 def redo():
-    if _OS == "Darwin": pyautogui.hotkey("command", "shift", "z")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "shift", "z")
     else:               pyautogui.hotkey("ctrl", "y")
 
 def select_all():
-    if _OS == "Darwin": pyautogui.hotkey("command", "a")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "a")
     else:               pyautogui.hotkey("ctrl", "a")
 
 def save_file():
-    if _OS == "Darwin": pyautogui.hotkey("command", "s")
+    if get_os() == "Darwin": pyautogui.hotkey("command", "s")
     else:               pyautogui.hotkey("ctrl", "s")
 
 def press_enter():   pyautogui.press("enter")
@@ -374,9 +364,9 @@ def type_text(text: str, press_enter_after: bool = False):
         pyautogui.press("enter")
 
 def take_screenshot():
-    if _OS == "Windows":
+    if get_os() == "Windows":
         pyautogui.hotkey("win", "shift", "s")
-    elif _OS == "Darwin":
+    elif get_os() == "Darwin":
         pyautogui.hotkey("command", "shift", "3")
     else:
         for cmd in [["scrot"], ["gnome-screenshot"], ["import", "-window", "root", "screenshot.png"]]:
@@ -386,9 +376,9 @@ def take_screenshot():
         pyautogui.hotkey("ctrl", "print_screen")
 
 def lock_screen():
-    if _OS == "Windows":
+    if get_os() == "Windows":
         pyautogui.hotkey("win", "l")
-    elif _OS == "Darwin":
+    elif get_os() == "Darwin":
         subprocess.run(["pmset", "displaysleepnow"], capture_output=True)
     else:
         for cmd in [
@@ -401,9 +391,9 @@ def lock_screen():
                 return
 
 def open_system_settings():
-    if _OS == "Windows":
+    if get_os() == "Windows":
         pyautogui.hotkey("win", "i")
-    elif _OS == "Darwin":
+    elif get_os() == "Darwin":
         subprocess.Popen(["open", "-a", "System Preferences"])
     else:
         for cmd in [["gnome-control-center"], ["xfce4-settings-manager"], ["kcmshell5"]]:
@@ -412,9 +402,9 @@ def open_system_settings():
                 return
 
 def open_file_explorer():
-    if _OS == "Windows":
+    if get_os() == "Windows":
         pyautogui.hotkey("win", "e")
-    elif _OS == "Darwin":
+    elif get_os() == "Darwin":
         subprocess.Popen(["open", str(Path.home())])
     else:
         for cmd in [["nautilus"], ["thunar"], ["dolphin"], ["nemo"]]:
@@ -424,28 +414,28 @@ def open_file_explorer():
         subprocess.Popen(["xdg-open", str(Path.home())])
 
 def sleep_display():
-    if _OS == "Windows":
+    if get_os() == "Windows":
         try:
             import ctypes
             ctypes.windll.user32.SendMessageW(0xFFFF, 0x0112, 0xF170, 2)
         except Exception as e:
             print(f"[Settings] sleep_display failed: {e}")
-    elif _OS == "Darwin":
+    elif get_os() == "Darwin":
         subprocess.run(["pmset", "displaysleepnow"], capture_output=True)
     else:
         subprocess.run(["xset", "dpms", "force", "off"], capture_output=True)
 
 def open_run():
-    if _OS == "Windows":
+    if get_os() == "Windows":
         pyautogui.hotkey("win", "r")
 
 def dark_mode():
-    if _OS == "Darwin":
+    if get_os() == "Darwin":
         subprocess.run(["osascript", "-e",
             'tell app "System Events" to tell appearance preferences '
             'to set dark mode to not dark mode'],
             capture_output=True)
-    elif _OS == "Windows":
+    elif get_os() == "Windows":
         try:
             import winreg
             key_path = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize"
@@ -472,7 +462,7 @@ def dark_mode():
             print(f"[Settings] dark_mode Linux failed: {e}")
 
 def toggle_wifi():
-    if _OS == "Darwin":
+    if get_os() == "Darwin":
         iface = _get_macos_wifi_interface()
         result = subprocess.run(
             ["networksetup", "-getairportpower", iface],
@@ -481,7 +471,7 @@ def toggle_wifi():
         state = "off" if "On" in result.stdout else "on"
         subprocess.run(["networksetup", "-setairportpower", iface, state],
             capture_output=True)
-    elif _OS == "Windows":
+    elif get_os() == "Windows":
         try:
             subprocess.run(
                 ["powershell", "-Command",
@@ -501,9 +491,9 @@ def toggle_wifi():
             print(f"[Settings] toggle_wifi Linux failed: {e}")
 
 def restart_computer():
-    if _OS == "Windows":
+    if get_os() == "Windows":
         subprocess.run(["shutdown", "/r", "/t", "10"], capture_output=True, **_WIN_HIDE)
-    elif _OS == "Darwin":
+    elif get_os() == "Darwin":
         subprocess.run(["osascript", "-e",
             'tell application "System Events" to restart'],
             capture_output=True)
@@ -511,9 +501,9 @@ def restart_computer():
         subprocess.run(["systemctl", "reboot"], capture_output=True)
 
 def shutdown_computer():
-    if _OS == "Windows":
+    if get_os() == "Windows":
         subprocess.run(["shutdown", "/s", "/t", "10"], capture_output=True)
-    elif _OS == "Darwin":
+    elif get_os() == "Darwin":
         subprocess.run(["osascript", "-e",
             'tell application "System Events" to shut down'],
             capture_output=True)
@@ -589,7 +579,7 @@ _DANGEROUS_ACTIONS = {"restart", "shutdown"}
 def _detect_action(description: str) -> dict:
 
     from google import genai as _genai
-    _client = _genai.Client(api_key=_get_api_key())
+    _client = _genai.Client(api_key=get_api_key('gemini_api_key'))
 
     available = ", ".join(sorted(ACTION_MAP.keys())) + \
                 ", volume_set, type_text, press_key, reload_n"
@@ -645,7 +635,7 @@ def computer_settings(
     if not action:
         return "No action could be determined."
 
-    print(f"[Settings] Action: {action}  Value: {value}  OS: {_OS}")
+    print(f"[Settings] Action: {action}  Value: {value}  OS: {get_os()}")
     if player:
         player.write_log(f"[Settings] {action}")
 

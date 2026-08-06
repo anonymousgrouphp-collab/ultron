@@ -1,3 +1,4 @@
+from utils.env import get_os, get_base_dir
 import json
 import os
 import platform
@@ -11,21 +12,6 @@ _CNW: dict = (
     {"creationflags": subprocess.CREATE_NO_WINDOW}
     if platform.system() == "Windows" else {}
 )
-
-def _base_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).resolve().parent.parent
-
-
-def _get_os() -> str:
-    _sys = platform.system()
-    if _sys == "Darwin":
-        return "mac"
-    if _sys == "Linux":
-        return "linux"
-    return "windows"
-
 
 def _scripts_dir() -> Path:
     d = Path.home() / ".ultron" / "reminders"
@@ -306,7 +292,7 @@ def reminder(
     if target_dt <= datetime.now():
         return "That time has already passed — I can't set a reminder in the past."
 
-    os_name    = _get_os()
+    os_name    = get_os()
     safe_msg   = _sanitise(message)
     task_name  = f"ULTRONReminder_{target_dt.strftime('%Y%m%d_%H%M%S')}"
 
