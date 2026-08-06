@@ -1,4 +1,5 @@
 #computer_control.py
+from utils.env import get_api_key, get_os, load_config, get_base_dir
 import io
 import json
 import platform
@@ -29,33 +30,14 @@ try:
 except ImportError:
     _PYPERCLIP = False
 
-def _base_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).resolve().parent.parent
-
-
-_BASE         = _base_dir()
+_BASE         = get_base_dir()
 _CONFIG_PATH  = _BASE / "config" / "api_keys.json"
 _MEMORY_PATH  = _BASE / "memory" / "long_term.json"
-
-def _load_config() -> dict:
-    try:
-        return json.loads(_CONFIG_PATH.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
 
 def _platform_os() -> str:
     return {"Windows": "windows", "Darwin": "mac", "Linux": "linux"}.get(
         platform.system(), "linux"
     )
-
-def _get_os() -> str:
-    return _load_config().get("os_system", _platform_os()).lower()
-
-
-def _get_api_key() -> str:
-    return _load_config().get("gemini_api_key", "")
 
 _SAFE_SCREENSHOT_ROOTS = (
     Path.home(),
@@ -170,7 +152,7 @@ def _smart_type(text: str, clear_first: bool = True) -> str:
     if len(text) > 20 and _PYPERCLIP:
         pyperclip.copy(text)
         time.sleep(0.1)
-        paste_key = "command" if _get_os() == "mac" else "ctrl"
+        paste_key = "command" if get_os() == "mac" else "ctrl"
         pyautogui.hotkey(paste_key, "v")
         return f"Smart-typed (clipboard): {text[:60]}{'…' if len(text) > 60 else ''}"
 
@@ -233,7 +215,7 @@ def _clipboard_paste(text: str) -> str:
         pyperclip.copy(text)
         time.sleep(0.1)
         _require_pyautogui()
-        paste_key = "command" if _get_os() == "mac" else "ctrl"
+        paste_key = "command" if get_os() == "mac" else "ctrl"
         pyautogui.hotkey(paste_key, "v")
         return f"Pasted: {text[:60]}{'…' if len(text) > 60 else ''}"
     return "pyperclip not available"
@@ -249,14 +231,14 @@ def _screenshot(save_path: str | None = None) -> str:
 
 def _clear_field() -> str:
     _require_pyautogui()
-    select_key = "command" if _get_os() == "mac" else "ctrl"
+    select_key = "command" if get_os() == "mac" else "ctrl"
     pyautogui.hotkey(select_key, "a")
     time.sleep(0.1)
     pyautogui.press("delete")
     return "Field cleared"
 
 def _focus_window(title: str) -> str:
-    os_name = _get_os()
+    os_name = get_os()
 
     if os_name == "windows":
         try:
@@ -311,7 +293,7 @@ def _focus_window(title: str) -> str:
     return f"focus_window: unknown OS '{os_name}'"
 
 def _screen_find(description: str) -> tuple[int, int] | None:
-    api_key = _get_api_key()
+    api_key = get_api_key('gemini_api_key')
     if not api_key:
         print("[ComputerControl] ⚠️ No API key for screen_find")
         return None

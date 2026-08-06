@@ -19,7 +19,8 @@ from playwright.async_api import (
     Playwright,
     TimeoutError as PlaywrightTimeout,
 )
-_OS = platform.system()   # "Windows" | "Darwin" | "Linux"
+from utils.env import get_os
+_OS = get_os()   # "Windows" | "Darwin" | "Linux"
 
 def _normalize_url(url: str) -> str:
     """

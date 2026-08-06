@@ -1,3 +1,4 @@
+from utils.env import get_os
 import os
 import shutil
 import platform
@@ -10,7 +11,6 @@ try:
 except ImportError:
     _SEND2TRASH = False
 
-_OS = platform.system()  # "Windows" | "Darwin" | "Linux"
 
 _SAFE_ROOTS: list[Path] = [
     Path.home(),
@@ -28,42 +28,42 @@ def _is_safe_path(target: Path) -> bool:
         return False
 
 def _get_desktop() -> Path:
-    if _OS == "Linux":
+    if get_os() == "Linux":
         xdg = os.environ.get("XDG_DESKTOP_DIR", "")
         if xdg and Path(xdg).exists():
             return Path(xdg)
     return Path.home() / "Desktop"
 
 def _get_downloads() -> Path:
-    if _OS == "Linux":
+    if get_os() == "Linux":
         xdg = os.environ.get("XDG_DOWNLOAD_DIR", "")
         if xdg and Path(xdg).exists():
             return Path(xdg)
     return Path.home() / "Downloads"
 
 def _get_documents() -> Path:
-    if _OS == "Linux":
+    if get_os() == "Linux":
         xdg = os.environ.get("XDG_DOCUMENTS_DIR", "")
         if xdg and Path(xdg).exists():
             return Path(xdg)
     return Path.home() / "Documents"
 
 def _get_pictures() -> Path:
-    if _OS == "Linux":
+    if get_os() == "Linux":
         xdg = os.environ.get("XDG_PICTURES_DIR", "")
         if xdg and Path(xdg).exists():
             return Path(xdg)
     return Path.home() / "Pictures"
 
 def _get_music() -> Path:
-    if _OS == "Linux":
+    if get_os() == "Linux":
         xdg = os.environ.get("XDG_MUSIC_DIR", "")
         if xdg and Path(xdg).exists():
             return Path(xdg)
     return Path.home() / "Music"
 
 def _get_videos() -> Path:
-    if _OS == "Linux":
+    if get_os() == "Linux":
         xdg = os.environ.get("XDG_VIDEOS_DIR", "")
         if xdg and Path(xdg).exists():
             return Path(xdg)

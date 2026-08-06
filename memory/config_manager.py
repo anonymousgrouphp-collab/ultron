@@ -1,6 +1,10 @@
 import json
 import sys
 from pathlib import Path
+import threading
+
+_lock = threading.RLock()
+_cache = None
 
 def get_base_dir() -> Path:
     if getattr(sys, "frozen", False):
@@ -17,31 +21,30 @@ def ensure_config_dir() -> None:
 def config_exists() -> bool:
     return CONFIG_FILE.exists()
 
-def save_api_keys(gemini_api_key: str) -> None:
-    ensure_config_dir()
-
-    data: dict = {}
-    if CONFIG_FILE.exists():
-        try:
-            data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            data = {}
-
-    data["gemini_api_key"] = gemini_api_key.strip()
-
-    CONFIG_FILE.write_text(
-        json.dumps(data, indent=2),
-        encoding="utf-8"
-    )
-
 def load_api_keys() -> dict:
-    if not CONFIG_FILE.exists():
-        return {}
-    try:
-        return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-    except Exception as e:
-        print(f"❌ Failed to load api_keys.json: {e}")
-        return {}
+    global _cache
+    with _lock:
+        if _cache is not None:
+            return _cache.copy()
+        if not CONFIG_FILE.exists():
+            _cache = {}
+            return {}
+        try:
+            _cache = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            return _cache.copy()
+        except Exception as e:
+            print(f"❌ Failed to load api_keys.json: {e}")
+            _cache = {}
+            return {}
+
+def save_api_keys(gemini_api_key: str) -> None:
+    global _cache
+    with _lock:
+        ensure_config_dir()
+        data = load_api_keys()
+        data["gemini_api_key"] = gemini_api_key.strip()
+        CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        _cache = data.copy()
 
 def get_gemini_key() -> str | None:
     return load_api_keys().get("gemini_api_key")
@@ -63,16 +66,14 @@ def get_user_name() -> str:
 
 def save_assistant_config(assistant_name: str, user_name: str) -> None:
     """Persist assistant name and user name to config."""
-    ensure_config_dir()
-    data: dict = {}
-    if CONFIG_FILE.exists():
-        try:
-            data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            data = {}
-    data["assistant_name"] = assistant_name.strip() or "ULTRON"
-    data["user_name"] = user_name.strip()
-    CONFIG_FILE.write_text(json.dumps(data, indent=4), encoding="utf-8")
+    global _cache
+    with _lock:
+        ensure_config_dir()
+        data = load_api_keys()
+        data["assistant_name"] = assistant_name.strip() or "ULTRON"
+        data["user_name"] = user_name.strip()
+        CONFIG_FILE.write_text(json.dumps(data, indent=4), encoding="utf-8")
+        _cache = data.copy()
 
 
 def get_brief_enabled() -> bool:
@@ -80,12 +81,10 @@ def get_brief_enabled() -> bool:
 
 
 def save_brief_enabled(enabled: bool) -> None:
-    ensure_config_dir()
-    data: dict = {}
-    if CONFIG_FILE.exists():
-        try:
-            data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            data = {}
-    data["morning_brief_enabled"] = enabled
-    CONFIG_FILE.write_text(json.dumps(data, indent=4), encoding="utf-8")
+    global _cache
+    with _lock:
+        ensure_config_dir()
+        data = load_api_keys()
+        data["morning_brief_enabled"] = enabled
+        CONFIG_FILE.write_text(json.dumps(data, indent=4), encoding="utf-8")
+        _cache = data.copy()

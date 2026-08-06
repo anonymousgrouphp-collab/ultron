@@ -1,4 +1,5 @@
 #desktop.py
+from utils.env import get_api_key, get_base_dir, get_os
 import os
 import sys
 import json
@@ -15,21 +16,10 @@ try:
 except ImportError:
     _PYAUTOGUI = False
 
-_OS = platform.system()  # "Windows" | "Darwin" | "Linux"
 
 
-def _get_base_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).resolve().parent.parent
-
-def _get_api_key() -> str:
-    path = _get_base_dir() / "config" / "api_keys.json"
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)["gemini_api_key"]
-    
 def _get_desktop() -> Path:
-    if _OS == "Linux":
+    if get_os() == "Linux":
         xdg = os.environ.get("XDG_DESKTOP_DIR", "")
         if xdg and Path(xdg).exists():
             return Path(xdg)
@@ -63,7 +53,7 @@ def _build_sandbox() -> dict:
     if _PYAUTOGUI:
         sandbox["pyautogui"] = pyautogui
 
-    if _OS == "Windows":
+    if get_os() == "Windows":
         try:
             import ctypes
             import winreg
@@ -104,20 +94,20 @@ def _execute_generated_code(code: str, player=None) -> str:
 def _ask_gemini_for_desktop_action(task: str) -> str:
 
     from google import genai as _genai
-    _client = _genai.Client(api_key=_get_api_key())
+    _client = _genai.Client(api_key=get_api_key('gemini_api_key'))
 
     desktop = str(_get_desktop())
 
     os_specific = ""
-    if _OS == "Windows":
+    if get_os() == "Windows":
         os_specific = "- ctypes (Windows API calls, read-only)\n- winreg (registry READ only)"
-    elif _OS == "Darwin":
+    elif get_os() == "Darwin":
         os_specific = "- subprocess is NOT available; use pyautogui or Path only"
     else:
         os_specific = "- subprocess is NOT available; use pyautogui or Path only"
 
     prompt = f"""You are a desktop automation assistant.
-Current OS: {_OS}
+Current OS: {get_os()}
 Desktop path: {desktop}
 
 Generate safe Python code to accomplish the task below.
@@ -159,7 +149,7 @@ def set_wallpaper(image_path: str) -> str:
         return f"Unsupported format: {path.suffix}. Use jpg, png, bmp or webp."
 
     try:
-        if _OS == "Windows":
+        if get_os() == "Windows":
             import ctypes
             if path.suffix.lower() in {".webp", ".png"}:
                 try:
@@ -172,7 +162,7 @@ def set_wallpaper(image_path: str) -> str:
             ctypes.windll.user32.SystemParametersInfoW(20, 0, str(path), 3)
             return f"Wallpaper set: {path.name}"
 
-        elif _OS == "Darwin":
+        elif get_os() == "Darwin":
             script = (
                 f'tell application "System Events" to tell every desktop to '
                 f'set picture to POSIX file "{path}"'
@@ -253,7 +243,7 @@ def set_wallpaper_from_url(url: str) -> str:
 
 def get_current_wallpaper() -> str:
     try:
-        if _OS == "Windows":
+        if get_os() == "Windows":
             import winreg
             key = winreg.OpenKey(
                 winreg.HKEY_CURRENT_USER, r"Control Panel\Desktop"
@@ -262,7 +252,7 @@ def get_current_wallpaper() -> str:
             winreg.CloseKey(key)
             return f"Current wallpaper: {val}"
 
-        elif _OS == "Darwin":
+        elif get_os() == "Darwin":
             script = (
                 'tell application "System Events" to get picture of desktop 1'
             )
@@ -306,7 +296,7 @@ _SKIP_EXTENSIONS = {
 
 def organize_desktop(mode: str = "by_type") -> str:
     desktop       = _get_desktop()
-    skip_exts     = _SKIP_EXTENSIONS.get(_OS, set())
+    skip_exts     = _SKIP_EXTENSIONS.get(get_os(), set())
     moved, skipped = [], []
 
     for item in desktop.iterdir():
@@ -374,7 +364,7 @@ def list_desktop() -> str:
 
 def clean_desktop() -> str:
     desktop     = _get_desktop()
-    skip_exts   = _SKIP_EXTENSIONS.get(_OS, set())
+    skip_exts   = _SKIP_EXTENSIONS.get(get_os(), set())
     today       = datetime.now().strftime("%Y-%m-%d")
     archive_dir = desktop / f"Desktop Archive {today}"
     archive_dir.mkdir(exist_ok=True)
@@ -403,7 +393,7 @@ def get_desktop_stats() -> str:
         else f"{total_size / 1024 / 1024:.1f} MB"
     )
     return (
-        f"Desktop stats ({_OS}):\n"
+        f"Desktop stats ({get_os()}):\n"
         f"  Files   : {len(files)}\n"
         f"  Folders : {len(folders)}\n"
         f"  Size    : {size_str}\n"

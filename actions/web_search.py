@@ -1,27 +1,17 @@
 #web_search.py
+from utils.env import get_api_key, get_base_dir
 import json
 import sys
 from pathlib import Path
 
-def _get_base_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).resolve().parent.parent
-
-
-BASE_DIR        = _get_base_dir()
+BASE_DIR        = get_base_dir()
 API_CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
-
-
-def _get_api_key() -> str:
-    with open(API_CONFIG_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)["gemini_api_key"]
 
 
 def _gemini_search(query: str) -> str:
     from google import genai
 
-    client   = genai.Client(api_key=_get_api_key())
+    client   = genai.Client(api_key=get_api_key('gemini_api_key'))
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=query,
@@ -122,7 +112,7 @@ def _gemini_headlines(n: int = 5) -> tuple[list[str], str]:
     import re
     from google import genai
 
-    client = genai.Client(api_key=_get_api_key())
+    client = genai.Client(api_key=get_api_key('gemini_api_key'))
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=f"Current world news: {n} headlines. Numbered list, titles only.",

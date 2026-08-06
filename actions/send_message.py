@@ -1,3 +1,4 @@
+from utils.env import get_os, get_base_dir
 import json
 import subprocess
 import sys
@@ -18,21 +19,6 @@ try:
 except ImportError:
     _PYPERCLIP = False
 
-def _base_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).resolve().parent.parent
-
-def _get_os() -> str:
-    try:
-        cfg = json.loads(
-            (_base_dir() / "config" / "api_keys.json").read_text(encoding="utf-8")
-        )
-        return cfg.get("os_system", "windows").lower()
-    except Exception:
-        return "windows"
-
-
 def _require_pyautogui():
     if not _PYAUTOGUI:
         raise RuntimeError("PyAutoGUI not installed. Run: pip install pyautogui")
@@ -41,7 +27,7 @@ def _require_pyautogui():
 def _paste_text(text: str) -> None:
     _require_pyautogui()
 
-    os_name = _get_os()
+    os_name = get_os()
     paste_hotkey = ("command", "v") if os_name == "mac" else ("ctrl", "v")
 
     if _PYPERCLIP:
@@ -55,7 +41,7 @@ def _paste_text(text: str) -> None:
 
 def _clear_and_paste(text: str) -> None:
     _require_pyautogui()
-    os_name = _get_os()
+    os_name = get_os()
     select_all = ("command", "a") if os_name == "mac" else ("ctrl", "a")
     pyautogui.hotkey(*select_all)
     time.sleep(0.1)
@@ -65,7 +51,7 @@ def _clear_and_paste(text: str) -> None:
 
 def _open_app(app_name: str) -> bool:
     _require_pyautogui()
-    os_name = _get_os()
+    os_name = get_os()
 
     try:
         if os_name == "windows":
@@ -126,7 +112,7 @@ def _open_browser_url(url: str) -> bool:
 
 def _search_in_app(query: str) -> None:
     _require_pyautogui()
-    os_name = _get_os()
+    os_name = get_os()
     search_hotkey = ("command", "f") if os_name == "mac" else ("ctrl", "f")
 
     pyautogui.hotkey(*search_hotkey)

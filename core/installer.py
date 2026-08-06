@@ -65,12 +65,15 @@ def _available(module: str) -> bool:
     return importlib.util.find_spec(module) is not None
 
 
-def _pip(package: str, log: Callable | None = None) -> bool:
+def _pip(packages: list[str], log: Callable | None = None) -> bool:
+    if not packages:
+        return True
+    pkg_names = " ".join(packages)
     if log:
-        log(f"SYS: pip install {package} …")
+        log(f"SYS: pip install {pkg_names} …")
     result = subprocess.run(
         [
-            sys.executable, "-m", "pip", "install", package,
+            sys.executable, "-m", "pip", "install", *packages,
             "--quiet", "--disable-pip-version-check",
         ],
         capture_output=True,
@@ -78,7 +81,7 @@ def _pip(package: str, log: Callable | None = None) -> bool:
     ok = result.returncode == 0
     if not ok and log:
         stderr = result.stderr.decode(errors="replace").strip()
-        log(f"ERR: {package} install failed — {stderr[:140]}")
+        log(f"ERR: batch install failed — {stderr[:140]}")
     return ok
 
 
@@ -119,12 +122,12 @@ def install_for_config(config: dict, log: Callable | None = None) -> None:
     if log:
         log(f"SYS: Installing {len(missing)} package(s): {pkg_names}")
 
-    for _mod, pkg in missing:
-        _pip(pkg, log)
+    missing_pkgs = [pkg for _mod, pkg in missing]
+    _pip(missing_pkgs, log)
 
     # Playwright: install the package + download Chromium browser
     if not _available("playwright"):
-        _pip("playwright", log)
+        _pip(["playwright"], log)
         if log:
             log("SYS: Downloading Playwright browser (Chromium, ~150 MB — one-time)…")
         subprocess.run(

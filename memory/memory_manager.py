@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from threading import Lock
+from threading import RLock
 from pathlib import Path
 import sys
 
@@ -13,7 +13,7 @@ def get_base_dir() -> Path:
 
 BASE_DIR         = get_base_dir()
 MEMORY_PATH      = BASE_DIR / "memory" / "long_term.json"
-_lock            = Lock()
+_lock            = RLock()
 MAX_VALUE_LENGTH = 380
 MEMORY_MAX_CHARS = 2200
 
@@ -56,15 +56,17 @@ def _all_entries(memory: dict) -> list[tuple]:
 
 
 def _trim_to_limit(memory: dict) -> dict:
-    if len(json.dumps(memory, ensure_ascii=False)) <= MEMORY_MAX_CHARS:
+    current_len = len(json.dumps(memory, ensure_ascii=False))
+    if current_len <= MEMORY_MAX_CHARS:
         return memory
     entries = _all_entries(memory)
     entries.sort(key=lambda t: t[2].get("updated", "0000-00-00"))
-    for cat, key, _ in entries:
-        if len(json.dumps(memory, ensure_ascii=False)) <= MEMORY_MAX_CHARS:
+    for cat, key, entry in entries:
+        if current_len <= MEMORY_MAX_CHARS:
             break
         del memory[cat][key]
         print(f"[Memory] 🗑️  Trimmed {cat}/{key}")
+        current_len -= len(json.dumps(key, ensure_ascii=False)) + len(json.dumps(entry, ensure_ascii=False)) + 4
     return memory
 
 def save_memory(memory: dict) -> None:
@@ -111,11 +113,12 @@ def _recursive_update(target: dict, updates: dict) -> bool:
 def update_memory(memory_update: dict) -> dict:
     if not isinstance(memory_update, dict) or not memory_update:
         return load_memory()
-    memory = load_memory()
-    if _recursive_update(memory, memory_update):
-        save_memory(memory)
-        print(f"[Memory] 💾 Saved: {list(memory_update.keys())}")
-    return memory
+    with _lock:
+        memory = load_memory()
+        if _recursive_update(memory, memory_update):
+            save_memory(memory)
+            print(f"[Memory] 💾 Saved: {list(memory_update.keys())}")
+        return memory
 
 def format_memory_for_prompt(memory: dict | None) -> str:
     if not memory:

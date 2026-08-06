@@ -1,3 +1,4 @@
+from utils.env import get_api_key, get_base_dir
 import subprocess
 import sys
 import json
@@ -6,11 +7,6 @@ import time
 from pathlib import Path
 
 
-def get_base_dir():
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).resolve().parent.parent
-
 BASE_DIR           = get_base_dir()
 API_CONFIG_PATH    = BASE_DIR / "config" / "api_keys.json"
 DESKTOP            = Path.home() / "Desktop"
@@ -18,14 +14,9 @@ MAX_BUILD_ATTEMPTS = 3
 GEMINI_MODEL       = "gemini-2.5-flash"
 
 
-def _get_api_key() -> str:
-    with open(API_CONFIG_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)["gemini_api_key"]
-
-
 def _get_gemini(model: str = GEMINI_MODEL):
     from google import genai
-    _c = genai.Client(api_key=_get_api_key())
+    _c = genai.Client(api_key=get_api_key('gemini_api_key'))
 
     class _W:
         def generate_content(self, contents):
@@ -459,7 +450,7 @@ def _screen_debug_action(description, file_path, player, speak=None) -> str:
         from google import genai
         from google.genai import types
 
-        client = genai.Client(api_key=_get_api_key())
+        client = genai.Client(api_key=get_api_key('gemini_api_key'))
 
         image_bytes  = screenshot_path.read_bytes()
         image_base64 = _image_to_base64(screenshot_path)

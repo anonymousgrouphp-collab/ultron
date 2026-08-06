@@ -3,6 +3,10 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
+import threading
+
+_lock = threading.Lock()
+_cache = None
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CMR_FILE = BASE_DIR / "memory" / "cmr_records.json"
@@ -35,16 +39,25 @@ def _ensure_file():
         CMR_FILE.write_text(json.dumps(initial_data, indent=2), encoding="utf-8")
 
 def load_cmr_records() -> list[dict]:
-    _ensure_file()
-    try:
-        data = json.loads(CMR_FILE.read_text(encoding="utf-8"))
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
+    global _cache
+    with _lock:
+        if _cache is not None:
+            return _cache.copy()
+        _ensure_file()
+        try:
+            data = json.loads(CMR_FILE.read_text(encoding="utf-8"))
+            _cache = data if isinstance(data, list) else []
+            return _cache.copy()
+        except Exception:
+            _cache = []
+            return []
 
 def save_cmr_records(records: list[dict]) -> None:
-    _ensure_file()
-    CMR_FILE.write_text(json.dumps(records, indent=2), encoding="utf-8")
+    global _cache
+    with _lock:
+        _ensure_file()
+        CMR_FILE.write_text(json.dumps(records, indent=2), encoding="utf-8")
+        _cache = records.copy()
 
 def add_cmr_record(name: str, company: str, email: str, phone: str, status: str, notes: str) -> dict:
     records = load_cmr_records()

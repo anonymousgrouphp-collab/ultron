@@ -1,4 +1,5 @@
 from __future__ import annotations
+from utils.env import get_api_key, get_os, load_config, save_config_key, get_base_dir
 
 import asyncio
 import base64
@@ -36,41 +37,9 @@ except ImportError:
 from google import genai
 from google.genai import types as gtypes
 
-def _base_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).resolve().parent.parent
-
-
-_BASE        = _base_dir()
+_BASE        = get_base_dir()
 _CONFIG_PATH = _BASE / "config" / "api_keys.json"
 
-
-def _load_config() -> dict:
-    try:
-        return json.loads(_CONFIG_PATH.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-
-
-def _save_config_key(key: str, value) -> None:
-    try:
-        cfg = _load_config()
-        cfg[key] = value
-        _CONFIG_PATH.write_text(json.dumps(cfg, indent=4), encoding="utf-8")
-    except Exception as e:
-        print(f"[Vision] ⚠️  Could not save config key '{key}': {e}")
-
-
-def _get_api_key() -> str:
-    key = _load_config().get("gemini_api_key", "")
-    if not key:
-        raise RuntimeError("gemini_api_key not found in config.")
-    return key
-
-
-def _get_os() -> str:
-    return _load_config().get("os_system", "windows").lower()
 
 _LIVE_MODEL         = "models/gemini-2.5-flash-native-audio-preview-12-2025"
 _CHANNELS           = 1
@@ -125,7 +94,7 @@ def _cv2_backend() -> int:
     """Return the best OpenCV camera backend for the current OS."""
     if not _CV2:
         return 0
-    os_name = _get_os()
+    os_name = get_os()
     if os_name == "windows":
         return cv2.CAP_DSHOW    
     if os_name == "mac":
@@ -157,17 +126,17 @@ def _detect_camera_index() -> int:
     for idx in range(6):
         if _probe_camera(idx, backend):
             print(f"[Vision] ✅ Camera found at index {idx}")
-            _save_config_key("camera_index", idx)
+            save_config_key("camera_index", idx)
             return idx
         print(f"[Vision] ⚠️  Camera index {idx}: no usable frame")
 
     print("[Vision] ⚠️  No camera found — defaulting to index 0")
-    _save_config_key("camera_index", 0)
+    save_config_key("camera_index", 0)
     return 0
 
 
 def _get_camera_index() -> int:
-    cfg = _load_config()
+    cfg = load_config()
     if "camera_index" in cfg:
         return int(cfg["camera_index"])
     return _detect_camera_index()
@@ -255,7 +224,7 @@ class _VisionSession:
         self._audio_in  = asyncio.Queue()
 
         client = genai.Client(
-            api_key=_get_api_key(),
+            api_key=get_api_key('gemini_api_key'),
             http_options={"api_version": "v1beta"},
         )
         config = gtypes.LiveConnectConfig(

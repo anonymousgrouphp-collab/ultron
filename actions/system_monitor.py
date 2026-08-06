@@ -8,7 +8,9 @@ import time
 
 import psutil
 
-_OS = platform.system()  # "Windows" | "Darwin" | "Linux"
+from utils.env import get_os
+
+_OS = get_os()  # "Windows" | "Darwin" | "Linux"
 
 DEFAULT_THRESHOLDS = {
     "cpu":  90.0,
@@ -134,19 +136,7 @@ def get_system_status() -> dict:
     }
 
 
-class SystemMonitor:
-    """
-    Stateful monitor — cooldown state persists across session reconnections.
-    Call check() periodically; returns a [SYSTEM_ALERT] string or None.
-    """
 
-    def __init__(self, thresholds: dict | None = None):
-        self.thresholds   = {**DEFAULT_THRESHOLDS, **(thresholds or {})}
-        self._last_alert: dict[str, float] = {}
-        self._cpu_streak  = 0
-
-    def _can_alert(self, key: str) -> bool:
-        return (time.monotonic() - self._last_alert.get(key, 0)) > _COOLDOWN
 
 TARGET_HEAVY_PROCESSES = {
     "chrome.exe", "msedge.exe", "firefox.exe", "opera.exe", "brave.exe",

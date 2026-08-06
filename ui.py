@@ -290,8 +290,6 @@ class UltronWebWindow(QMainWindow):
             
             # --- Pointing to current directory app.html ---
             target_path = BASE_DIR / "dashboard" / "static" / "app.html"
-            if not target_path.exists():
-                target_path = Path(r"C:\Users\mad98\Ulron new file\ULTRON\dashboard\static\app.html")
 
             self._web.setUrl(QUrl.fromLocalFile(str(target_path)))
         else:
@@ -365,10 +363,10 @@ class UltronWebWindow(QMainWindow):
         self._eval_js("if (typeof showToast === 'function') showToast('PHONE CONNECTED', 'Remote device paired');")
 
     def start_camera_stream(self):
-        pass
+        raise NotImplementedError("Camera stream not yet implemented")
 
     def stop_camera_stream(self):
-        pass
+        raise NotImplementedError("Camera stream not yet implemented")
 
 
 class UltronUI:
@@ -440,7 +438,7 @@ class UltronUI:
         self._win._reconfig_sig.emit()
 
     def show_camera_frame(self, img_bytes: bytes):
-        pass
+        raise NotImplementedError("Camera stream not yet implemented")
 
     def start_camera_stream(self) -> None:
         self._win.start_camera_stream()
