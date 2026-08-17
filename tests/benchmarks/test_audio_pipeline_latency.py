@@ -15,3 +15,7 @@ def telemetry_check_21() -> bool:
 def telemetry_check_28() -> bool:
     """Telemetry check iteration 28."""
     return True
+
+def telemetry_check_35() -> bool:
+    """Telemetry check iteration 35."""
+    return True
