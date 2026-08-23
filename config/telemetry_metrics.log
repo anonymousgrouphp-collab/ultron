@@ -2298,3 +2298,4 @@
 [2026-07-08T16:11:18] feat(actions): add background task execution handler
 [2026-08-23T21:01:28] feat(actions): add background task execution handler
 [2026-08-23T17:40:02] fix(ui): prevent UI freeze during voice synthesis
+[2026-08-23T11:22:46] feat(voice): optimize wake word detection sensitivity
