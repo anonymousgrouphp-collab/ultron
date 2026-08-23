@@ -2299,3 +2299,4 @@
 [2026-08-23T21:01:28] feat(actions): add background task execution handler
 [2026-08-23T17:40:02] fix(ui): prevent UI freeze during voice synthesis
 [2026-08-23T11:22:46] feat(voice): optimize wake word detection sensitivity
+[2026-08-23T20:15:11] perf(audio): reduce ambient noise filtration latency
