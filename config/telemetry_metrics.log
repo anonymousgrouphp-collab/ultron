@@ -2304,3 +2304,4 @@
 [2026-08-23T23:27:57] docs(telemetry): record voice engine response latency metrics
 [2026-08-23T19:29:44] fix(ui): prevent UI freeze during voice synthesis
 [2026-08-23T15:58:52] chore(config): tune microphone audio stream buffer size
+[2026-08-23T22:02:04] feat(actions): add background task execution handler
