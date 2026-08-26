@@ -2195,3 +2195,4 @@
 [2026-08-26T22:31:11] perf(memory): optimize SQLite conversational history retrieval
 [2026-08-26T11:02:23] feat(voice): optimize wake word detection sensitivity
 [2026-08-26T12:45:47] fix(memory): patch context retention buffer lifecycle
+[2026-08-26T12:05:26] perf(audio): reduce ambient noise filtration latency
