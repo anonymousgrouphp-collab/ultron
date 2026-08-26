@@ -2193,3 +2193,4 @@
 [2026-08-26T16:40:03] fix(ui): prevent UI freeze during voice synthesis
 [2026-08-26T08:55:45] perf(memory): optimize SQLite conversational history retrieval
 [2026-08-26T22:31:11] perf(memory): optimize SQLite conversational history retrieval
+[2026-08-26T11:02:23] feat(voice): optimize wake word detection sensitivity
