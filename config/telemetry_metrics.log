@@ -1417,3 +1417,4 @@
 [2026-08-30T20:02:17] refactor(core): streamline async command dispatch pipeline
 [2026-08-30T12:27:01] fix(ui): prevent UI freeze during voice synthesis
 [2026-08-30T14:05:55] feat(voice): optimize wake word detection sensitivity
+[2026-08-30T20:26:33] docs(telemetry): record voice engine response latency metrics
