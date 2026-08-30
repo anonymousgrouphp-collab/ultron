@@ -1429,3 +1429,4 @@
 [2026-08-30T21:11:16] perf(memory): optimize SQLite conversational history retrieval
 [2026-08-30T19:21:19] perf(audio): reduce ambient noise filtration latency
 [2026-08-30T11:42:00] chore(config): tune microphone audio stream buffer size
+[2026-08-30T12:21:23] feat(actions): add background task execution handler
