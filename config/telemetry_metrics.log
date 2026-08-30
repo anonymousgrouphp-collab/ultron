@@ -1422,3 +1422,4 @@
 [2026-08-30T23:03:32] test(wake): add test suite for offline speech recognition
 [2026-08-30T09:19:07] docs(telemetry): record voice engine response latency metrics
 [2026-08-30T19:17:22] test(wake): add test suite for offline speech recognition
+[2026-08-30T15:20:57] feat(voice): optimize wake word detection sensitivity
