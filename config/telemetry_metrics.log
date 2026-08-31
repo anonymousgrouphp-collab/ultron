@@ -2151,3 +2151,4 @@
 [2025-11-10T18:59:47] fix(memory): patch context retention buffer lifecycle
 [2025-11-10T13:33:45] perf(memory): optimize SQLite conversational history retrieval
 [2025-11-10T08:20:26] fix(memory): patch context retention buffer lifecycle
+[2026-08-31T12:30:04] feat(voice): optimize wake word detection sensitivity
