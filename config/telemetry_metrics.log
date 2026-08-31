@@ -2157,3 +2157,4 @@
 [2026-08-31T11:03:39] perf(memory): optimize SQLite conversational history retrieval
 [2026-08-31T13:04:22] chore(config): tune microphone audio stream buffer size
 [2026-08-31T15:22:40] feat(voice): optimize wake word detection sensitivity
+[2026-08-31T14:17:18] test(wake): add test suite for offline speech recognition
