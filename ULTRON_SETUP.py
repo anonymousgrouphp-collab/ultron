@@ -21,8 +21,8 @@ if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_URL_GIT = "https://github.com/morphhyyy-cpu/ultronmain"
-REPO_URL_ZIP = "https://github.com/morphhyyy-cpu/ULTRON/archive/refs/heads/main.zip"
+REPO_URL_GIT = "https://github.com/anonymousgrouphp-collab/ultron"
+REPO_URL_ZIP = "https://github.com/anonymousgrouphp-collab/ultron/archive/refs/heads/main.zip"
 
 MARKER_FILES = [
     "main.py",
