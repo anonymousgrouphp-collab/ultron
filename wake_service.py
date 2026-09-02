@@ -1,5 +1,5 @@
 """
-Wake Word Service for HUNNY (ULTRON AI Engine)
+Wake Word Service for ULTRON AI Engine
 ==========================================
 A lightweight background listener that waits for the phrase "wake up ultron"
 and automatically launches ULTRON (main.py) if it is not already running.
@@ -45,13 +45,27 @@ MAIN_SCRIPT = BASE_DIR / "main.py"
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _is_ultron_running() -> bool:
-    """Check if main.py is already running via socket probe to port 39152."""
+    """Check if main.py is already running via socket probe or process table."""
     import socket
     try:
         with socket.create_connection(("127.0.0.1", 39152), timeout=0.1):
             return True
     except (socket.timeout, ConnectionRefusedError, OSError):
-        return False
+        pass
+
+    try:
+        current_pid = os.getpid()
+        for p in psutil.process_iter(["pid", "name", "cmdline"]):
+            if p.info["pid"] == current_pid:
+                continue
+            cmdline = p.info.get("cmdline") or []
+            cmd_str = " ".join(cmdline).lower()
+            if "main.py" in cmd_str and ("python" in p.info["name"].lower() or "pythonw" in p.info["name"].lower()):
+                return True
+    except Exception:
+        pass
+
+    return False
 
 
 def _launch_ultron() -> bool:
