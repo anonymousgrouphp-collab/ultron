@@ -36,16 +36,16 @@
 ### Option 2: Manual Setup
 
 ```bash
-git clone https://github.com/morphhyyy-cpu/ULTRON.git
-cd ULTRON
+git clone https://github.com/anonymousgrouphp-collab/ultron.git
+cd ultron
 python ULTRON_SETUP.py
 ```
 
 ### Option 3: Step-by-Step Manual
 
 ```bash
-git clone https://github.com/morphhyyy-cpu/ULTRON.git
-cd ULTRON
+git clone https://github.com/anonymousgrouphp-collab/ultron.git
+cd ultron
 pip install -r requirements.txt
 python -m playwright install chromium
 python main.py
