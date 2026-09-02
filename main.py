@@ -448,7 +448,7 @@ class UltronLive:
         name = fc.name
         args = dict(fc.args or {})
 
-        print(f"[JARVIS] 🔧 {name}  {args}")
+        print(f"[ULTRON] 🔧 {name}  {args}")
         self.set_app_state("THINKING")
 
         if name == "save_memory":
@@ -668,15 +668,26 @@ class UltronLive:
                 self.set_speaking(True)
                 try:
                     await asyncio.to_thread(stream.write, chunk)
-                except (RuntimeError, asyncio.CancelledError):
-                    break   # executor shutting down — exit cleanly
+                except (RuntimeError, asyncio.CancelledError, Exception) as write_err:
+                    if isinstance(write_err, (RuntimeError, asyncio.CancelledError)):
+                        break   # executor shutting down — exit cleanly
+                    # PortAudio / device write failure during stream pause or interrupt
+                    pass
+        except asyncio.CancelledError:
+            pass
         except Exception as e:
             print(f"[ULTRON] ❌ Play: {e}")
-            raise
         finally:
             self.set_speaking(False)
-            stream.stop()
-            stream.close()
+            try:
+                if stream.active:
+                    stream.stop()
+            except Exception:
+                pass
+            try:
+                stream.close()
+            except Exception:
+                pass
 
     # ── Morning briefing ────────────────────────────────────────────────────────
 
@@ -704,7 +715,7 @@ class UltronLive:
         lang_clause = f" Respond in {lang}." if lang else ""
         name_clause = f" Address the user as {name}." if name else ""
         p1 = (
-            f"Greet the user, mention it is {time_str}, state that systems and HUD HUNNY are fully operational, "
+            f"Greet the user, mention it is {time_str}, state that systems and HUD ULTRON are fully operational, "
             f"and ask how you can assist today. One or two short sentences only. Do not call any tools.{lang_clause}{name_clause}"
         )
 

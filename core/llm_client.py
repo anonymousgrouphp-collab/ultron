@@ -1,5 +1,5 @@
 """
-Local LLM client for HUNNY (ULTRON AI Engine).
+Local LLM client for ULTRON AI Engine.
 
 Supports two backends — selected via  "llm_provider"  in config/api_keys.json:
 
