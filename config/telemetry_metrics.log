@@ -1817,3 +1817,4 @@
 [2026-09-04T09:16:08] feat(actions): add background task execution handler
 [2026-09-04T17:50:54] chore(config): tune microphone audio stream buffer size
 [2026-09-04T12:05:45] docs(telemetry): record voice engine response latency metrics
+[2026-09-04T12:46:12] test(wake): add test suite for offline speech recognition
