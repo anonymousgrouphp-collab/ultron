@@ -14,7 +14,7 @@
 - **Remote Dashboard** -- Web-based control panel accessible from any browser or phone
 - **File Processing** -- Read, write, analyze files and generate presentations
 - **Code Assistant** -- Write, debug, and explain code across languages
-
+...
 ---
 
 ## Quick Start (Any Windows 10/11 PC)
