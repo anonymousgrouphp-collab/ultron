@@ -1809,3 +1809,4 @@
 [2026-09-04T23:59:43] fix(memory): patch context retention buffer lifecycle
 [2026-09-04T22:43:09] chore(config): tune microphone audio stream buffer size
 [2026-09-04T17:39:35] fix(memory): patch context retention buffer lifecycle
+[2026-09-04T17:31:18] perf(audio): reduce ambient noise filtration latency
