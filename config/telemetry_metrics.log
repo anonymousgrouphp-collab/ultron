@@ -1819,3 +1819,4 @@
 [2026-09-04T12:05:45] docs(telemetry): record voice engine response latency metrics
 [2026-09-04T12:46:12] test(wake): add test suite for offline speech recognition
 [2026-09-04T10:18:14] feat(voice): optimize wake word detection sensitivity
+[2026-09-04T23:59:22] refactor(core): streamline async command dispatch pipeline
