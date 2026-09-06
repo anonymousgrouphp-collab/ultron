@@ -33,7 +33,7 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 | `p0-crash-bugs` | P0-A | ✅ merged | 42e262e | unblocks P0-C2, P0-C4, P0-D2, P1-H |
 | `p0-security` | P0-B | ✅ merged & **DISSOLVED** (branch deleted local+remote; worktree removed) | 6303635 | B1 purge → P0-B1b; certs regenerated in main checkout (untracked) |
 | `p0-config` | P0-D | ✅ merged (D1) | e0a644a | D2 now UNBLOCKED (P0-B merged) — `ULTRON_DASHBOARD_HOST` fold into loader per Findings |
-| `p0-dead-code` | P0-C | ✅ merged (C1/C2/C3 @ 847543c); C4 signed — landing via user-directed push | 847543c | C4 @ eb7f67e on branch; zcode-p0c pushing per user instruction |
+| `p0-dead-code` | P0-C | ✅ merged (C1–C4 complete) | 60809e5 | C1/C2/C3 via main-owner @ 847543c; C4 + board record via user-directed FF push (zcode-p0c) |
 
 ---
 
@@ -59,7 +59,7 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 | P0-B4 | Mandatory encryption, prune stale tokens, auth local WebSockets | 🔓 | ✅ | zcode-p0b | ✍ zcode-p0b 2026-09-07 — 10-step TestClient suite passed: plaintext cmd→400, no mint on `GET /`, expired token→401, unauth `/ws`→4001, encrypted e2e (CryptoJS↔`_decrypt_cbc` interop proven node+py), token cap 64. **Fixed 2 pre-existing bugs the tests caught: `/ws` deque-slice crash on every connect + token-cap off-by-one** |
 | P0-B5 | Delete `exec()` (`desktop.py:87`); pip-install behind allowlist (`dev_agent.py:248`) | 🔓 | ✅ | zcode-p0b | ✍ zcode-p0b 2026-09-07 — `_execute_generated_code`/`_build_sandbox`/`_ask_gemini_for_desktop_action` deleted, `task` action refuses; dev_agent installs gated by `config/pip_allowlist.json` (example tracked, real file gitignored); gate test passed |
 
-### P0-C — Dead code & dedup · owns: `core/tts.py`, `core/stt.py`, `memory/cmr_manager.py`, `reminder_manager.py`, `screen_processor.py`, aliases — **complete & signed (C1–C4) (2026-09-07)**
+### P0-C — Dead code & dedup · owns: `core/tts.py`, `core/stt.py`, `memory/cmr_manager.py`, `reminder_manager.py`, `screen_processor.py`, aliases — **complete & signed (C1–C4); MERGED to `main` @ 60809e5 (2026-09-07)**
 | ID | Task | DEP | Status | Owner | Sign-off |
 |---|---|---|---|---|---|
 | P0-C1 | Delete dead files: `core/tts.py`, `core/stt.py`, `cmr_manager.py`, `reminder_manager.py`, `_VisionSession` | 🔓 | ✅ | zcode-p0c 2026-09-07 | ✍ zcode-p0c 2026-09-07 — deleted `core/tts.py`, `core/stt.py`, `memory/cmr_manager.py`, `memory/reminder_manager.py` (board's `reminder_manager.py` = `memory/` copy); dead second vision stack removed from `screen_processor.py` (`_VisionSession`, `_session*` globals, `_ensure_session`, dead `screen_process`/`warmup_session`, `__main__` block) — live `_capture_screen`/`_capture_camera` untouched. Evidence: `py -3.13` py_compile OK; capture import OK; `import main` OK; grep lingering refs → 0 |
@@ -183,3 +183,4 @@ real dependency is P1-A (contracts); code against the interface draft in
 - 2026-09-07: zcode-p0a — `p0-config` rebased on updated `main` (patch-PR batch #8–#11 verified not to touch P0-A files; loader tests 14/14 after rebase); Merge Queue updated.
 - 2026-09-07 (main-owner): merged `p0-config` @ e0a644a + `p0-dead-code` @ 847543c; `p0-security` DISSOLVED per user order (p0b chat discarded, work → main chat); TLS pair regenerated in main checkout; P0-B1 split → P0-B1b (history purge, scheduled at Phase-0 gate). Post-merge verification: loader tests 14/14, py_compile OK ×5, dead files gone, exec( = comment only.
 - 2026-09-07: zcode-p0c — P0-C COMPLETE: C4 name purge signed (C1/C2/C3 already merged @ 847543c by main-owner); pushing C4 + board record to `main` per user directive.
+- 2026-09-07: zcode-p0c — `p0-dead-code` MERGED to `main` @ 60809e5 (fast-forward on 239d8f9): C4 + final board record landed. P0-C closed.
