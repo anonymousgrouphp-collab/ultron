@@ -41,9 +41,17 @@ ULTRON voice assistant into a JARVIS-like general agent harness (see `docs/ROADM
   earlier one's merge (dependency column on the board).
 - **Isolation option:** if you must run truly conflicting streams at once, use
   `git worktree add ../ultron-<stream> p0-<stream>` and open the chat in that folder.
-- **Merge order:** dependency-free streams first (P0-A, P0-B); P0-C/P0-D after their
-  dependencies merge; P0-E (CI) merges last because it tests everything.
-- Rebase your branch on `main` before opening the merge; CI must be green.
+- **Merge policy — merging is part of the task, not an afterthought.** When all your
+  stream's rows are ✅ + signed: rebase your branch on latest `main`, merge it into
+  `main`, push, then update the board (stream header `merged @ <sha>` + changelog).
+  - **Merge gate before CI exists** (until P0-E lands): your signed verification
+    evidence IS the gate. **After CI exists:** branch CI green is required first.
+  - **Conflicts:** during rebase, conflicts inside your OWNED files → resolve them.
+    Conflicts in another stream's files → **STOP and tell the user** — never guess.
+  - If your change alters behavior pinned by P0-E's characterization tests, update
+    those tests in your merge commit (note it in your board row).
+  - Don't leave signed work unmerged >24h — dependent streams are waiting on merges,
+    not on signatures. Merge-ready branches are tracked in `PROGRESS.md` → Merge Queue.
 
 ### Progress discipline & sign-off (STRICT)
 
