@@ -29,8 +29,8 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 ## Merge Queue (branches → `main`)
 | Branch | Stream | State | Merged @ | Notes |
 |---|---|---|---|---|
-| `p0-crash-bugs` | P0-A | 🟢 merge-ready (all rows signed; evidence in Verification Log) | — | merge next — unblocks P0-C2, P0-C4, P0-D2, P1-H |
-| `p0-config` | P0-D | 🟡 partial (D1 signed; D2 🚫 on P0-B) | — | stacked on `p0-crash-bugs` — rebase after that merge; D1 (new files only) may merge early |
+| `p0-crash-bugs` | P0-A | ✅ merged | 42e262e | merged & pushed to `main` 2026-09-07; unblocks P0-C2, P0-C4, P0-D2, P1-H |
+| `p0-config` | P0-D | 🟡 partial (D1 signed; D2 🚫 on P0-B) | — | rebased on `main` (af628d4) after that merge; D1 (new files only) may merge early; D2 waits on P0-B |
 
 ---
 
@@ -159,3 +159,4 @@ real dependency is P1-A (contracts); code against the interface draft in
 - 2026-09-07: P0-D1 done — `config/loader.py` + 14 hermetic tests, verified & signed; D2 remains 🚫 until P0-B signs off.
 - 2026-09-07 (planning): merge policy defined — streams merge their OWN signed branches (rebase → merge → push → board update); Merge Queue section added: `p0-crash-bugs` 🟢 merge-ready, `p0-config` 🟡 partial (D1).
 - 2026-09-07: zcode-p0a — `p0-crash-bugs` MERGED to `main` @ 42e262e per merge policy. Gate evidence re-run on main: py_compile OK on all 4 owned files; merged files diff-identical to verified branch tip. Push follows; unblocks P0-C2/C4, P0-D2, P1-H.
+- 2026-09-07: zcode-p0a — `p0-config` rebased on updated `main` (patch-PR batch #8–#11 verified not to touch P0-A files; loader tests 14/14 after rebase); Merge Queue updated.
