@@ -389,60 +389,6 @@ def get_disk_usage(path: str = "home") -> str:
         return f"Could not get disk usage: {e}"
 
 
-def organize_desktop() -> str:
-    type_map = {
-        "Images":    {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".ico", ".heic"},
-        "Documents": {".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx",
-                      ".ppt", ".pptx", ".csv", ".odt", ".ods", ".odp"},
-        "Videos":    {".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm", ".m4v"},
-        "Music":     {".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma", ".m4a"},
-        "Archives":  {".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz"},
-        "Code":      {".py", ".js", ".ts", ".html", ".css", ".json", ".xml",
-                      ".cpp", ".java", ".cs", ".go", ".rs", ".sh"},
-    }
-
-    desktop = _get_desktop()
-    moved, skipped = [], []
-
-    try:
-        for item in desktop.iterdir():
-            # Klasörlere, gizli dosyalara ve organize klasörlerine dokunma
-            if item.is_dir() or item.name.startswith("."):
-                continue
-            if item.name in {k for k in type_map}:
-                continue
-
-            ext        = item.suffix.lower()
-            target_dir = desktop / "Others"
-            for folder, exts in type_map.items():
-                if ext in exts:
-                    target_dir = desktop / folder
-                    break
-
-            target_dir.mkdir(exist_ok=True)
-            new_path = target_dir / item.name
-
-            if new_path.exists():
-                skipped.append(item.name)
-                continue
-
-            shutil.move(str(item), str(new_path))
-            moved.append(f"{item.name} → {target_dir.name}/")
-
-        result = f"Desktop organized: {len(moved)} files moved."
-        if moved:
-            preview = moved[:8]
-            result += "\n" + "\n".join(preview)
-            if len(moved) > 8:
-                result += f"\n... and {len(moved) - 8} more."
-        if skipped:
-            result += f"\n{len(skipped)} file(s) skipped (name conflict)."
-        return result
-
-    except Exception as e:
-        return f"Could not organize desktop: {e}"
-
-
 def get_file_info(path: str, name: str = "") -> str:
     try:
         base   = _resolve_path(path)
@@ -529,9 +475,6 @@ def file_controller(
 
         elif action == "disk_usage":
             return get_disk_usage(path)
-
-        elif action == "organize_desktop":
-            return organize_desktop()
 
         elif action == "info":
             return get_file_info(path, name=name)
