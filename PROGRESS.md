@@ -1,7 +1,7 @@
 # PROGRESS.md — ULTRON Live Task Board
 
-*Last updated: 2026-09-07 (restructure: all phases divided into streams; P0-A
-completed & signed by zcode-p0a). Read `AGENTS.md` first. Append-only except your own rows.*
+*Last updated: 2026-09-07 (zcode-p0a — claimed P0-D: D1 executing, D2 blocked by P0-B).
+Read `AGENTS.md` first. Append-only except your own rows.*
 
 ## How to use (STRICT — every agent, every chat)
 
@@ -52,11 +52,11 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 | P0-C3 | `core/llm_client.py`: wire in or delete | 🔓 | ⬜ | | decide via `research/06` gateway plan |
 | P0-C4 | Name purge: JARVIS/HUNNY aliases → **ULTRON** only | DEP: P0-A ✅signed | ⬜ | | touches `main.py`/`ui.py` — coordinate merge |
 
-### P0-D — Config single source · owns: `config/loader.py` + call sites
+### P0-D — Config single source · owns: `config/loader.py` + call sites — **claimed by zcode-p0a (branch `p0-config`): D1 executing, D2 blocked by P0-B**
 | ID | Task | DEP | Status | Owner | Sign-off |
 |---|---|---|---|---|---|
-| P0-D1 | Write `config/loader.py` + tests (new files only) | 🔓 | ⬜ | | no migration yet — pure new code |
-| P0-D2 | Migrate all call sites; delete 4 parallel access paths | DEP: P0-A ✅, P0-B | ⬜ | | touches many files incl. main/dashboard |
+| P0-D1 | Write `config/loader.py` + tests (new files only) | 🔓 | 🔶 | zcode-p0a · 2026-09-07 | no migration yet — pure new code |
+| P0-D2 | Migrate all call sites; delete 4 parallel access paths | DEP: P0-A ✅, P0-B | 🚫 | zcode-p0a · 2026-09-07 | 🚫 blocked: P0-B not signed off yet (AGENTS.md §3 DEP rule) — also wants `p0-crash-bugs` merged (touches main.py/ui.py/dashboard) |
 
 ### P0-E — CI scaffold · owns: `tests/`, `.github/workflows/`, `pyproject.toml` — READ-ONLY on src
 | ID | Task | DEP | Status | Owner | Sign-off |
@@ -142,4 +142,5 @@ real dependency is P1-A (contracts); code against the interface draft in
 - 2026-09-07: P0-A complete — A1–A5 fixed, verified & signed; ready for merge review.
 - 2026-09-07: full restructure — Phases 1–5 divided (P1-A…P5-B), Sign-off + DEP rules, strict update-in-same-commit rule.
 - 2026-09-07: zcode-p0a — doc restructure committed (872c041); P0-A compliance audit done: A2/A4 sign-off evidence refs added, verification-log ref clarified; same-commit rule adopted going forward.
+- 2026-09-07: zcode-p0a claimed P0-D (branch `p0-config`, stacked on `p0-crash-bugs`); D1 executing, D2 marked 🚫 blocked by unsigned P0-B.
 - 2026-09-07: zcode-p0a — `p0-crash-bugs` MERGED to `main` @ 42e262e per merge policy. Gate evidence re-run on main: py_compile OK on all 4 owned files; merged files diff-identical to verified branch tip. Push follows; unblocks P0-C2/C4, P0-D2, P1-H.
