@@ -40,6 +40,7 @@ __all__ = [
     "save_config",
     "save_config_key",
     "get_api_key",
+    "get_dashboard_host",
 ]
 
 PLACEHOLDER_KEY = "YOUR_GEMINI_API_KEY_HERE"
@@ -94,6 +95,13 @@ def get_api_key(key_name: str = "gemini_api_key") -> str | None:
         return None
     raw = raw.strip()
     return raw if raw and raw != PLACEHOLDER_KEY else None
+
+
+def get_dashboard_host() -> str:
+    """Dashboard bind address: 127.0.0.1 by default; LAN exposure (0.0.0.0)
+    only via explicit ULTRON_DASHBOARD_HOST opt-in (P0-B2 policy, P0-D2 home)."""
+    host = os.environ.get("ULTRON_DASHBOARD_HOST", "").strip()
+    return host or "127.0.0.1"
 
 
 def _atomic_write(target: Path, text: str) -> None:

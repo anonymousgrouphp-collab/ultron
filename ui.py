@@ -6,7 +6,8 @@ import platform
 import subprocess
 import sys
 import time
-from pathlib import Path
+
+from config import loader
 
 if platform.system() == "Windows":
     _WIN_HIDE: dict = {"creationflags": subprocess.CREATE_NO_WINDOW}
@@ -100,31 +101,17 @@ def _setup_qt_environment():
 _setup_qt_environment()
 
 
-def _base_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).resolve().parent
-
-BASE_DIR   = _base_dir()
-CONFIG_DIR = BASE_DIR / "config"
-API_FILE   = CONFIG_DIR / "api_keys.json"
+BASE_DIR = loader.get_base_dir()
 
 
 def _read_full_config() -> dict:
     """Read api_keys.json config dict. Returns {} on any error."""
-    try:
-        return json.loads(API_FILE.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
+    return loader.load_config()
 
 
 def _save_full_config(new_cfg: dict) -> None:
     """Safely save complete configuration to config/api_keys.json."""
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    API_FILE.write_text(json.dumps(new_cfg, indent=4), encoding="utf-8")
-
-
-_PLACEHOLDER_KEY = "YOUR_GEMINI_API_KEY_HERE"
+    loader.save_config(new_cfg)
 
 
 def _needs_api_key() -> bool:
@@ -134,7 +121,7 @@ def _needs_api_key() -> bool:
     if provider in ("ollama", "openai", "lmstudio", "localai", "jan", "llamacpp"):
         return False
     key = str(cfg.get("gemini_api_key", "")).strip()
-    return not key or key == _PLACEHOLDER_KEY
+    return not key or key == loader.PLACEHOLDER_KEY
 
 
 def _write_api_key(key: str) -> None:
@@ -407,7 +394,7 @@ class EngineSettingsDialog(QDialog):
 
         if prov == "gemini":
             key = self.api_key_input.text().strip()
-            if not key or key == _PLACEHOLDER_KEY:
+            if not key or key == loader.PLACEHOLDER_KEY:
                 QMessageBox.warning(self, "ULTRON", "Please enter a valid Gemini API key or switch to Ollama.")
                 return
             cfg["gemini_api_key"] = key

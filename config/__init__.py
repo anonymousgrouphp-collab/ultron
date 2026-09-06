@@ -1,33 +1,10 @@
 # config/__init__.py
-import json, os, platform
-from pathlib import Path
+"""ULTRON configuration package.
 
-_CONFIG_PATH = Path(__file__).parent / "api_keys.json"
+The single source of truth is `config/loader.py` (P0-D) — import that:
 
-def _platform_os() -> str:
-    """Auto-detect OS when config file is absent."""
-    return {"Windows": "windows", "Darwin": "mac", "Linux": "linux"}.get(
-        platform.system(), "linux"
-    )
+    from config import loader
+    cfg = loader.load_config()
 
-_cache = None
-
-def get_config() -> dict:
-    global _cache
-    if _cache is not None:
-        return _cache.copy()
-    try:
-        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-            _cache = json.load(f)
-            return _cache.copy()
-    except Exception:
-        _cache = {}
-        return {}
-
-def get_os() -> str:
-    """Returns: 'windows' | 'mac' | 'linux'"""
-    return get_config().get("os_system", _platform_os()).lower()
-
-def is_windows() -> bool: return get_os() == "windows"
-def is_mac()     -> bool: return get_os() == "mac"
-def is_linux()   -> bool: return get_os() == "linux"
+The legacy cached reader that used to live in this file was removed in P0-D2.
+"""

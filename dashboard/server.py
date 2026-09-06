@@ -26,6 +26,8 @@ import string
 import time
 from pathlib import Path
 
+from config import loader
+
 _DEPS_OK = False
 try:
     from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
@@ -50,7 +52,7 @@ MAX_UPLOAD_MB = 500
 
 # P0-B2 (ROADMAP §4): bind loopback by default. Exposing the dashboard to the
 # LAN is an explicit opt-in — phones connect only when the user asks for it.
-DASHBOARD_HOST = (os.environ.get("ULTRON_DASHBOARD_HOST") or "127.0.0.1").strip()
+DASHBOARD_HOST = loader.get_dashboard_host()
 _LAN_OPT_IN = DASHBOARD_HOST == "0.0.0.0"
 
 
@@ -72,12 +74,8 @@ def _make_uploads_dir() -> Path:
 UPLOADS_DIR = _make_uploads_dir()
 
 def _get_gemini_key() -> str | None:
-    try:
-        import json as _json
-        with open(BASE_DIR / "config" / "api_keys.json", "r", encoding="utf-8") as f:
-            return _json.load(f).get("gemini_api_key")
-    except Exception:
-        return None
+    # P0-D2: config reads go through the single source (config/loader.py).
+    return loader.get_api_key("gemini_api_key")
 
 _KEY_CHARS = [c for c in (string.ascii_uppercase + string.digits)
               if c not in ('O', 'I', 'L', '0', '1')]

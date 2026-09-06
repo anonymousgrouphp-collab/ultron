@@ -113,3 +113,30 @@ def test_file_on_disk_is_valid_json_after_save(base_dir):
     loader.save_config({"a": 1})
     raw = json.loads(loader.config_path().read_text(encoding="utf-8"))
     assert raw == {"a": 1}
+
+
+def test_utils_env_delegates_to_loader(base_dir):
+    """P0-D2: utils/env's config functions are thin delegates onto the loader."""
+    from utils import env
+
+    assert env.get_base_dir() == loader.get_base_dir()
+
+    env.save_config_key("camera_index", 2)
+    assert env.load_config() == {"camera_index": 2}
+    assert loader.load_config() == {"camera_index": 2}   # same single file
+
+    env.save_config_key("some_api_key", "tok_123")
+    assert env.get_api_key("some_api_key") == "tok_123"
+    assert env.get_api_key("never_set") == ""            # legacy "" default kept
+    loader.save_config({"gemini_api_key": "real"})
+    assert env.get_api_key("gemini_api_key") == "real"
+
+
+def test_dashboard_host_defaults_to_loopback(base_dir, monkeypatch):
+    """P0-B2 policy, P0-D2 home: 127.0.0.1 unless explicitly opted out."""
+    monkeypatch.delenv("ULTRON_DASHBOARD_HOST", raising=False)
+    assert loader.get_dashboard_host() == "127.0.0.1"
+    monkeypatch.setenv("ULTRON_DASHBOARD_HOST", "  ")
+    assert loader.get_dashboard_host() == "127.0.0.1"
+    monkeypatch.setenv("ULTRON_DASHBOARD_HOST", "0.0.0.0")
+    assert loader.get_dashboard_host() == "0.0.0.0"
