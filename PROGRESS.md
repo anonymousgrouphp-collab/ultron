@@ -1,7 +1,7 @@
 # PROGRESS.md — ULTRON Live Task Board
 
-*Last updated: 2026-09-07 (restructure: all phases divided into streams; P0-A
-completed & signed by zcode-p0a). Read `AGENTS.md` first. Append-only except your own rows.*
+*Last updated: 2026-09-07 (merge policy + Merge Queue added; P0-A & P0-D1 signed by zcode-p0a).
+Read `AGENTS.md` first. Append-only except your own rows.*
 
 ## How to use (STRICT — every agent, every chat)
 
@@ -18,8 +18,19 @@ completed & signed by zcode-p0a). Read `AGENTS.md` first. Append-only except you
      Never "quickly do the dependency yourself" — that causes conflicts.
 5. Phase gates apply (roadmap §4): Phase 1 streams unlock when the Phase 0 gate is
    verified & logged. Claims stale >48h with no commits may be taken over (note in Findings).
+6. **Merge your own branch when your stream is ✅+signed** (policy: `AGENTS.md` §3):
+   rebase on `main` → merge → push → write `merged @ <sha>` in the stream header +
+   changelog. Until P0-E's CI exists, your sign-off evidence IS the merge gate.
+   Conflicts in another stream's files → STOP and tell the user. Signed work unmerged
+   >24h is a policy violation — dependent streams wait on merges, not signatures.
 
 Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason in Notes)
+
+## Merge Queue (branches → `main`)
+| Branch | Stream | State | Merged @ | Notes |
+|---|---|---|---|---|
+| `p0-crash-bugs` | P0-A | 🟢 merge-ready (all rows signed; evidence in Verification Log) | — | merge next — unblocks P0-C2, P0-C4, P0-D2, P1-H |
+| `p0-config` | P0-D | 🟡 partial (D1 signed; D2 🚫 on P0-B) | — | stacked on `p0-crash-bugs` — rebase after that merge; D1 (new files only) may merge early |
 
 ---
 
@@ -143,3 +154,6 @@ real dependency is P1-A (contracts); code against the interface draft in
 - 2026-09-07: full restructure — Phases 1–5 divided (P1-A…P5-B), Sign-off + DEP rules, strict update-in-same-commit rule.
 - 2026-09-07: zcode-p0a — doc restructure committed (872c041); P0-A compliance audit done: A2/A4 sign-off evidence refs added, verification-log ref clarified; same-commit rule adopted going forward.
 - 2026-09-07: zcode-p0a — `p0-crash-bugs` MERGED to `main` @ 42e262e per merge policy. Gate evidence re-run on main: py_compile OK on all 4 owned files; merged files diff-identical to verified branch tip. Push follows; unblocks P0-C2/C4, P0-D2, P1-H.
+- 2026-09-07: zcode-p0a claimed P0-D (branch `p0-config`, stacked on `p0-crash-bugs`); D1 executing, D2 marked 🚫 blocked by unsigned P0-B.
+- 2026-09-07: P0-D1 done — `config/loader.py` + 14 hermetic tests, verified & signed; D2 remains 🚫 until P0-B signs off.
+- 2026-09-07 (planning): merge policy defined — streams merge their OWN signed branches (rebase → merge → push → board update); Merge Queue section added: `p0-crash-bugs` 🟢 merge-ready, `p0-config` 🟡 partial (D1).
