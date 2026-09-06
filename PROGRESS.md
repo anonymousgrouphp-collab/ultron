@@ -32,7 +32,7 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 |---|---|---|---|---|
 | `p0-crash-bugs` | P0-A | ✅ merged | 42e262e | unblocks P0-C2, P0-C4, P0-D2, P1-H |
 | `p0-security` | P0-B | ✅ merged & **DISSOLVED** (branch deleted local+remote; worktree removed) | 6303635 | B1 purge → P0-B1b; certs regenerated in main checkout (untracked) |
-| `p0-config` | P0-D | ✅ merged (D1) + 🟢 merge-ready (D2) | e0a644a | D2 done & signed in worktree `../ultron-d2` on top of main tip 11cedac — ready for main chat; `ULTRON_DASHBOARD_HOST` folded into loader as requested |
+| `p0-config` | P0-D | ✅ merged & **DISSOLVED** (FF @ fa290f0; worktree+local+remote deleted per zcode-p0a handoff) | fa290f0 | D2 verified post-merge: pytest 16/16, imports clean, DASHBOARD_HOST=127.0.0.1 |
 | `p0-dead-code` | P0-C | ✅ merged (C1–C4 complete) | 60809e5 | C1/C2/C3 via main-owner @ 847543c; C4 + board record via user-directed FF push (zcode-p0c) |
 
 ---
@@ -195,3 +195,4 @@ real dependency is P1-A (contracts); code against the interface draft in
 - 2026-09-07: zcode-p0c — P0-C COMPLETE: C4 name purge signed (C1/C2/C3 already merged @ 847543c by main-owner); pushing C4 + board record to `main` per user directive.
 - 2026-09-07: zcode-p0c — `p0-dead-code` MERGED to `main` @ 60809e5 (fast-forward on 239d8f9): C4 + final board record landed. P0-C closed.
 - 2026-09-07: zcode-p0a — P0-D2 DONE in worktree `../ultron-d2` per main-owner ask: all call sites on `config/loader.py`, parallel paths deleted, `ULTRON_DASHBOARD_HOST` folded in; pytest 16/16; pushed `p0-config` 🟢 merge-ready (base = main tip 11cedac → FF merge). P0-D stream COMPLETE.
+- 2026-09-07 (main-owner): **zcode-p0a signed off (P0-A + P0-D complete, nothing pending) — handoff executed.** `p0-config` FF-merged @ fa290f0 (D2: all call sites → `config/loader.py`, parallel paths deleted incl. `memory/config_manager.py`, `ULTRON_DASHBOARD_HOST` folded in). Post-merge verify: pytest 16/16, `import main, ui, dashboard.server` clean, DASHBOARD_HOST=127.0.0.1. Branch DISSOLVED (worktree `ultron-d2` removed, local+remote `p0-config` deleted; merged `p0-crash-bugs` also deleted — full sign-off). Sweep candidate parked: dead `API_CONFIG_PATH/_CONFIG_PATH` constants in actions/{flight_finder,code_helper,computer_control,web_search,youtube_video,dev_agent}.py — zero priority, fold into a P1 cleanup. **Phase-0 remaining: ONLY P0-E (CI) — the unclaimed stream gating the phase.**
