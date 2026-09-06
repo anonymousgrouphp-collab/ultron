@@ -28,7 +28,7 @@ from pathlib import Path
 import sounddevice as sd
 from google import genai
 from google.genai import types
-from ui import UltronUI, JarvisUI
+from ui import UltronUI
 from memory.memory_manager import (
     load_memory, update_memory, format_memory_for_prompt,
 )
@@ -195,7 +195,7 @@ class UltronLive:
             self.set_app_state("LISTENING")
 
     def interrupt(self) -> None:
-        """Stop JARVIS mid-speech: drain queued audio and open mic immediately."""
+        """Stop ULTRON mid-speech: drain queued audio and open mic immediately."""
         self._interrupted = True
         q = self.audio_in_queue
         if q:
@@ -235,10 +235,10 @@ class UltronLive:
         # Load customization from config
         try:
             _cfg = json.loads(open(API_CONFIG_PATH, encoding="utf-8").read())
-            self._asst_name = (_cfg.get("assistant_name") or "JARVIS").strip()
+            self._asst_name = (_cfg.get("assistant_name") or "ULTRON").strip()
             _user_name = (_cfg.get("user_name") or "").strip()
         except Exception:
-            self._asst_name = "JARVIS"
+            self._asst_name = "ULTRON"
             _user_name = ""
 
         memory     = load_memory()
@@ -586,7 +586,7 @@ class UltronLive:
                                 self.ui.write_log(f"{self._asst_name}: {full_out}")
                                 if self._dashboard:
                                     asyncio.create_task(self._dashboard.broadcast({
-                                        "type": "log", "speaker": "jarvis",
+                                        "type": "log", "speaker": "ultron",
                                         "text": full_out,
                                         "ts": datetime.now().isoformat(),
                                     }))
@@ -608,7 +608,7 @@ class UltronLive:
                                 )
                                 # Mark next turn_complete behaviour depending on angle
                                 if self._vision_cam_active:
-                                    # Camera: keep busy until JARVIS finishes speaking the answer
+                                    # Camera: keep busy until ULTRON finishes speaking the answer
                                     self._vision_cam_active    = False
                                     self._vision_close_pending = True
                                 else:
@@ -979,7 +979,7 @@ class UltronLive:
                 # exception escape the while-loop and causing asyncio.run() to
                 # start shutdown — resulting in "executor after shutdown" errors).
                 err_str = str(e)
-                print(f"[JARVIS] Error ({type(e).__name__}): {e}")
+                print(f"[ULTRON] Error ({type(e).__name__}): {e}")
                 traceback.print_exc()
 
                 # Invalid / missing / broken API key — stop hammering the API, prompt re-configuration
@@ -993,7 +993,7 @@ class UltronLive:
                     self.ui.prompt_reconfig()
                     while not self.ui._win._ready:
                         await asyncio.sleep(1)
-                    print("[JARVIS] New API key saved — reconnecting...")
+                    print("[ULTRON] New API key saved — reconnecting...")
                     _conn_backoff = 3
                     continue
 
@@ -1023,8 +1023,6 @@ class UltronLive:
             delay = getattr(self, "_conn_backoff", 3)
             print(f"[ULTRON] Reconnecting in {delay}s...")
             await asyncio.sleep(delay)
-
-JarvisLive = UltronLive
 
 
 import socket

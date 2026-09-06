@@ -139,7 +139,7 @@ def main():
         sys.exit(1)
 
     _log("🎙️  Wake word service started")
-    _log(f"📂 JARVIS script: {MAIN_SCRIPT}")
+    _log(f"📂 ULTRON script: {MAIN_SCRIPT}")
     _log(f"🔑 Wake phrases: {', '.join(WAKE_PHRASES)}")
     _log("👂 Listening...")
 

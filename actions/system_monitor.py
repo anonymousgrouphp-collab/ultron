@@ -149,7 +149,7 @@ TARGET_HEAVY_PROCESSES = {
 def auto_close_heavy_background_apps() -> list[str]:
     """
     Terminates non-essential heavy background applications to bring system usage down.
-    Protects current Python PID and HUNNY core.
+    Protects current Python PID and the ULTRON core.
     """
     closed: set[str] = set()
     my_pid = os.getpid()
