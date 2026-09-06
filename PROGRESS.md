@@ -49,7 +49,7 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 |---|---|---|---|---|---|
 | P0-C1 | Delete dead files: `core/tts.py`, `core/stt.py`, `cmr_manager.py`, `reminder_manager.py`, `_VisionSession` | 🔓 | ✅ | zcode-p0c 2026-09-07 | ✍ zcode-p0c 2026-09-07 — deleted `core/tts.py`, `core/stt.py`, `memory/cmr_manager.py`, `memory/reminder_manager.py` (board's `reminder_manager.py` = `memory/` copy); dead second vision stack removed from `screen_processor.py` (`_VisionSession`, `_session*` globals, `_ensure_session`, dead `screen_process`/`warmup_session`, `__main__` block) — live `_capture_screen`/`_capture_camera` untouched. Evidence: `py -3.13` py_compile OK; capture import OK; `import main` OK; grep lingering refs → 0 |
 | P0-C2 | Remove duplicate `organize_desktop` + duplicate shutdown tool | DEP: P0-A ✅signed | 🔶 | zcode-p0c 2026-09-07 | touches `main.py` regs — coordinate w/ `p0-crash-bugs` merge |
-| P0-C3 | `core/llm_client.py`: wire in or delete | 🔓 | 🔶 | zcode-p0c 2026-09-07 | decide via `research/06` gateway plan |
+| P0-C3 | `core/llm_client.py`: wire in or delete | 🔓 | ✅ | zcode-p0c 2026-09-07 | ✍ zcode-p0c 2026-09-07 — **Decision: DELETE.** Zero importers (grep = 0); wiring it in would be a second LLM implementation w/ model strings outside the gateway (Kill List). Real gateway = P1-C per `research/06` §6.2 (`LocalAdapter` Ollama HTTP + `GeminiAdapter`, one config enum). Ollama endpoint handling preserved in git history for P1-C to mine. Evidence: `py -3.13 import main` OK after deletion; refs = 0 |
 | P0-C4 | Name purge: JARVIS/HUNNY aliases → **ULTRON** only | DEP: P0-A ✅signed | 🔶 | zcode-p0c 2026-09-07 | touches `main.py`/`ui.py` — coordinate merge |
 
 ### P0-D — Config single source · owns: `config/loader.py` + call sites
@@ -133,6 +133,7 @@ real dependency is P1-A (contracts); code against the interface draft in
 - 2026-09-07 (zcode-p0a): two Python installs — default `python` is 3.14.7 without project deps (`psutil` missing); Python 3.13.7 has them. P0-E: CI must install from `requirements.txt`.
 - 2026-09-07 (zcode-p0a): camera live preview (HUD) intentionally deferred to Phase 4 (J-16) — flagged off in `ui.py`.
 - 2026-09-07 (restructure): Phases 1–5 divided into owned-file streams (P1-A…P5-B); Sign-off + DEP columns added; startable-now set: P0-B, P0-C1/C3, P0-D1, P0-E (+ P0-C2/C4, P0-D2 unblocked after `p0-crash-bugs` merges).
+- 2026-09-07 (zcode-p0c): ui.py settings-modal provider switching (657d087) is cosmetic — it saved config keys nothing consumed even before P0-C3 deleted `core/llm_client.py` (0 importers, confirmed by grep). Until P1-C's gateway lands, the modal has no live effect; P1-C/P1-H owners: wire it to the gateway or remove it. Not touched here — `ui.py` is P0-A-owned (hotspot rule).
 - 2026-09-07 (zcode-p0a): compliance audit vs STRICT rules — the 5 P0-A code commits predate the same-commit rule (board update landed in 92dae5e); end state compliant, history deliberately NOT rewritten (unpushed branch, parallel worktrees active). Rule applied from now on. A2/A4 sign-off evidence refs added.
 - 2026-09-07 (zcode-p0a): research/03 §9 Phase-0 vision item splits as — NameError fix = P0-A1 (done); "delete the parallel capture code in `screen_processor.py`" = P0-C1 deletions / Phase 1 kernel-owned `capture_screen()`, not P0-A scope.
 
