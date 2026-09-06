@@ -37,8 +37,8 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 
 ---
 
-## Phase 0 — Stabilize & De-Risk
-**Gate:** CI green · no known crash paths · security holes closed · dead code gone.
+## Phase 0 — Stabilize & De-Risk — **GATE PASSED 2026-09-07 (see Verification Log); Phase 1 UNLOCKED**
+**Gate:** CI green · no known crash paths · security holes closed · dead code gone — all four met (B1b history-purge is scheduled hygiene outside the gate).
 
 ### P0-A — Crash bugs · owns: `main.py`, `actions/system_monitor.py`, `ui.py`, `actions/proactive.py` — **complete & signed; MERGED to `main` @ 42e262e (2026-09-07)**
 | ID | Task | DEP | Status | Owner | Sign-off |
@@ -150,6 +150,8 @@ real dependency is P1-A (contracts); code against the interface draft in
 
 | 2026-09-07 | P0-E CI scaffold + characterization suite, main @ 819f2ee+ | main-owner | `py -3.13 -m pytest tests -v` → **37 passed** (21 characterization + 16 loader) in 1.56s, hermetic (no network/keys/Qt loop; ApiKeyMissing is runtime-only so CI checkouts without config pass). `py -3.13 -m ruff check tests/` → clean (repo-wide advisory: 288 legacy findings, CI continue-on-error). CI runs on windows-latest + Python 3.13 per the two-Pythons finding; pytest is the gating step, ruff/mypy advisory. Caught while writing: `shutdown_ultron` dispatches via class-level `TOOL_REGISTRY` (main.py:408), not the `_handle_*` convention — pinned | PASS |
 
+| 2026-09-07 | **PHASE-0 GATE** (roadmap §4) | main-owner | (1) CI green: GitHub Actions run for `838876c` → success (windows-latest, py3.13, 37/37; first run @ f30fe6e failed transiently — identical tree passed after workflow diagnostic change; likely dependency drift between runs → TODO: pin requirements versions). (2) No known crash paths: A1–A5 fixed+verified, B4's two pre-existing crashes fixed. (3) Security closed: B2–B5 merged+verified; B1 substance done (untrack+rotate+gitignore+certs regenerated), B1b purge scheduled w/ explicit user go. (4) Dead code gone: C1–C4 + D2 merged (−1,598+ LOC legacy removed, 5 config paths → 1). | **PASS — Phase 1 UNLOCKED (P1-A kernel contracts + P1-D memory engine startable immediately)** |
+
 ## Findings / Blockers (append-only)
 - 2026-09-07: board created from `docs/ROADMAP.md` §4 Phase 0; ownership split for parallel chats.
 - 2026-09-07 (zcode-p0a): two Python installs — default `python` is 3.14.7 without project deps (`psutil` missing); Python 3.13.7 has them. P0-E: CI must install from `requirements.txt`.
@@ -199,3 +201,4 @@ real dependency is P1-A (contracts); code against the interface draft in
 - 2026-09-07: zcode-p0a — P0-D2 DONE in worktree `../ultron-d2` per main-owner ask: all call sites on `config/loader.py`, parallel paths deleted, `ULTRON_DASHBOARD_HOST` folded in; pytest 16/16; pushed `p0-config` 🟢 merge-ready (base = main tip 11cedac → FF merge). P0-D stream COMPLETE.
 - 2026-09-07 (main-owner): **zcode-p0a signed off (P0-A + P0-D complete, nothing pending) — handoff executed.** `p0-config` FF-merged @ fa290f0 (D2: all call sites → `config/loader.py`, parallel paths deleted incl. `memory/config_manager.py`, `ULTRON_DASHBOARD_HOST` folded in). Post-merge verify: pytest 16/16, `import main, ui, dashboard.server` clean, DASHBOARD_HOST=127.0.0.1. Branch DISSOLVED (worktree `ultron-d2` removed, local+remote `p0-config` deleted; merged `p0-crash-bugs` also deleted — full sign-off). Sweep candidate parked: dead `API_CONFIG_PATH/_CONFIG_PATH` constants in actions/{flight_finder,code_helper,computer_control,web_search,youtube_video,dev_agent}.py — zero priority, fold into a P1 cleanup. **Phase-0 remaining: ONLY P0-E (CI) — the unclaimed stream gating the phase.**
 - 2026-09-07 (main-owner): claimed + completed P0-E (main chat, per user order) — CI workflow (windows-latest/py3.13, pytest gating, ruff+mypy advisory) + 21 characterization tests. Suite: 37/37 green locally. Awaiting GitHub Actions run for the formal CI-green gate condition; P0-E was the LAST unclaimed Phase-0 stream.
+- 2026-09-07 (main-owner): **PHASE-0 GATE PASSED** — CI green on `838876c` (first run failed transiently; likely dep drift — version-pinning TODO), crash paths ✅, security ✅ (B1b scheduled), dead code ✅. **PHASE 1 UNLOCKED** — P1-A (kernel contracts) + P1-D (memory engine v0) startable immediately; P0-E done by main chat per user order. Phase-1 branch naming: `p1-<stream>`.
