@@ -1,6 +1,6 @@
 # PROGRESS.md — ULTRON Live Task Board
 
-*Last updated: 2026-09-07 (planning session). Every agent/chat: read `AGENTS.md`
+*Last updated: 2026-09-07 (zcode-p0a — claimed P0-A). Every agent/chat: read `AGENTS.md`
 first, then claim a stream here. Append-only except your own rows.*
 
 ## How to use
@@ -19,11 +19,11 @@ first, then claim a stream here. Append-only except your own rows.*
 ### P0-A — Crash bugs · owns: `main.py`, `actions/system_monitor.py`, `ui.py`, `actions/proactive.py`
 | ID | Task | Status | Owner | Notes |
 |---|---|---|---|---|
-| P0-A1 | `main.py:346` `_capture_screen` NameError (never imported) — fix screen vision path (J-06) | ⬜ | — | |
-| P0-A2 | camera branch calls `ui.start_camera_stream()` → NotImplementedError (`ui.py:573-576`) — implement or feature-flag | ⬜ | — | |
-| P0-A3 | `actions/system_monitor.py:154` missing `import os` — kills session on CPU-kill path | ⬜ | — | |
-| P0-A4 | `ui.py:634` `time.sleep` NameError (module-level `time` import missing) | ⬜ | — | |
-| P0-A5 | `actions/proactive.py:54-55` silence math (`now - last_triggered + min_silence` ≠ `now - last_user_speech`) | ⬜ | — | |
+| P0-A1 | `main.py:346` `_capture_screen` NameError (never imported) — fix screen vision path (J-06) | 🔨 | zcode-p0a · 2026-09-07 | |
+| P0-A2 | camera branch calls `ui.start_camera_stream()` → NotImplementedError (`ui.py:573-576`) — implement or feature-flag | 🔨 | zcode-p0a · 2026-09-07 | feature-flag off (graceful no-op + log); real preview is Phase 4 (J-16) |
+| P0-A3 | `actions/system_monitor.py:154` missing `import os` — kills session on CPU-kill path | 🔨 | zcode-p0a · 2026-09-07 | |
+| P0-A4 | `ui.py:634` `time.sleep` NameError (module-level `time` import missing) | 🔨 | zcode-p0a · 2026-09-07 | worse than reported: kills the startup thread on fresh installs (no API key) |
+| P0-A5 | `actions/proactive.py:54-55` silence math (`now - last_triggered + min_silence` ≠ `now - last_user_speech`) | 🔨 | zcode-p0a · 2026-09-07 | |
 
 ### P0-B — Security triage · owns: `dashboard/server.py`, `actions/desktop.py`, `actions/dev_agent.py`, TLS keys, `.gitignore`
 | ID | Task | Status | Owner | Notes |
@@ -71,4 +71,5 @@ per `research/06`) → agent loop v0 → policy engine → FastMCP server wrap (
 - 2026-09-07: board created from `docs/ROADMAP.md` §4 Phase 0; ownership split to allow 2–4 parallel chats.
 
 ## Changelog
+- 2026-09-07: zcode-p0a claimed P0-A (all 5 rows); branch `p0-crash-bugs`.
 - 2026-09-07: board created; streams P0-A…P0-E defined.
