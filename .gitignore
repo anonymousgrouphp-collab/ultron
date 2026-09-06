@@ -40,3 +40,10 @@ scratch/
 memory/long_term.json
 memory/cmr_records.json
 memory/reminders.json
+
+# ─── TLS Material (private keys are burned if they ever reach git) ──
+config/certs/*
+!config/certs/README.md
+
+# ─── Dev Agent pip allowlist (human-approved packages) ─────────────
+config/pip_allowlist.json
