@@ -192,6 +192,7 @@ body.emergency-active .emergency-top-banner {
 @keyframes radarSweepRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes blipFlash { 0%, 100% { opacity: 0.3; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.3); } }
 </style>
+<script src="/static/crypto.js"></script>
 </head>
 <body>
 <div id="webgl"></div>
@@ -409,6 +410,22 @@ const $ = id => document.getElementById(id);
 const local = location.protocol === 'file:';
 const token = sessionStorage.getItem('ultron_token') || '__TOKEN__';
 const esc = v => String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// P0-B4: server issues tokens only after PIN/QR auth and rejects plaintext
+// commands — a placeholder token here means "no session": go log in first.
+if (!local && token === '__TOKEN__') { location.replace('/login'); return; }
+
+// --- COMMAND ENCRYPTION (P0-B4) -------------------------------------------
+// Mirrors dashboard/server.py: AES-256-CBC, key = PBKDF2-HMAC-SHA256(session
+// key, "ULTRON-DASHBOARD-v1", 100000), payload = base64(IV[16] ‖ ciphertext).
+const SALT = CryptoJS.enc.Utf8.parse('ULTRON-DASHBOARD-v1');
+const encryptCommand = t => {
+  const key = CryptoJS.PBKDF2(sessionStorage.getItem('ultron_key') || '', SALT,
+                              { keySize: 256/32, iterations: 100000, hasher: CryptoJS.algo.SHA256 });
+  const iv = CryptoJS.lib.WordArray.random(16);
+  const ct = CryptoJS.AES.encrypt(t, key, { iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }).ciphertext;
+  return iv.clone().concat(ct).toString(CryptoJS.enc.Base64);
+};
 
 const say = {
   MUTED: 'MICROPHONE MUTED',
@@ -711,12 +728,14 @@ window.closeModal = id => $(id).classList.remove('active');
 
 window.sendBackendCommand = t => {
   if (!t) return;
-  document.title = 'CMD:' + t;
-  if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'command', text: t }));
-  else if (!local) fetch('/api/command', {
+  document.title = 'CMD:' + t;              // local HUD channel (file:// → ui.py)
+  if (local) return;
+  const enc = encryptCommand(t);            // P0-B4: server rejects plaintext
+  if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'command', enc }));
+  else fetch('/api/command', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(token !== '__TOKEN__' ? { Authorization: `Bearer ${token}` } : {}) },
-    body: JSON.stringify({ text: t })
+    body: JSON.stringify({ enc })
   }).catch(() => {});
 };
 
@@ -905,7 +924,12 @@ function connect() {
   ws.onmessage = e => {
     try { receive(JSON.parse(e.data)); } catch {}
   };
-  ws.onclose = () => {
+  ws.onclose = e => {
+    if (e.code === 4001) {                    // P0-B4: token invalid/expired → re-auth
+      sessionStorage.removeItem('ultron_token');
+      location.replace('/login');
+      return;
+    }
     $('net-status').textContent = 'RECONNECTING';
     setTimeout(connect, 2000);
   };
