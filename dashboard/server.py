@@ -406,7 +406,7 @@ class DashboardServer:
     @staticmethod
     def _ssl_enabled() -> bool:
         certs = BASE_DIR / "config" / "certs"
-        return (certs / "jarvis.key").exists() and (certs / "jarvis.crt").exists()
+        return (certs / "ultron.key").exists() and (certs / "ultron.crt").exists()
 
     def get_url(self) -> str:
         proto = "https" if self._ssl_enabled() else "http"
