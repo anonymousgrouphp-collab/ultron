@@ -26,7 +26,7 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 ## Phase 0 — Stabilize & De-Risk
 **Gate:** CI green · no known crash paths · security holes closed · dead code gone.
 
-### P0-A — Crash bugs · owns: `main.py`, `actions/system_monitor.py`, `ui.py`, `actions/proactive.py` — **complete, on branch `p0-crash-bugs` pending merge review**
+### P0-A — Crash bugs · owns: `main.py`, `actions/system_monitor.py`, `ui.py`, `actions/proactive.py` — **complete & signed; MERGED to `main` @ 42e262e (2026-09-07)**
 | ID | Task | DEP | Status | Owner | Sign-off |
 |---|---|---|---|---|---|
 | P0-A1 | `main.py:346` `_capture_screen` NameError — screen vision path fixed (J-06) | 🔓 | ✅ | zcode-p0a | ✍ zcode-p0a 2026-09-07 — E2E screenshot 106,981 B verified |
@@ -142,3 +142,4 @@ real dependency is P1-A (contracts); code against the interface draft in
 - 2026-09-07: P0-A complete — A1–A5 fixed, verified & signed; ready for merge review.
 - 2026-09-07: full restructure — Phases 1–5 divided (P1-A…P5-B), Sign-off + DEP rules, strict update-in-same-commit rule.
 - 2026-09-07: zcode-p0a — doc restructure committed (872c041); P0-A compliance audit done: A2/A4 sign-off evidence refs added, verification-log ref clarified; same-commit rule adopted going forward.
+- 2026-09-07: zcode-p0a — `p0-crash-bugs` MERGED to `main` @ 42e262e per merge policy. Gate evidence re-run on main: py_compile OK on all 4 owned files; merged files diff-identical to verified branch tip. Push follows; unblocks P0-C2/C4, P0-D2, P1-H.
