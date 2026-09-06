@@ -232,9 +232,9 @@ class DashboardServer:
             self._tokens = dict(keep[:self._TOKEN_MAX])
 
     def _mint_token(self) -> str:
-        self._prune_tokens()
         tok = secrets.token_urlsafe(32)
         self._tokens[tok] = time.time() + self._TOKEN_TTL
+        self._prune_tokens()          # expired dropped first; cap cut keeps newest (incl. this one)
         return tok
 
     def _valid_token(self, tok: str) -> bool:
@@ -578,7 +578,8 @@ class DashboardServer:
                 return
             await websocket.accept()
             self._clients.add(websocket)
-            for entry in self._history[-50:]:
+            # deque does not support slicing — this crashed every /ws connect
+            for entry in list(self._history)[-50:]:
                 try:
                     await websocket.send_json(entry)
                 except Exception:
