@@ -1,6 +1,6 @@
 # PROGRESS.md — ULTRON Live Task Board
 
-*Last updated: 2026-09-07 (zcode-p0b — P0-B code MERGED to `main` @ 6303635; B1 history purge deferred, see Findings).
+*Last updated: 2026-09-07 (MAIN-OWNER RULE: only the main chat merges into `main`. P0-A + P0-B merged; queue refreshed).
 Read `AGENTS.md` first. Append-only except your own rows.*
 
 ## How to use (STRICT — every agent, every chat)
@@ -18,20 +18,22 @@ Read `AGENTS.md` first. Append-only except your own rows.*
      Never "quickly do the dependency yourself" — that causes conflicts.
 5. Phase gates apply (roadmap §4): Phase 1 streams unlock when the Phase 0 gate is
    verified & logged. Claims stale >48h with no commits may be taken over (note in Findings).
-6. **Merge your own branch when your stream is ✅+signed** (policy: `AGENTS.md` §3):
-   rebase on `main` → merge → push → write `merged @ <sha>` in the stream header +
-   changelog. Until P0-E's CI exists, your sign-off evidence IS the merge gate.
-   Conflicts in another stream's files → STOP and tell the user. Signed work unmerged
-   >24h is a policy violation — dependent streams wait on merges, not signatures.
+6. **`main` is merged ONLY by the main-branch chat (orchestrator).** Branch chats:
+   when your stream is ✅+signed → push your branch, set your Merge Queue row → 🟢
+   merge-ready, and stop (pick another stream). The main chat performs the merge
+   (rebase → merge → push → `merged @ <sha>` in header + queue + changelog). Until
+   P0-E's CI exists, sign-off evidence is the merge gate. Merge-ready work unhandled
+   >24h → flag in Findings.
 
 Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason in Notes)
 
-## Merge Queue (branches → `main`)
+## Merge Queue (branches → `main`; merges performed ONLY by the main chat)
 | Branch | Stream | State | Merged @ | Notes |
 |---|---|---|---|---|
 | `p0-crash-bugs` | P0-A | ✅ merged | 42e262e | unblocks P0-C2, P0-C4, P0-D2, P1-H |
-| `p0-security` | P0-B | ✅ merged (B1 rotation merged; history purge deferred → Findings) | 6303635 | unblocks P0-D2 (dashboard call sites) |
-| `p0-config` | P0-D | 🟡 partial (D1 signed; D2 🚫 on P0-B) | — | stacked on `p0-crash-bugs` — rebase after that merge; D1 (new files only) may merge early |
+| `p0-security` | P0-B | ✅ merged (B1 history purge deferred → Findings) | 6303635 | unblocks P0-D2 (dashboard call sites) |
+| `p0-config` | P0-D | 🟢 merge D1 (signed on branch); D2 now unblocked — P0-B merged | — | PROGRESS.md diverged branch-vs-main; main chat resolves as union |
+| `p0-dead-code` | P0-C | 🟡 C1+C3 done on branch (C2/C4 merge-gated per branch log) | — | main chat verifies signs on branch, then merges C1/C3 |
 
 ---
 
@@ -151,6 +153,7 @@ real dependency is P1-A (contracts); code against the interface draft in
 - 2026-09-07 (zcode-p0b): **B1 history purge deferred — needs team coordination.** Keys are untracked, gitignored, and ROTATED (fresh self-signed pair, sha256 42:FC:98:BC:6D:E4:…, never committed) — the burned keys have zero value as of today, so the remaining purge is hygiene only. Attempted `filter-branch` + force-push of main; `--force-with-lease` correctly rejected it: origin/main had advanced (PRs #9–#11, then the `p0-crash-bugs` merge @ 42e262e). A main-history rewrite now invalidates every open branch (p0-config, p0-dead-code, patch/*, all clones) and must be a scheduled, all-hands operation — recommend the owner runs it AFTER Phase-0 streams merge: `git filter-branch --index-filter 'git rm -r --cached --ignore-unmatch config/certs' --prune-empty -- --all` + announced `push --force`.
 - 2026-09-07 (zcode-p0b): **pre-existing crash found & fixed in P0-B4 (owned file):** `/ws` did `self._history[-50:]` on a `collections.deque` → `TypeError` on EVERY WebSocket connect since introduction; phone clients survived via the HTTP `/api/command` fallback. Relevant for P0-E: characterization test should pin `websocket_connect('/ws?token=...')` + history replay so this stays fixed.
 - 2026-09-07 (zcode-p0b): fresh TLS pair lives only in the `ultron-security` worktree at `config/certs/` (untracked by design, see `config/certs/README.md`). A fresh clone has no certs → dashboard falls back to plain HTTP on 127.0.0.1 (safe default); regenerate with the documented openssl one-liner for HTTPS. P0-D2 note: dashboard/server.py now reads `ULTRON_DASHBOARD_HOST` env directly — fold it into `config/loader.py` during D2 migration.
+- 2026-09-07 (main-owner): **this chat now owns `main` — all merges centralize here** (user directive). Aborted a stalled cross-stream merge found on the `p0-config` checkout (p0-security content being merged into p0-config; conflict on PROGRESS.md) — no work lost, every committed state lives on origin. Branch chats: stop self-merging; push + mark 🟢 in the Merge Queue instead.
 
 ## Changelog
 - 2026-09-07: board created; streams P0-A…P0-E defined.
@@ -163,3 +166,4 @@ real dependency is P1-A (contracts); code against the interface draft in
 - 2026-09-07: P0-D1 done — `config/loader.py` + 14 hermetic tests, verified & signed; D2 remains 🚫 until P0-B signs off.
 - 2026-09-07 (planning): merge policy defined — streams merge their OWN signed branches (rebase → merge → push → board update); Merge Queue section added: `p0-crash-bugs` 🟢 merge-ready, `p0-config` 🟡 partial (D1).
 - 2026-09-07: zcode-p0b — `p0-security` MERGED to `main` @ 6303635 per merge policy (rebased on af628d4 incl. P0-A merge + patch PRs #9–#11; cherry-picked 21b13b9 so merge-policy docs are shared). B2–B5 ✅ merged; B1: rotation ✅ merged, history purge deferred → Findings. Unblocks P0-D2's dashboard call-site migration.
+- 2026-09-07 (main-owner): ownership rule set per user directive — main chat is the ONLY merger into `main`; AGENTS.md §3 + board rule 6 rewritten; Merge Queue refreshed (`p0-config` D1 + `p0-dead-code` C1/C3 awaiting main-chat merge).
