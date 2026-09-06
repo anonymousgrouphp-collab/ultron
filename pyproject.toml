@@ -1,0 +1,21 @@
+# ULTRON — tooling config (P0-E). No packaging metadata: this repo runs from source.
+# CI (.github/workflows/ci.yml): pytest gates; ruff & mypy are advisory (continue-on-error).
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+# Characterization tests import main/ui — these must run on Windows (pywin32/pycaw markers).
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+extend-exclude = ["dashboard/static", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]  # default-critical set; advisory only for now (legacy codebase)
+
+[tool.mypy]
+python_version = "3.13"
+ignore_missing_imports = true
+check_untyped_defs = false
+# Advisory only (CI continue-on-error) until the kernel rewrite (P1) lands typed modules.
