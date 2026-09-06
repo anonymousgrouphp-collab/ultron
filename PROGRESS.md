@@ -47,10 +47,10 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 ### P0-C — Dead code & dedup · owns: `core/tts.py`, `core/stt.py`, `memory/cmr_manager.py`, `reminder_manager.py`, `screen_processor.py`, aliases
 | ID | Task | DEP | Status | Owner | Sign-off |
 |---|---|---|---|---|---|
-| P0-C1 | Delete dead files: `core/tts.py`, `core/stt.py`, `cmr_manager.py`, `reminder_manager.py`, `_VisionSession` | 🔓 | ⬜ | | dead = imported by nothing; zero conflicts |
-| P0-C2 | Remove duplicate `organize_desktop` + duplicate shutdown tool | DEP: P0-A ✅signed | ⬜ | | touches `main.py` regs — coordinate w/ `p0-crash-bugs` merge |
-| P0-C3 | `core/llm_client.py`: wire in or delete | 🔓 | ⬜ | | decide via `research/06` gateway plan |
-| P0-C4 | Name purge: JARVIS/HUNNY aliases → **ULTRON** only | DEP: P0-A ✅signed | ⬜ | | touches `main.py`/`ui.py` — coordinate merge |
+| P0-C1 | Delete dead files: `core/tts.py`, `core/stt.py`, `cmr_manager.py`, `reminder_manager.py`, `_VisionSession` | 🔓 | 🔶 | zcode-p0c 2026-09-07 | dead = imported by nothing; zero conflicts |
+| P0-C2 | Remove duplicate `organize_desktop` + duplicate shutdown tool | DEP: P0-A ✅signed | 🔶 | zcode-p0c 2026-09-07 | touches `main.py` regs — coordinate w/ `p0-crash-bugs` merge |
+| P0-C3 | `core/llm_client.py`: wire in or delete | 🔓 | 🔶 | zcode-p0c 2026-09-07 | decide via `research/06` gateway plan |
+| P0-C4 | Name purge: JARVIS/HUNNY aliases → **ULTRON** only | DEP: P0-A ✅signed | 🔶 | zcode-p0c 2026-09-07 | touches `main.py`/`ui.py` — coordinate merge |
 
 ### P0-D — Config single source · owns: `config/loader.py` + call sites
 | ID | Task | DEP | Status | Owner | Sign-off |
@@ -141,4 +141,5 @@ real dependency is P1-A (contracts); code against the interface draft in
 - 2026-09-07: zcode-p0a claimed P0-A (all 5 rows); branch `p0-crash-bugs`.
 - 2026-09-07: P0-A complete — A1–A5 fixed, verified & signed; ready for merge review.
 - 2026-09-07: full restructure — Phases 1–5 divided (P1-A…P5-B), Sign-off + DEP rules, strict update-in-same-commit rule.
+- 2026-09-07: zcode-p0c claimed P0-C (C1–C4); branch `p0-dead-code` in worktree `ultron-p0c`, based on `p0-crash-bugs` tip 76623fa (merge order: after `p0-crash-bugs`).
 - 2026-09-07: zcode-p0a — doc restructure committed (872c041); P0-A compliance audit done: A2/A4 sign-off evidence refs added, verification-log ref clarified; same-commit rule adopted going forward.
