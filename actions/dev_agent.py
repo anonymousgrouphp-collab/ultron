@@ -14,6 +14,35 @@ MAX_FIX_ATTEMPTS = 5
 MODEL_PLANNER    = "gemini-3.6-flash"
 MODEL_WRITER     = "gemini-3.6-flash"
 
+# P0-B5 (ROADMAP): the agent may no longer pip-install whatever the model
+# suggests. Every package must appear in the human-maintained allowlist below;
+# anything else is refused with a note telling the user how to approve it.
+# (Interactive consent prompts arrive with the Phase 1 policy engine.)
+PIP_ALLOWLIST_PATH = BASE_DIR / "config" / "pip_allowlist.json"
+
+
+def _load_pip_allowlist() -> set[str]:
+    try:
+        data = json.loads(PIP_ALLOWLIST_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return set()
+    if isinstance(data, dict):
+        data = data.get("allow", [])
+    if not isinstance(data, list):
+        return set()
+    return {str(x).strip().lower() for x in data if str(x).strip()}
+
+
+def _dep_name(dep: str) -> str:
+    return re.split(r"[>=<!\[\s]", dep.strip(), maxsplit=1)[0].strip().lower()
+
+
+def _split_allowlisted(dependencies: list[str]) -> tuple[list[str], list[str]]:
+    allow = _load_pip_allowlist()
+    ok    = [d for d in dependencies if _dep_name(d) in allow]
+    rest  = [d for d in dependencies if _dep_name(d) not in allow]
+    return ok, rest
+
 def _get_model(model_name: str):
     from google import genai
     _c = genai.Client(api_key=get_api_key('gemini_api_key'))
@@ -228,6 +257,17 @@ def _install_dependencies(dependencies: list[str], project_dir: Path) -> str:
     if not dependencies:
         return "No external dependencies."
 
+    dependencies, blocked = _split_allowlisted(dependencies)
+    blocked_note = ""
+    if blocked:
+        print(f"[DevAgent] ⛔ Not allowlisted, refusing to install: {blocked}")
+        blocked_note = (f"Refused (not in {PIP_ALLOWLIST_PATH.name}): "
+                        f"{', '.join(blocked)}. "
+                        f"Add them to config/pip_allowlist.json to approve."
+                        if dependencies else
+                        f"No dependencies installed — none of {', '.join(blocked)} "
+                        f"are in config/pip_allowlist.json. Add them there to approve.")
+
     to_install = []
     for dep in dependencies:
         pkg_name = re.split(r"[>=<!]", dep)[0].strip()
@@ -252,8 +292,10 @@ def _install_dependencies(dependencies: list[str], project_dir: Path) -> str:
             timeout=120, cwd=str(project_dir)
         )
         if result.returncode == 0:
-            return f"Installed: {', '.join(to_install)}"
-        return f"Install warning (non-fatal): {result.stderr[:200]}"
+            msg = f"Installed: {', '.join(to_install)}"
+            return f"{msg}. {blocked_note}" if blocked_note else msg
+        warn = f"Install warning (non-fatal): {result.stderr[:200]}"
+        return f"{warn} {blocked_note}".strip() if blocked_note else warn
     except subprocess.TimeoutExpired:
         return "Dependency install timed out (non-fatal)."
     except Exception as e:
@@ -323,7 +365,11 @@ def _try_auto_install(error_output: str, project_dir: Path) -> bool:
         return False
 
     pkg = match.group(1).replace("_", "-").split(".")[0]
-    print(f"[DevAgent] 🔧 Auto-installing missing package: {pkg}")
+    if pkg.lower() not in _load_pip_allowlist():
+        print(f"[DevAgent] ⛔ Auto-install refused: '{pkg}' is not in "
+              f"config/pip_allowlist.json. Add it there to approve.")
+        return False
+    print(f"[DevAgent] 🔧 Auto-installing allowlisted package: {pkg}")
     try:
         result = subprocess.run(
             [sys.executable, "-m", "pip", "install", pkg],
