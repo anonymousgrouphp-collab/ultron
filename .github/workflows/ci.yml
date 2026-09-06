@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    # Windows runner: ULTRON is Windows-first (pywin32/pycaw/comtypes markers in requirements.txt,
+    # and the characterization tests import main/ui which need those + a desktop session).
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"   # machine finding (PROGRESS.md Findings): 3.13 is the dep-complete line
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff mypy
+
+      - name: Run tests (gating)
+        run: python -m pytest tests -v
+
+      - name: Ruff (advisory — does not gate)
+        run: python -m ruff check .
+        continue-on-error: true
+
+      - name: Mypy (advisory — does not gate)
+        run: python -m mypy core config memory actions
+        continue-on-error: true
