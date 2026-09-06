@@ -30,9 +30,9 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 | ID | Task | DEP | Status | Owner | Sign-off |
 |---|---|---|---|---|---|
 | P0-A1 | `main.py:346` `_capture_screen` NameError — screen vision path fixed (J-06) | 🔓 | ✅ | zcode-p0a | ✍ zcode-p0a 2026-09-07 — E2E screenshot 106,981 B verified |
-| P0-A2 | Camera branch NotImplementedError — feature-flagged off; live preview → Phase 4 (J-16) | 🔓 | ✅ | zcode-p0a | ✍ zcode-p0a 2026-09-07 |
+| P0-A2 | Camera branch NotImplementedError — feature-flagged off; live preview → Phase 4 (J-16) | 🔓 | ✅ | zcode-p0a | ✍ zcode-p0a 2026-09-07 — probe: start emits preview-unavailable log, stop/show no-op; `grep NotImplementedError ui.py` → 0 hits |
 | P0-A3 | `system_monitor.py:154` missing `import os` | 🔓 | ✅ | zcode-p0a | ✍ zcode-p0a 2026-09-07 — runs clean w/ stubbed process_iter |
-| P0-A4 | `ui.py:634` `time.sleep` NameError (killed startup thread on fresh installs) | 🔓 | ✅ | zcode-p0a | ✍ zcode-p0a 2026-09-07 |
+| P0-A4 | `ui.py:634` `time.sleep` NameError (killed startup thread on fresh installs) | 🔓 | ✅ | zcode-p0a | ✍ zcode-p0a 2026-09-07 — probe: `ui.time is time` → True (module scope), `import ui` clean |
 | P0-A5 | `proactive.py:54-55` silence math | 🔓 | ✅ | zcode-p0a | ✍ zcode-p0a 2026-09-07 — triggers at 16 min real silence, not 5 |
 
 ### P0-B — Security triage · owns: `dashboard/server.py`, `actions/desktop.py`, `actions/dev_agent.py`, TLS keys, `.gitignore`
@@ -126,16 +126,19 @@ real dependency is P1-A (contracts); code against the interface draft in
 ## Verification Log (phase-gate deliverables — evidence or it didn't happen)
 | Date | Deliverable | Verified by | Checks run + evidence | Result |
 |---|---|---|---|---|
-| 2026-09-07 | P0-A crash bugs (A1–A5), branch `p0-crash-bugs` @ bd36d98+1 | zcode-p0a | `python -m py_compile main.py ui.py actions/system_monitor.py actions/proactive.py` → OK (Py 3.14.7). Runtime probes on Py 3.13.7 (the install with project deps): A3 `auto_close_heavy_background_apps()` with stubbed `process_iter` → `[]`, no NameError; `sm.os.getpid()` resolves. A5 gate: triggers at 16 min silence, not at 5 min; `build_prompt` prints `User silence: 16 minutes` (matches real silence, was inflated by `+min_silence` before); cooldown blocks retrigger. A4 `ui.time` present at module scope. A2 `start_camera_stream` emits `SYS: Camera preview not available — using still capture only.`, stop/show no-op; `grep raise NotImplementedError ui.py` → 0 hits. A1 `import main` clean (full dep chain); E2E `_capture_screen()` → 106,981 bytes image/jpeg (real screenshot) | PASS — all 5 fixed, no new Kill-List violations |
+| 2026-09-07 | P0-A crash bugs (A1–A5), branch `p0-crash-bugs` @ 6991cec (code) + 92dae5e (board) | zcode-p0a | `python -m py_compile main.py ui.py actions/system_monitor.py actions/proactive.py` → OK (Py 3.14.7). Runtime probes on Py 3.13.7 (the install with project deps): A3 `auto_close_heavy_background_apps()` with stubbed `process_iter` → `[]`, no NameError; `sm.os.getpid()` resolves. A5 gate: triggers at 16 min silence, not at 5 min; `build_prompt` prints `User silence: 16 minutes` (matches real silence, was inflated by `+min_silence` before); cooldown blocks retrigger. A4 `ui.time` present at module scope. A2 `start_camera_stream` emits `SYS: Camera preview not available — using still capture only.`, stop/show no-op; `grep raise NotImplementedError ui.py` → 0 hits. A1 `import main` clean (full dep chain); E2E `_capture_screen()` → 106,981 bytes image/jpeg (real screenshot) | PASS — all 5 fixed, no new Kill-List violations |
 
 ## Findings / Blockers (append-only)
 - 2026-09-07: board created from `docs/ROADMAP.md` §4 Phase 0; ownership split for parallel chats.
 - 2026-09-07 (zcode-p0a): two Python installs — default `python` is 3.14.7 without project deps (`psutil` missing); Python 3.13.7 has them. P0-E: CI must install from `requirements.txt`.
 - 2026-09-07 (zcode-p0a): camera live preview (HUD) intentionally deferred to Phase 4 (J-16) — flagged off in `ui.py`.
 - 2026-09-07 (restructure): Phases 1–5 divided into owned-file streams (P1-A…P5-B); Sign-off + DEP columns added; startable-now set: P0-B, P0-C1/C3, P0-D1, P0-E (+ P0-C2/C4, P0-D2 unblocked after `p0-crash-bugs` merges).
+- 2026-09-07 (zcode-p0a): compliance audit vs STRICT rules — the 5 P0-A code commits predate the same-commit rule (board update landed in 92dae5e); end state compliant, history deliberately NOT rewritten (unpushed branch, parallel worktrees active). Rule applied from now on. A2/A4 sign-off evidence refs added.
+- 2026-09-07 (zcode-p0a): research/03 §9 Phase-0 vision item splits as — NameError fix = P0-A1 (done); "delete the parallel capture code in `screen_processor.py`" = P0-C1 deletions / Phase 1 kernel-owned `capture_screen()`, not P0-A scope.
 
 ## Changelog
 - 2026-09-07: board created; streams P0-A…P0-E defined.
 - 2026-09-07: zcode-p0a claimed P0-A (all 5 rows); branch `p0-crash-bugs`.
 - 2026-09-07: P0-A complete — A1–A5 fixed, verified & signed; ready for merge review.
 - 2026-09-07: full restructure — Phases 1–5 divided (P1-A…P5-B), Sign-off + DEP rules, strict update-in-same-commit rule.
+- 2026-09-07: zcode-p0a — doc restructure committed (872c041); P0-A compliance audit done: A2/A4 sign-off evidence refs added, verification-log ref clarified; same-commit rule adopted going forward.
