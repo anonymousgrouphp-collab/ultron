@@ -31,9 +31,9 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 | Branch | Stream | State | Merged @ | Notes |
 |---|---|---|---|---|
 | `p0-crash-bugs` | P0-A | ✅ merged | 42e262e | unblocks P0-C2, P0-C4, P0-D2, P1-H |
-| `p0-security` | P0-B | ✅ merged (B1 history purge deferred → Findings) | 6303635 | unblocks P0-D2 (dashboard call sites) |
-| `p0-config` | P0-D | 🟢 merge D1 (signed on branch); D2 now unblocked — P0-B merged | — | PROGRESS.md diverged branch-vs-main; main chat resolves as union |
-| `p0-dead-code` | P0-C | 🟡 C1+C3 signed; C2/C4 executing (gate lifted: P0-A merged @ 42e262e) | — | branch merged on main cf62d11; push-to-main per direct user instruction to zcode-p0c |
+| `p0-security` | P0-B | ✅ merged & **DISSOLVED** (branch deleted local+remote; worktree removed) | 6303635 | B1 purge → P0-B1b; certs regenerated in main checkout (untracked) |
+| `p0-config` | P0-D | ✅ merged (D1) | e0a644a | D2 now UNBLOCKED (P0-B merged) — `ULTRON_DASHBOARD_HOST` fold into loader per Findings |
+| `p0-dead-code` | P0-C | ✅ merged (C1/C2/C3) | 847543c | C4 🔶 in progress on branch by zcode-p0c — merges when signed |
 
 ---
 
@@ -49,10 +49,11 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 | P0-A4 | `ui.py:634` `time.sleep` NameError (killed startup thread on fresh installs) | 🔓 | ✅ | zcode-p0a | ✍ zcode-p0a 2026-09-07 — probe: `ui.time is time` → True (module scope), `import ui` clean |
 | P0-A5 | `proactive.py:54-55` silence math | 🔓 | ✅ | zcode-p0a | ✍ zcode-p0a 2026-09-07 — triggers at 16 min real silence, not 5 |
 
-### P0-B — Security triage · owns: `dashboard/server.py`, `actions/desktop.py`, `actions/dev_agent.py`, TLS keys, `.gitignore` — **B2–B5 + B1-rotation complete & signed; MERGED to `main` @ 6303635 (2026-09-07); B1 history-purge deferred → Findings**
+### P0-B — Security triage · owns: `dashboard/server.py`, `actions/desktop.py`, `actions/dev_agent.py`, TLS keys, `.gitignore` — **B2–B5 + B1-rotation complete & signed; MERGED @ 6303635; branch DISSOLVED; ownership → main chat (user order, p0b chat discarded); only purge remains → P0-B1b**
 | ID | Task | DEP | Status | Owner | Sign-off |
 |---|---|---|---|---|---|
-| P0-B1 | Remove committed TLS keys, **rotate**, purge git history | 🔓 | 🔶 | zcode-p0b | ✍ zcode-p0b 2026-09-07 — keys untracked + `.gitignore`d; fresh self-signed pair generated & kept untracked (final pair sha256 42:FC:98:BC…, see Findings); **history purge deferred — blocked by team coordination, see Findings** |
+| P0-B1 | Remove committed TLS keys, **rotate**, purge git history | 🔓 | 🔶 | zcode-p0b → main chat | ✍ zcode-p0b 2026-09-07 — keys untracked + `.gitignore`d + rotated (sha256 42:FC:98:BC…); purge split to **P0-B1b**. Post-dissolve: fresh pair regenerated in main checkout by main chat (untracked, verified gitignored) — substance COMPLETE, only history purge left |
+| P0-B1b | **Purge burned keys from git history** (all-hands op: `git filter-branch --index-filter 'git rm -r --cached --ignore-unmatch config/certs' --prune-empty -- --all` + announced `push --force`; invalidates all open branches & clones) | DEP: all Phase-0 streams merged **+ explicit user go** (P0-E last) | ⬜ | main chat | | scheduled — hygiene only (burned keys valueless since rotation) |
 | P0-B2 | Dashboard binds `127.0.0.1` default; `0.0.0.0` explicit opt-in only | 🔓 | ✅ | zcode-p0b | ✍ zcode-p0b 2026-09-07 — `uvicorn.Config(host=DASHBOARD_HOST)`; `ULTRON_DASHBOARD_HOST=0.0.0.0` opt-in; grep: no `host="0.0.0.0"` binding left |
 | P0-B3 | Delete auto-firewall UAC + Public→Private profile flip | 🔓 | ✅ | zcode-p0b | ✍ zcode-p0b 2026-09-07 — `_ensure_network_access` (211 lines) deleted; grep `ShellExecuteW\|Set-NetConnectionProfile` → 0 live hits (one printed *manual* hint only) |
 | P0-B4 | Mandatory encryption, prune stale tokens, auth local WebSockets | 🔓 | ✅ | zcode-p0b | ✍ zcode-p0b 2026-09-07 — 10-step TestClient suite passed: plaintext cmd→400, no mint on `GET /`, expired token→401, unauth `/ws`→4001, encrypted e2e (CryptoJS↔`_decrypt_cbc` interop proven node+py), token cap 64. **Fixed 2 pre-existing bugs the tests caught: `/ws` deque-slice crash on every connect + token-cap off-by-one** |
@@ -174,5 +175,8 @@ real dependency is P1-A (contracts); code against the interface draft in
 - 2026-09-07: P0-D1 done — `config/loader.py` + 14 hermetic tests, verified & signed; D2 remains 🚫 until P0-B signs off.
 - 2026-09-07 (planning): merge policy defined — streams merge their OWN signed branches (rebase → merge → push → board update); Merge Queue section added: `p0-crash-bugs` 🟢 merge-ready, `p0-config` 🟡 partial (D1).
 - 2026-09-07: zcode-p0b — `p0-security` MERGED to `main` @ 6303635 per merge policy (rebased on af628d4 incl. P0-A merge + patch PRs #9–#11; cherry-picked 21b13b9 so merge-policy docs are shared). B2–B5 ✅ merged; B1: rotation ✅ merged, history purge deferred → Findings. Unblocks P0-D2's dashboard call-site migration.
-- 2026-09-07 (main-owner): ownership rule set per user directive — main chat is the ONLY merger into `main`; AGENTS.md §3 + board rule 6 rewritten; Merge Queue refreshed (`p0-config` D1 + `p0-dead-code` C1/C3 awaiting main-chat merge).
+- 2026-09-07 (main-owner): **P0-B ownership transferred to main chat per user order (p0b chat discarded).** Verified before dissolving: `p0-security` tip cf62d11 was already an ancestor of main, worktree clean, remote in sync → **nothing lost**. `p0-security` DISSOLVED: worktree pruned, local branch deleted, remote branch deleted. The `ultron-security` folder removal took the untracked fresh TLS pair with it → regenerated in main checkout via the README openssl one-liner (gitignored, verified via `git check-ignore`); dashboard HTTPS restored locally.
+- 2026-09-07 (main-owner): merged `p0-config` @ e0a644a (P0-D1: `config/loader.py` + tests; AGENTS.md ours / logs union-resolved) and `p0-dead-code` @ 847543c (C1/C2/C3). Post-merge verification: `py -3.13 -m pytest tests/test_config_loader.py` → 14 passed; `py_compile main.py ui.py dashboard/server.py actions/desktop.py actions/dev_agent.py` → OK; dead files confirmed gone; `exec(` grep = 1 (comment only, desktop.py:334). D2 is now UNBLOCKED (its DEP P0-A ✅ + P0-B ✅ merged) — p0-config chat may proceed; fold `ULTRON_DASHBOARD_HOST` into `config/loader.py` during D2.
+- 2026-09-07 (main-owner): P0-B1 split — substance (untrack + rotate + gitignore + certs) ✅; history purge tracked as **P0-B1b** ⬜ owned by main chat, DEP: all Phase-0 streams merged (P0-E last) **+ explicit user go** — a shared-main force-push invalidates every open branch/clone, so it runs once, announced, at the Phase-0 gate.
 - 2026-09-07: zcode-p0a — `p0-config` rebased on updated `main` (patch-PR batch #8–#11 verified not to touch P0-A files; loader tests 14/14 after rebase); Merge Queue updated.
+- 2026-09-07 (main-owner): merged `p0-config` @ e0a644a + `p0-dead-code` @ 847543c; `p0-security` DISSOLVED per user order (p0b chat discarded, work → main chat); TLS pair regenerated in main checkout; P0-B1 split → P0-B1b (history purge, scheduled at Phase-0 gate). Post-merge verification: loader tests 14/14, py_compile OK ×5, dead files gone, exec( = comment only.
