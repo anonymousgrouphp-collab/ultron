@@ -1,9 +1,15 @@
 """
 dashboard/server.py — ULTRON Local HTTP Dashboard
 
-Plain HTTP on port 8000 (no SSL warnings, no firewall issues).
-Security at the application layer: AES-256-CBC with session-key-derived key.
-CryptoJS is auto-downloaded once and served locally — no CDN needed after that.
+Security posture (ROADMAP P0-B):
+- Binds 127.0.0.1 by default; LAN exposure only via ULTRON_DASHBOARD_HOST=0.0.0.0.
+- HTTPS when config/certs/ultron.{key,crt} exist (self-signed, never committed).
+- Bearer tokens are issued only after PIN/QR/device auth, expire after 12h,
+  and are pruned; every WebSocket (local or remote) requires a valid token.
+- Commands MUST arrive AES-256-CBC encrypted with the session-key-derived key
+  (PBKDF2-HMAC-SHA256, salt "ULTRON-DASHBOARD-v1", 100k iterations); plaintext
+  command payloads are rejected. CryptoJS is served locally for the client.
+- No firewall tampering, no UAC elevation, no network-profile changes.
 
 Install deps:  pip install fastapi "uvicorn[standard]" cryptography
 """
@@ -12,6 +18,7 @@ import asyncio
 import base64
 from collections import deque
 import hashlib
+import os
 import re
 import secrets
 import socket
@@ -40,6 +47,11 @@ BASE_DIR    = Path(__file__).resolve().parent.parent
 STATIC_DIR  = Path(__file__).parent / "static"
 PORT        = 8000
 MAX_UPLOAD_MB = 500
+
+# P0-B2 (ROADMAP §4): bind loopback by default. Exposing the dashboard to the
+# LAN is an explicit opt-in — phones connect only when the user asks for it.
+DASHBOARD_HOST = (os.environ.get("ULTRON_DASHBOARD_HOST") or "127.0.0.1").strip()
+_LAN_OPT_IN = DASHBOARD_HOST == "0.0.0.0"
 
 
 def _make_uploads_dir() -> Path:
@@ -97,217 +109,6 @@ _CRYPTOJS_CDN  = ("https://cdnjs.cloudflare.com/ajax/libs/"
 _CRYPTOJS_FILE = STATIC_DIR / "crypto-js.min.js"
 
 
-def _ensure_network_access(port: int) -> None:
-    """Cross-platform, best-effort: open port in the OS firewall for LAN access.
-
-    Runs in a background thread — never blocks uvicorn startup.
-
-    Windows : writes a .bat file, runs it elevated via Windows ShellExecuteW
-              (native UAC dialog, guaranteed to appear). One-time setup.
-    macOS   : osascript admin dialog if the Application Firewall is on.
-    Linux   : pkexec GUI → sudo -n → prints manual command as fallback.
-    """
-    import sys, subprocess, os, tempfile, threading
-
-    # ── Windows ──────────────────────────────────────────────────────────────
-    if sys.platform == "win32":
-        import ctypes, time
-
-        port_rule = f"ULTRON Dashboard Port {port}"
-        prog_rule  = "ULTRON Dashboard Python"
-        py_exe     = sys.executable
-
-        def _netsh_rule_exists(name: str) -> bool:
-            try:
-                r = subprocess.run(
-                    ["netsh", "advfirewall", "firewall", "show", "rule", f"name={name}"],
-                    capture_output=True, text=True, timeout=5,
-                )
-                return r.returncode == 0 and "No rules match" not in r.stdout
-            except Exception:
-                return False
-
-        def _network_is_public() -> bool:
-            try:
-                r = subprocess.run(
-                    ["powershell", "-NoProfile", "-NonInteractive", "-Command",
-                     "(Get-NetConnectionProfile | "
-                     "Where-Object {$_.NetworkCategory -eq 'Public'} | "
-                     "Measure-Object).Count"],
-                    capture_output=True, text=True, timeout=6,
-                )
-                return r.stdout.strip() not in ("", "0")
-            except Exception:
-                return False
-
-        need_port    = not _netsh_rule_exists(port_rule)
-        need_prog    = not _netsh_rule_exists(prog_rule)
-        need_private = _network_is_public()
-
-        if not need_port and not need_prog and not need_private:
-            return  # already fully configured
-
-        # Build a .bat file — netsh + powershell, runs fast when elevated
-        bat_lines = ["@echo off"]
-        if need_private:
-            bat_lines.append(
-                'powershell -NoProfile -NonInteractive -Command "'
-                'Get-NetConnectionProfile | '
-                "Where-Object {$_.NetworkCategory -eq 'Public'} | "
-                'Set-NetConnectionProfile -NetworkCategory Private"'
-            )
-        if need_port:
-            bat_lines.append(
-                f'netsh advfirewall firewall add rule '
-                f'name="{port_rule}" protocol=TCP dir=in '
-                f'localport={port} action=allow'
-            )
-        if need_prog:
-            bat_lines.append(
-                f'netsh advfirewall firewall add rule '
-                f'name="{prog_rule}" dir=in action=allow '
-                f'program="{py_exe}" enable=yes'
-            )
-
-        bat_body = "\r\n".join(bat_lines) + "\r\n"
-        fd, bat_path = tempfile.mkstemp(suffix=".bat", prefix="ultron_fw_")
-        try:
-            os.write(fd, bat_body.encode("mbcs"))   # Windows cmd.exe expects ANSI
-            os.close(fd)
-        except Exception:
-            try:
-                os.close(fd)
-            except Exception:
-                pass
-            return
-
-        # ── Try running directly (succeeds when already admin) ────────────────
-        try:
-            r = subprocess.run(
-                [bat_path], capture_output=True, timeout=8, shell=True
-            )
-            if r.returncode == 0:
-                print(f"[Dashboard] Firewall configured for port {port}.")
-                try:
-                    os.unlink(bat_path)
-                except Exception:
-                    pass
-                return
-        except Exception:
-            pass
-
-        # ── ShellExecuteW: native UAC elevation (most reliable on Windows) ────
-        # ShellExecuteW with verb "runas" always shows the UAC dialog regardless
-        # of UAC level settings. Non-blocking — uvicorn is already running.
-        print("[Dashboard] One-time network setup required.")
-        print("[Dashboard] >>> A Windows security dialog will appear — click 'Yes' <<<")
-        try:
-            ret = ctypes.windll.shell32.ShellExecuteW(
-                None,       # hwnd  (no parent window)
-                "runas",    # verb  (request elevation)
-                bat_path,   # file  (our .bat)
-                None,       # params
-                None,       # working dir
-                0,          # SW_HIDE (run without a visible cmd window)
-            )
-            if int(ret) > 32:
-                # ShellExecuteW returns immediately; bat finishes in ~1 second.
-                # Sleep briefly so the rules are in place before the first retry.
-                time.sleep(2)
-                print(f"[Dashboard] Network setup complete — port {port} is open.")
-                print("[Dashboard] Refresh your phone browser to connect.")
-            else:
-                print("[Dashboard] Setup was not allowed.")
-                print("[Dashboard] Phone connections may fail until ULTRON is run as Administrator.")
-        except Exception as e:
-            print(f"[Dashboard] Firewall setup error: {e}")
-        finally:
-            # Cleanup after the bat has had time to run
-            def _cleanup(path: str) -> None:
-                time.sleep(5)
-                try:
-                    os.unlink(path)
-                except Exception:
-                    pass
-            threading.Thread(target=_cleanup, args=(bat_path,), daemon=True).start()
-        return
-
-    # ── macOS ─────────────────────────────────────────────────────────────────
-    if sys.platform == "darwin":
-        fw_ctl = "/usr/libexec/ApplicationFirewall/socketfilterfw"
-        try:
-            r = subprocess.run(
-                [fw_ctl, "--getglobalstate"], capture_output=True, text=True, timeout=5,
-            )
-            if "disabled" in r.stdout.lower():
-                return  # firewall off — nothing to do
-
-            py = sys.executable
-            listed = subprocess.run(
-                [fw_ctl, "--listapps"], capture_output=True, text=True, timeout=5,
-            )
-            if py in listed.stdout:
-                return  # already allowed
-
-            print("[Dashboard] One-time network setup — enter your password in the macOS dialog.")
-            subprocess.run(
-                ["osascript", "-e",
-                 f'do shell script "{fw_ctl} --add {py} && {fw_ctl} --unblockapp {py}"'
-                 f' with administrator privileges'],
-                timeout=60,
-            )
-        except Exception:
-            pass  # macOS firewall is off by default — silent failure is fine
-        return
-
-    # ── Linux ─────────────────────────────────────────────────────────────────
-    def _privileged(cmd: list[str]) -> bool:
-        for prefix in (["pkexec"], ["sudo", "-n"]):
-            try:
-                r = subprocess.run(prefix + cmd, capture_output=True, timeout=30)
-                if r.returncode == 0:
-                    return True
-            except Exception:
-                pass
-        return False
-
-    try:  # ufw
-        r = subprocess.run(["ufw", "status"], capture_output=True, text=True, timeout=5)
-        if "active" in r.stdout.lower():
-            if _privileged(["ufw", "allow", f"{port}/tcp"]):
-                print(f"[Dashboard] ufw: port {port} allowed.")
-            else:
-                print(f"[Dashboard] Run manually:  sudo ufw allow {port}/tcp")
-            return
-    except FileNotFoundError:
-        pass
-
-    try:  # firewalld
-        r = subprocess.run(
-            ["firewall-cmd", "--state"], capture_output=True, text=True, timeout=5,
-        )
-        if "running" in r.stdout.lower():
-            ok = (_privileged(["firewall-cmd", "--add-port", f"{port}/tcp", "--permanent"])
-                  and _privileged(["firewall-cmd", "--reload"]))
-            if ok:
-                print(f"[Dashboard] firewalld: port {port} allowed.")
-            else:
-                print(f"[Dashboard] Run manually:  sudo firewall-cmd --add-port={port}/tcp --permanent && sudo firewall-cmd --reload")
-            return
-    except FileNotFoundError:
-        pass
-
-    try:  # iptables (not persistent but works until reboot)
-        r = subprocess.run(["iptables", "-L", "INPUT", "-n"], capture_output=True, timeout=5)
-        if r.returncode == 0:
-            if _privileged(["iptables", "-A", "INPUT", "-p", "tcp", "--dport", str(port), "-j", "ACCEPT"]):
-                print(f"[Dashboard] iptables: port {port} opened.")
-            else:
-                print(f"[Dashboard] Run manually:  sudo iptables -A INPUT -p tcp --dport {port} -j ACCEPT")
-    except FileNotFoundError:
-        pass  # no iptables means firewall is probably off — nothing to do
-
-
 def _ensure_crypto_js() -> None:
     if _CRYPTOJS_FILE.exists():
         return
@@ -322,6 +123,21 @@ def _ensure_crypto_js() -> None:
 
 
 _ensure_crypto_js()
+
+
+def _print_network_hint(port: int) -> None:
+    """P0-B3: the old auto-firewall/UAC routine is gone on purpose. When the
+    user explicitly opted into LAN exposure, tell them how to open the port
+    themselves instead of elevating or flipping their network profile."""
+    if not _LAN_OPT_IN:
+        return
+    if os.name == "nt":
+        print(f"[Dashboard] To reach this port from another device, run once as admin:\n"
+              f"[Dashboard]   netsh advfirewall firewall add rule name=\"ULTRON Dashboard\" "
+              f"dir=in action=allow protocol=TCP localport={port}")
+    else:
+        print(f"[Dashboard] To reach this port from another device: "
+              f"sudo ufw allow {port}/tcp (or your firewall equivalent)")
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -370,8 +186,8 @@ def _read(name: str) -> str:
 class DashboardServer:
 
     def __init__(self):
-        self._ip                          = _local_ip()
-        self._tokens: set[str]            = set()
+        self._ip                          = _local_ip() if _LAN_OPT_IN else "127.0.0.1"
+        self._tokens: dict[str, float]    = {}   # auth_token → expiry (unix time)
         self._token_keys: dict[str, str]  = {}   # auth_token → session_key
         self._aes_cache:  dict[str, bytes]= {}   # session_key → AES bytes
         self._clients: set[WebSocket]     = set()
@@ -403,10 +219,32 @@ class DashboardServer:
         self._pending_keys[key] = now + expiry_secs
         return key
 
+    # ── bearer-token management (P0-B4: tokens expire and are pruned) ────
+
+    _TOKEN_TTL = 12 * 3600        # bearer tokens live 12h, then must re-login
+    _TOKEN_MAX = 64               # hard cap on live tokens (prune oldest first)
+
+    def _prune_tokens(self) -> None:
+        now = time.time()
+        self._tokens = {t: exp for t, exp in self._tokens.items() if exp > now}
+        if len(self._tokens) > self._TOKEN_MAX:
+            keep = sorted(self._tokens.items(), key=lambda kv: kv[1], reverse=True)
+            self._tokens = dict(keep[:self._TOKEN_MAX])
+
+    def _mint_token(self) -> str:
+        tok = secrets.token_urlsafe(32)
+        self._tokens[tok] = time.time() + self._TOKEN_TTL
+        self._prune_tokens()          # expired dropped first; cap cut keeps newest (incl. this one)
+        return tok
+
+    def _valid_token(self, tok: str) -> bool:
+        exp = self._tokens.get(tok or "")
+        return exp is not None and exp > time.time()
+
     @staticmethod
     def _ssl_enabled() -> bool:
         certs = BASE_DIR / "config" / "certs"
-        return (certs / "jarvis.key").exists() and (certs / "jarvis.crt").exists()
+        return (certs / "ultron.key").exists() and (certs / "ultron.crt").exists()
 
     def get_url(self) -> str:
         proto = "https" if self._ssl_enabled() else "http"
@@ -461,7 +299,7 @@ class DashboardServer:
 
         def _auth(req: Request) -> bool:
             tok = req.headers.get("authorization", "").removeprefix("Bearer ").strip()
-            return bool(tok) and tok in self._tokens
+            return self._valid_token(tok)
 
         # serve CryptoJS from local cache, fallback to CDN redirect
         @app.get("/static/crypto.js")
@@ -484,12 +322,12 @@ class DashboardServer:
 
         @app.get("/", response_class=HTMLResponse)
         async def index():
-            tok = secrets.token_urlsafe(32)
-            self._tokens.add(tok)
+            # P0-B4: no token minting here. Bearer tokens are issued only after
+            # PIN/QR/device authentication. The client redirects to /login when
+            # the __TOKEN__ placeholder is left untouched.
             html = (self._app_html
                     .replace("__IP__", self._ip)
-                    .replace("__PORT__", str(PORT))
-                    .replace("__TOKEN__", tok))
+                    .replace("__PORT__", str(PORT)))
             return HTMLResponse(html, headers=_no_cache_headers)
 
         @app.post("/login")
@@ -499,8 +337,7 @@ class DashboardServer:
             now     = time.time()
             if entered in self._pending_keys and self._pending_keys[entered] > now:
                 del self._pending_keys[entered]          # one-time use
-                tok = secrets.token_urlsafe(32)
-                self._tokens.add(tok)
+                tok = self._mint_token()
                 self._token_keys[tok] = entered
                 self._aes_key(entered)                   # pre-derive & cache
                 if self._connect_callback:
@@ -530,9 +367,8 @@ class DashboardServer:
 </div></body></html>""")
 
             del self._pending_keys[key]
-            tok     = secrets.token_urlsafe(32)
+            tok     = self._mint_token()
             dev_tok = secrets.token_urlsafe(32)
-            self._tokens.add(tok)
             self._token_keys[tok] = key
             self._aes_key(key)
             self._device_sessions[dev_tok] = {"session_key": key}
@@ -571,8 +407,7 @@ class DashboardServer:
             if not dev_tok or dev_tok not in self._device_sessions:
                 return JSONResponse({"ok": False}, status_code=401)
             session_key = self._device_sessions[dev_tok]["session_key"]
-            tok = secrets.token_urlsafe(32)
-            self._tokens.add(tok)
+            tok = self._mint_token()
             self._token_keys[tok] = session_key
             self._aes_key(session_key)
             if self._connect_callback:
@@ -598,12 +433,12 @@ class DashboardServer:
             body  = await req.json()
             token = req.headers.get("authorization", "").removeprefix("Bearer ").strip()
             enc   = body.get("enc", "")
-            if enc:
-                text = self._decrypt(token, enc)
-                if text is None:
-                    return JSONResponse({"error": "Decryption failed"}, status_code=400)
-            else:
-                text = (body.get("text") or "").strip()
+            if not enc:
+                # P0-B4: plaintext commands are rejected, not accepted as a fallback.
+                return JSONResponse({"error": "Encrypted payload required"}, status_code=400)
+            text = self._decrypt(token, enc)
+            if text is None:
+                return JSONResponse({"error": "Decryption failed"}, status_code=400)
             if text:
                 await self._command_queue.put(text)
                 if self._wake_callback:
@@ -622,8 +457,7 @@ class DashboardServer:
 
         @app.websocket("/ws/phone-audio")
         async def phone_audio_ws(websocket: WebSocket, token: str = ""):
-            tok = token.strip()
-            if not tok or tok not in self._tokens:
+            if not self._valid_token(token.strip()):
                 await websocket.close(code=4001)
                 return
             await websocket.accept()
@@ -725,8 +559,7 @@ class DashboardServer:
         @app.get("/uploads/{filename}")
         async def download_file(filename: str, token: str = ""):
             # Auth via query param — browser <a download> can't send custom headers
-            tok = token.strip()
-            if not tok or tok not in self._tokens:
+            if not self._valid_token(token.strip()):
                 return JSONResponse({"error": "Unauthorized"}, status_code=401)
             safe = re.sub(r'[/\\]', '', filename)
             path = self._uploads_dir / safe
@@ -736,18 +569,17 @@ class DashboardServer:
 
         @app.websocket("/ws")
         async def ws_ep(websocket: WebSocket, token: str = ""):
+            # P0-B4: every WebSocket is authenticated — the old loopback bypass
+            # (and the token it silently minted) is gone. A browser tab that
+            # holds no valid session gets closed with 4001 and re-logs-in.
             tok = token.strip()
-            client_ip = websocket.client.host if websocket.client else ""
-            is_local = client_ip in ("127.0.0.1", "::1", "localhost")
-            if not is_local and (not tok or tok not in self._tokens):
+            if not self._valid_token(tok):
                 await websocket.close(code=4001)
                 return
-            if not tok:
-                tok = secrets.token_urlsafe(32)
-                self._tokens.add(tok)
             await websocket.accept()
             self._clients.add(websocket)
-            for entry in self._history[-50:]:
+            # deque does not support slicing — this crashed every /ws connect
+            for entry in list(self._history)[-50:]:
                 try:
                     await websocket.send_json(entry)
                 except Exception:
@@ -757,7 +589,11 @@ class DashboardServer:
                     data = await websocket.receive_json()
                     if data.get("type") == "command":
                         enc = data.get("enc", "")
-                        t   = self._decrypt(tok, enc) if enc else (data.get("text") or "").strip()
+                        if not enc:
+                            # P0-B4: encryption is mandatory; ignore plaintext
+                            print("[Dashboard] Ignoring plaintext WS command.")
+                            continue
+                        t = self._decrypt(tok, enc)
                         if t:
                             await self._command_queue.put(t)
                             if self._wake_callback:
@@ -788,9 +624,9 @@ class DashboardServer:
         User types IP:8001 → Chrome tries https → self-signed cert warning → accept once → done."""
         ssl_key  = BASE_DIR / "config" / "certs" / "ultron.key"
         ssl_cert = BASE_DIR / "config" / "certs" / "ultron.crt"
-        asyncio.get_event_loop().run_in_executor(None, _ensure_network_access, PORT + 1)
+        _print_network_hint(PORT + 1)
         cfg = uvicorn.Config(
-            self.app, host="0.0.0.0", port=PORT + 1, log_level="warning",
+            self.app, host=DASHBOARD_HOST, port=PORT + 1, log_level="warning",
             ssl_keyfile=str(ssl_key), ssl_certfile=str(ssl_cert),
         )
         print(f"[Dashboard] Manual entry:  {self._ip}:{PORT + 1}  (type in browser, accept cert once)")
@@ -802,10 +638,6 @@ class DashboardServer:
             print("[Dashboard] Run:  pip install fastapi 'uvicorn[standard]' cryptography")
             return
 
-        # Firewall setup runs in a thread — uvicorn starts immediately,
-        # no waiting for UAC dialogs or subprocess timeouts.
-        asyncio.get_event_loop().run_in_executor(None, _ensure_network_access, PORT)
-
         use_ssl  = self._ssl_enabled()
         ssl_key  = BASE_DIR / "config" / "certs" / "ultron.key"
         ssl_cert = BASE_DIR / "config" / "certs" / "ultron.crt"
@@ -813,12 +645,17 @@ class DashboardServer:
         if use_ssl:
             asyncio.create_task(self._serve_alias())
 
+        _print_network_hint(PORT)
         cfg = uvicorn.Config(
-            self.app, host="0.0.0.0", port=PORT, log_level="warning",
+            self.app, host=DASHBOARD_HOST, port=PORT, log_level="warning",
             **({"ssl_keyfile": str(ssl_key), "ssl_certfile": str(ssl_cert)} if use_ssl else {}),
         )
 
         proto = "https" if use_ssl else "http"
         print(f"[Dashboard] {proto}://{self._ip}:{PORT}")
+        if not _LAN_OPT_IN:
+            print("[Dashboard] Bound to 127.0.0.1 — this computer only.")
+            print("[Dashboard] For phone/remote control, restart with "
+                  "ULTRON_DASHBOARD_HOST=0.0.0.0 (explicit opt-in).")
         print("[Dashboard] Press 'Remote Control' in ULTRON UI to get the QR code.")
         await uvicorn.Server(cfg).serve()
