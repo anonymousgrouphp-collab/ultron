@@ -15,6 +15,9 @@ jobs:
     # and the characterization tests import main/ui which need those + a desktop session).
     runs-on: windows-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
     steps:
       - uses: actions/checkout@v4
 
@@ -29,7 +32,25 @@ jobs:
           pip install pytest ruff mypy
 
       - name: Run tests (gating)
-        run: python -m pytest tests -v
+        run: |
+          python -m pytest tests -v --tb=short 2>&1 | Tee-Object -FilePath pytest_out.txt
+          exit $LASTEXITCODE
+
+      - name: Report failures as annotations (debug — main chat reads these via API)
+        if: failure()
+        run: |
+          if (Test-Path pytest_out.txt) {
+            $lines = Get-Content pytest_out.txt
+            $hits  = $lines | Select-String -Pattern "FAILED|ERROR|error:|AssertionError|ModuleNotFound|ImportError|E   "
+            $hits | Select-Object -First 40 | ForEach-Object {
+              $msg = $_.Line.Trim()
+              if ($msg.Length -gt 300) { $msg = $msg.Substring(0, 300) }
+              Write-Output "::error::$msg"
+              Write-Output $msg
+            }
+            $tail = $lines | Select-Object -Last 30
+            $tail | Add-Content $env:GITHUB_STEP_SUMMARY
+          }
 
       - name: Ruff (advisory — does not gate)
         run: python -m ruff check .
