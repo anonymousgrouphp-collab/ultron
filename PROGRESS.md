@@ -52,11 +52,11 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 | P0-C3 | `core/llm_client.py`: wire in or delete | 🔓 | ⬜ | | decide via `research/06` gateway plan |
 | P0-C4 | Name purge: JARVIS/HUNNY aliases → **ULTRON** only | DEP: P0-A ✅signed | ⬜ | | touches `main.py`/`ui.py` — coordinate merge |
 
-### P0-D — Config single source · owns: `config/loader.py` + call sites — **claimed by zcode-p0a (branch `p0-config`): D1 executing, D2 blocked by P0-B**
+### P0-D — Config single source · owns: `config/loader.py` + call sites — **claimed by zcode-p0a (branch `p0-config`): D1 done, D2 blocked by P0-B**
 | ID | Task | DEP | Status | Owner | Sign-off |
 |---|---|---|---|---|---|
-| P0-D1 | Write `config/loader.py` + tests (new files only) | 🔓 | 🔶 | zcode-p0a · 2026-09-07 | no migration yet — pure new code |
-| P0-D2 | Migrate all call sites; delete 4 parallel access paths | DEP: P0-A ✅, P0-B | 🚫 | zcode-p0a · 2026-09-07 | 🚫 blocked: P0-B not signed off yet (AGENTS.md §3 DEP rule) — also wants `p0-crash-bugs` merged (touches main.py/ui.py/dashboard) |
+| P0-D1 | Write `config/loader.py` + tests (new files only) | 🔓 | ✅ | zcode-p0a · 2026-09-07 | ✍ zcode-p0a 2026-09-07 — pytest 14/14 passed (Py 3.13.7); real-config smoke: loads, `get_api_key()` resolves (key names only, never values); stdlib-only, atomic writes w/ Windows PermissionError retry, no cache. Tests in `tests/test_config_loader.py` — hermetic (tmp_path), distinct filename so no P0-E2 overlap |
+| P0-D2 | Migrate all call sites; delete 4 parallel access paths | DEP: P0-A ✅, P0-B | 🚫 | zcode-p0a · 2026-09-07 | 🚫 blocked: P0-B not signed off yet (AGENTS.md §3 DEP rule) — also wants `p0-crash-bugs` merged (touches main.py/ui.py/dashboard). Migration surface mapped in Findings (5 paths, not 4) |
 
 ### P0-E — CI scaffold · owns: `tests/`, `.github/workflows/`, `pyproject.toml` — READ-ONLY on src
 | ID | Task | DEP | Status | Owner | Sign-off |
@@ -127,6 +127,7 @@ real dependency is P1-A (contracts); code against the interface draft in
 | Date | Deliverable | Verified by | Checks run + evidence | Result |
 |---|---|---|---|---|
 | 2026-09-07 | P0-A crash bugs (A1–A5), branch `p0-crash-bugs` @ 6991cec (code) + 92dae5e (board) | zcode-p0a | `python -m py_compile main.py ui.py actions/system_monitor.py actions/proactive.py` → OK (Py 3.14.7). Runtime probes on Py 3.13.7 (the install with project deps): A3 `auto_close_heavy_background_apps()` with stubbed `process_iter` → `[]`, no NameError; `sm.os.getpid()` resolves. A5 gate: triggers at 16 min silence, not at 5 min; `build_prompt` prints `User silence: 16 minutes` (matches real silence, was inflated by `+min_silence` before); cooldown blocks retrigger. A4 `ui.time` present at module scope. A2 `start_camera_stream` emits `SYS: Camera preview not available — using still capture only.`, stop/show no-op; `grep raise NotImplementedError ui.py` → 0 hits. A1 `import main` clean (full dep chain); E2E `_capture_screen()` → 106,981 bytes image/jpeg (real screenshot) | PASS — all 5 fixed, no new Kill-List violations |
+| 2026-09-07 | P0-D1 `config/loader.py` + tests, branch `p0-config` | zcode-p0a | `python -m py_compile config/loader.py tests/test_config_loader.py` → OK. `python -m pytest tests/test_config_loader.py -v` (Py 3.13.7, pytest 9.1.1) → **14 passed** (hermetic: missing/corrupt/non-dict → `{}`, roundtrip, atomic-write no `.tmp` leftovers, RMW preserves keys, placeholder/strip/None key policy, 8-thread × 25-key concurrent-write stress → 200/200, on-disk file is valid JSON). Real-config smoke (Py 3.13.7): `load_config()` OK (key names: assistant_name, gemini_api_key, morning_brief_enabled, os_system, ui_color, user_name — values never printed), `get_api_key()` resolves → True. New files only; no call sites touched (D2) | PASS |
 
 ## Findings / Blockers (append-only)
 - 2026-09-07: board created from `docs/ROADMAP.md` §4 Phase 0; ownership split for parallel chats.
@@ -135,6 +136,7 @@ real dependency is P1-A (contracts); code against the interface draft in
 - 2026-09-07 (restructure): Phases 1–5 divided into owned-file streams (P1-A…P5-B); Sign-off + DEP columns added; startable-now set: P0-B, P0-C1/C3, P0-D1, P0-E (+ P0-C2/C4, P0-D2 unblocked after `p0-crash-bugs` merges).
 - 2026-09-07 (zcode-p0a): compliance audit vs STRICT rules — the 5 P0-A code commits predate the same-commit rule (board update landed in 92dae5e); end state compliant, history deliberately NOT rewritten (unpushed branch, parallel worktrees active). Rule applied from now on. A2/A4 sign-off evidence refs added.
 - 2026-09-07 (zcode-p0a): research/03 §9 Phase-0 vision item splits as — NameError fix = P0-A1 (done); "delete the parallel capture code in `screen_processor.py`" = P0-C1 deletions / Phase 1 kernel-owned `capture_screen()`, not P0-A scope.
+- 2026-09-07 (zcode-p0a): config access surface is **5** parallel paths, not 4 — main.py, ui.py, utils/env.py, memory/config_manager.py, plus `config/__init__.py::get_config()` (own cache) and `core/llm_client.py::_load_config()` (own reader). Also inconsistent across them: lru_cache vs manual vs no cache, `indent=2` vs `4`, missing key → `""` vs `None` vs raise, `len>15` heuristic vs placeholder check. All consolidated onto `config/loader.py` in D2.
 
 ## Changelog
 - 2026-09-07: board created; streams P0-A…P0-E defined.
@@ -143,4 +145,5 @@ real dependency is P1-A (contracts); code against the interface draft in
 - 2026-09-07: full restructure — Phases 1–5 divided (P1-A…P5-B), Sign-off + DEP rules, strict update-in-same-commit rule.
 - 2026-09-07: zcode-p0a — doc restructure committed (872c041); P0-A compliance audit done: A2/A4 sign-off evidence refs added, verification-log ref clarified; same-commit rule adopted going forward.
 - 2026-09-07: zcode-p0a claimed P0-D (branch `p0-config`, stacked on `p0-crash-bugs`); D1 executing, D2 marked 🚫 blocked by unsigned P0-B.
+- 2026-09-07: P0-D1 done — `config/loader.py` + 14 hermetic tests, verified & signed; D2 remains 🚫 until P0-B signs off.
 - 2026-09-07: zcode-p0a — `p0-crash-bugs` MERGED to `main` @ 42e262e per merge policy. Gate evidence re-run on main: py_compile OK on all 4 owned files; merged files diff-identical to verified branch tip. Push follows; unblocks P0-C2/C4, P0-D2, P1-H.
