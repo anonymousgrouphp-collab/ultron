@@ -1,6 +1,6 @@
 # PROGRESS.md — ULTRON Live Task Board
 
-*Last updated: 2026-09-07 (merge policy + Merge Queue added; P0-A & P0-D1 signed by zcode-p0a).
+*Last updated: 2026-09-07 (zcode-p0b — P0-B code MERGED to `main` @ 6303635; B1 history purge deferred, see Findings).
 Read `AGENTS.md` first. Append-only except your own rows.*
 
 ## How to use (STRICT — every agent, every chat)
@@ -29,7 +29,8 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 ## Merge Queue (branches → `main`)
 | Branch | Stream | State | Merged @ | Notes |
 |---|---|---|---|---|
-| `p0-crash-bugs` | P0-A | 🟢 merge-ready (all rows signed; evidence in Verification Log) | — | merge next — unblocks P0-C2, P0-C4, P0-D2, P1-H |
+| `p0-crash-bugs` | P0-A | ✅ merged | 42e262e | unblocks P0-C2, P0-C4, P0-D2, P1-H |
+| `p0-security` | P0-B | ✅ merged (B1 rotation merged; history purge deferred → Findings) | 6303635 | unblocks P0-D2 (dashboard call sites) |
 | `p0-config` | P0-D | 🟡 partial (D1 signed; D2 🚫 on P0-B) | — | stacked on `p0-crash-bugs` — rebase after that merge; D1 (new files only) may merge early |
 
 ---
@@ -46,14 +47,14 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 | P0-A4 | `ui.py:634` `time.sleep` NameError (killed startup thread on fresh installs) | 🔓 | ✅ | zcode-p0a | ✍ zcode-p0a 2026-09-07 — probe: `ui.time is time` → True (module scope), `import ui` clean |
 | P0-A5 | `proactive.py:54-55` silence math | 🔓 | ✅ | zcode-p0a | ✍ zcode-p0a 2026-09-07 — triggers at 16 min real silence, not 5 |
 
-### P0-B — Security triage · owns: `dashboard/server.py`, `actions/desktop.py`, `actions/dev_agent.py`, TLS keys, `.gitignore`
+### P0-B — Security triage · owns: `dashboard/server.py`, `actions/desktop.py`, `actions/dev_agent.py`, TLS keys, `.gitignore` — **B2–B5 + B1-rotation complete & signed; MERGED to `main` @ 6303635 (2026-09-07); B1 history-purge deferred → Findings**
 | ID | Task | DEP | Status | Owner | Sign-off |
 |---|---|---|---|---|---|
-| P0-B1 | Remove committed TLS keys, **rotate**, purge git history | 🔓 | ⬜ | | keys are burned |
-| P0-B2 | Dashboard binds `127.0.0.1` default; `0.0.0.0` explicit opt-in only | 🔓 | ⬜ | | |
-| P0-B3 | Delete auto-firewall UAC + Public→Private profile flip | 🔓 | ⬜ | | |
-| P0-B4 | Mandatory encryption, prune stale tokens, auth local WebSockets | 🔓 | ⬜ | | |
-| P0-B5 | Delete `exec()` (`desktop.py:87`); pip-install behind allowlist (`dev_agent.py:248`) | 🔓 | ⬜ | | |
+| P0-B1 | Remove committed TLS keys, **rotate**, purge git history | 🔓 | 🔶 | zcode-p0b | ✍ zcode-p0b 2026-09-07 — keys untracked + `.gitignore`d; fresh self-signed pair generated & kept untracked (final pair sha256 42:FC:98:BC…, see Findings); **history purge deferred — blocked by team coordination, see Findings** |
+| P0-B2 | Dashboard binds `127.0.0.1` default; `0.0.0.0` explicit opt-in only | 🔓 | ✅ | zcode-p0b | ✍ zcode-p0b 2026-09-07 — `uvicorn.Config(host=DASHBOARD_HOST)`; `ULTRON_DASHBOARD_HOST=0.0.0.0` opt-in; grep: no `host="0.0.0.0"` binding left |
+| P0-B3 | Delete auto-firewall UAC + Public→Private profile flip | 🔓 | ✅ | zcode-p0b | ✍ zcode-p0b 2026-09-07 — `_ensure_network_access` (211 lines) deleted; grep `ShellExecuteW\|Set-NetConnectionProfile` → 0 live hits (one printed *manual* hint only) |
+| P0-B4 | Mandatory encryption, prune stale tokens, auth local WebSockets | 🔓 | ✅ | zcode-p0b | ✍ zcode-p0b 2026-09-07 — 10-step TestClient suite passed: plaintext cmd→400, no mint on `GET /`, expired token→401, unauth `/ws`→4001, encrypted e2e (CryptoJS↔`_decrypt_cbc` interop proven node+py), token cap 64. **Fixed 2 pre-existing bugs the tests caught: `/ws` deque-slice crash on every connect + token-cap off-by-one** |
+| P0-B5 | Delete `exec()` (`desktop.py:87`); pip-install behind allowlist (`dev_agent.py:248`) | 🔓 | ✅ | zcode-p0b | ✍ zcode-p0b 2026-09-07 — `_execute_generated_code`/`_build_sandbox`/`_ask_gemini_for_desktop_action` deleted, `task` action refuses; dev_agent installs gated by `config/pip_allowlist.json` (example tracked, real file gitignored); gate test passed |
 
 ### P0-C — Dead code & dedup · owns: `core/tts.py`, `core/stt.py`, `memory/cmr_manager.py`, `reminder_manager.py`, `screen_processor.py`, aliases
 | ID | Task | DEP | Status | Owner | Sign-off |
@@ -138,6 +139,7 @@ real dependency is P1-A (contracts); code against the interface draft in
 | Date | Deliverable | Verified by | Checks run + evidence | Result |
 |---|---|---|---|---|
 | 2026-09-07 | P0-A crash bugs (A1–A5), branch `p0-crash-bugs` @ 6991cec (code) + 92dae5e (board) | zcode-p0a | `python -m py_compile main.py ui.py actions/system_monitor.py actions/proactive.py` → OK (Py 3.14.7). Runtime probes on Py 3.13.7 (the install with project deps): A3 `auto_close_heavy_background_apps()` with stubbed `process_iter` → `[]`, no NameError; `sm.os.getpid()` resolves. A5 gate: triggers at 16 min silence, not at 5 min; `build_prompt` prints `User silence: 16 minutes` (matches real silence, was inflated by `+min_silence` before); cooldown blocks retrigger. A4 `ui.time` present at module scope. A2 `start_camera_stream` emits `SYS: Camera preview not available — using still capture only.`, stop/show no-op; `grep raise NotImplementedError ui.py` → 0 hits. A1 `import main` clean (full dep chain); E2E `_capture_screen()` → 106,981 bytes image/jpeg (real screenshot) | PASS — all 5 fixed, no new Kill-List violations |
+| 2026-09-07 | P0-B security triage (B1 rotation, B2–B5), branch `p0-security` MERGED @ 6303635 | zcode-p0b | `py_compile dashboard/server.py actions/desktop.py actions/dev_agent.py` → OK (Py 3.13.14, dep-complete install). Banned-pattern greps: no `host="0.0.0.0"` binding, no `ShellExecuteW`/`Set-NetConnectionProfile`, no tracked `*.key|*.pem|*.p12|*.pfx`, no `exec(` outside a comment. Functional (fastapi TestClient, Py 3.13): GET / mints nothing; unauth API→401; PIN login→token; plaintext `/api/command`→400 even when authed; garbage ciphertext→400; real encrypted command (client-protocol payload)→decrypted+queued; expired token→401; unauth `/ws`→closed 4001; auth `/ws` accepted; plaintext WS command ignored (log: `[Dashboard] Ignoring plaintext WS command.`), encrypted WS command queued; history replay after reconnect OK; 100 mints → exactly 64 tokens kept. Crypto interop: node + bundled `crypto-js.min.js` (PBKDF2-SHA256/100k → AES-256-CBC → base64(iv‖ct)) ↔ server `_decrypt_cbc` → exact plaintext round-trip. desktop_control refusal paths verified (task / unknown / bare task). Seal test re-run on the merged tip; main.py/ui.py from P0-A merge present and untouched | PASS — B2–B5 merged; B1 rotation merged, history purge deferred (see Findings) |
 
 ## Findings / Blockers (append-only)
 - 2026-09-07: board created from `docs/ROADMAP.md` §4 Phase 0; ownership split for parallel chats.
@@ -146,6 +148,9 @@ real dependency is P1-A (contracts); code against the interface draft in
 - 2026-09-07 (restructure): Phases 1–5 divided into owned-file streams (P1-A…P5-B); Sign-off + DEP columns added; startable-now set: P0-B, P0-C1/C3, P0-D1, P0-E (+ P0-C2/C4, P0-D2 unblocked after `p0-crash-bugs` merges).
 - 2026-09-07 (zcode-p0a): compliance audit vs STRICT rules — the 5 P0-A code commits predate the same-commit rule (board update landed in 92dae5e); end state compliant, history deliberately NOT rewritten (unpushed branch, parallel worktrees active). Rule applied from now on. A2/A4 sign-off evidence refs added.
 - 2026-09-07 (zcode-p0a): research/03 §9 Phase-0 vision item splits as — NameError fix = P0-A1 (done); "delete the parallel capture code in `screen_processor.py`" = P0-C1 deletions / Phase 1 kernel-owned `capture_screen()`, not P0-A scope.
+- 2026-09-07 (zcode-p0b): **B1 history purge deferred — needs team coordination.** Keys are untracked, gitignored, and ROTATED (fresh self-signed pair, sha256 42:FC:98:BC:6D:E4:…, never committed) — the burned keys have zero value as of today, so the remaining purge is hygiene only. Attempted `filter-branch` + force-push of main; `--force-with-lease` correctly rejected it: origin/main had advanced (PRs #9–#11, then the `p0-crash-bugs` merge @ 42e262e). A main-history rewrite now invalidates every open branch (p0-config, p0-dead-code, patch/*, all clones) and must be a scheduled, all-hands operation — recommend the owner runs it AFTER Phase-0 streams merge: `git filter-branch --index-filter 'git rm -r --cached --ignore-unmatch config/certs' --prune-empty -- --all` + announced `push --force`.
+- 2026-09-07 (zcode-p0b): **pre-existing crash found & fixed in P0-B4 (owned file):** `/ws` did `self._history[-50:]` on a `collections.deque` → `TypeError` on EVERY WebSocket connect since introduction; phone clients survived via the HTTP `/api/command` fallback. Relevant for P0-E: characterization test should pin `websocket_connect('/ws?token=...')` + history replay so this stays fixed.
+- 2026-09-07 (zcode-p0b): fresh TLS pair lives only in the `ultron-security` worktree at `config/certs/` (untracked by design, see `config/certs/README.md`). A fresh clone has no certs → dashboard falls back to plain HTTP on 127.0.0.1 (safe default); regenerate with the documented openssl one-liner for HTTPS. P0-D2 note: dashboard/server.py now reads `ULTRON_DASHBOARD_HOST` env directly — fold it into `config/loader.py` during D2 migration.
 
 ## Changelog
 - 2026-09-07: board created; streams P0-A…P0-E defined.
@@ -157,3 +162,4 @@ real dependency is P1-A (contracts); code against the interface draft in
 - 2026-09-07: zcode-p0a claimed P0-D (branch `p0-config`, stacked on `p0-crash-bugs`); D1 executing, D2 marked 🚫 blocked by unsigned P0-B.
 - 2026-09-07: P0-D1 done — `config/loader.py` + 14 hermetic tests, verified & signed; D2 remains 🚫 until P0-B signs off.
 - 2026-09-07 (planning): merge policy defined — streams merge their OWN signed branches (rebase → merge → push → board update); Merge Queue section added: `p0-crash-bugs` 🟢 merge-ready, `p0-config` 🟡 partial (D1).
+- 2026-09-07: zcode-p0b — `p0-security` MERGED to `main` @ 6303635 per merge policy (rebased on af628d4 incl. P0-A merge + patch PRs #9–#11; cherry-picked 21b13b9 so merge-policy docs are shared). B2–B5 ✅ merged; B1: rotation ✅ merged, history purge deferred → Findings. Unblocks P0-D2's dashboard call-site migration.
