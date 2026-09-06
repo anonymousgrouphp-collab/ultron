@@ -1,17 +1,18 @@
-import os
-import sys
-import json
+"""OS detection helpers + config access for ULTRON.
+
+Since P0-D2 the config implementation lives in `config/loader.py` (the single
+source of truth); the functions below are thin delegations kept for the many
+existing `actions/*` call sites. New code should import `config.loader`
+directly.
+"""
 import platform
-import threading
-from pathlib import Path
 from functools import lru_cache
 
-_config_lock = threading.Lock()
+from config import loader
 
-def get_base_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).resolve().parent.parent
+
+def get_base_dir():
+    return loader.get_base_dir()
 
 @lru_cache(maxsize=1)
 def get_os() -> str:
@@ -26,29 +27,11 @@ def is_mac() -> bool:
 def is_linux() -> bool:
     return get_os() == "Linux"
 
-@lru_cache(maxsize=1)
 def load_config() -> dict:
-    config_path = get_base_dir() / "config" / "api_keys.json"
-    if config_path.exists():
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
+    return loader.load_config()
 
 def get_api_key(service_name: str) -> str:
-    config = load_config()
-    return config.get(service_name, "")
+    return loader.load_config().get(service_name, "")
 
 def save_config_key(key: str, value) -> None:
-    with _config_lock:
-        config_path = get_base_dir() / "config" / "api_keys.json"
-        config = {}
-        if config_path.exists():
-            with open(config_path, "r", encoding="utf-8") as f:
-                config = json.load(f)
-        
-        config[key] = value
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=4)
-        
-        load_config.cache_clear()
+    loader.save_config_key(key, value)

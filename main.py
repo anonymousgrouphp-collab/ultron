@@ -19,11 +19,9 @@ import asyncio
 import re
 import threading
 import time
-import json
 import sys
 import traceback
 from datetime import datetime
-from pathlib import Path
 
 import sounddevice as sd
 from google import genai
@@ -53,18 +51,11 @@ from actions.game_updater      import game_updater
 from actions.system_monitor    import SystemMonitor, get_system_status
 from actions.proactive         import ProactiveEngine
 from actions.web_search        import _news as _fetch_news_sync
-from memory.config_manager     import get_brief_enabled
+from config import loader
 
 
-def get_base_dir():
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).resolve().parent
-
-
-BASE_DIR        = get_base_dir()
-API_CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
-PROMPT_PATH     = BASE_DIR / "core" / "prompt.txt"
+BASE_DIR    = loader.get_base_dir()
+PROMPT_PATH = BASE_DIR / "core" / "prompt.txt"
 LIVE_MODEL          = "models/gemini-2.5-flash-native-audio-preview-12-2025"
 CHANNELS            = 1
 SEND_SAMPLE_RATE    = 16000
@@ -76,13 +67,11 @@ class ApiKeyMissing(Exception):
 
 
 def _get_api_key() -> str:
-    try:
-        with open(API_CONFIG_PATH, "r", encoding="utf-8") as f:
-            key = json.load(f)["gemini_api_key"]
-    except (json.JSONDecodeError, KeyError, FileNotFoundError) as e:
-        raise ApiKeyMissing(f"config/api_keys.json is missing or invalid: {e}") from e
-    if not key or key.strip() in ("", "YOUR_GEMINI_API_KEY_HERE"):
-        raise ApiKeyMissing("No API key set in config/api_keys.json")
+    key = loader.get_api_key()   # None when missing, empty, or placeholder
+    if key is None:
+        raise ApiKeyMissing(
+            "config/api_keys.json is missing, invalid, or has no real Gemini key"
+        )
     return key
 
 
@@ -233,13 +222,9 @@ class UltronLive:
         from datetime import datetime
 
         # Load customization from config
-        try:
-            _cfg = json.loads(open(API_CONFIG_PATH, encoding="utf-8").read())
-            self._asst_name = (_cfg.get("assistant_name") or "ULTRON").strip()
-            _user_name = (_cfg.get("user_name") or "").strip()
-        except Exception:
-            self._asst_name = "ULTRON"
-            _user_name = ""
+        _cfg = loader.load_config()
+        self._asst_name = (_cfg.get("assistant_name") or "ULTRON").strip()
+        _user_name = (_cfg.get("user_name") or "").strip()
 
         memory     = load_memory()
         mem_str    = format_memory_for_prompt(memory)
@@ -965,7 +950,7 @@ class UltronLive:
                                 turns={"parts": [{"text": "wake up ultron"}]},
                                 turn_complete=True
                             ))
-                        elif get_brief_enabled():
+                        elif loader.load_config().get("morning_brief_enabled", True):
                             tg.create_task(self._send_startup_briefing())
 
             except KeyboardInterrupt:
