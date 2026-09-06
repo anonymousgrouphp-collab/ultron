@@ -19,11 +19,11 @@ first, then claim a stream here. Append-only except your own rows.*
 ### P0-A — Crash bugs · owns: `main.py`, `actions/system_monitor.py`, `ui.py`, `actions/proactive.py`
 | ID | Task | Status | Owner | Notes |
 |---|---|---|---|---|
-| P0-A1 | `main.py:346` `_capture_screen` NameError (never imported) — fix screen vision path (J-06) | 🔨 | zcode-p0a · 2026-09-07 | |
-| P0-A2 | camera branch calls `ui.start_camera_stream()` → NotImplementedError (`ui.py:573-576`) — implement or feature-flag | 🔨 | zcode-p0a · 2026-09-07 | feature-flag off (graceful no-op + log); real preview is Phase 4 (J-16) |
-| P0-A3 | `actions/system_monitor.py:154` missing `import os` — kills session on CPU-kill path | 🔨 | zcode-p0a · 2026-09-07 | |
-| P0-A4 | `ui.py:634` `time.sleep` NameError (module-level `time` import missing) | 🔨 | zcode-p0a · 2026-09-07 | worse than reported: kills the startup thread on fresh installs (no API key) |
-| P0-A5 | `actions/proactive.py:54-55` silence math (`now - last_triggered + min_silence` ≠ `now - last_user_speech`) | 🔨 | zcode-p0a · 2026-09-07 | |
+| P0-A1 | `main.py:346` `_capture_screen` NameError (never imported) — fix screen vision path (J-06) | ✅ | zcode-p0a · 2026-09-07 | import added; E2E screenshot grab verified (106,981 B JPEG) |
+| P0-A2 | camera branch calls `ui.start_camera_stream()` → NotImplementedError (`ui.py:573-576`) — implement or feature-flag | ✅ | zcode-p0a · 2026-09-07 | feature-flagged off: start/stop/show stubbed to logged no-op; live preview deferred to Phase 4 (J-16) |
+| P0-A3 | `actions/system_monitor.py:154` missing `import os` — kills session on CPU-kill path | ✅ | zcode-p0a · 2026-09-07 | `import os` added; auto-close path runs clean with stubbed process_iter |
+| P0-A4 | `ui.py:634` `time.sleep` NameError (module-level `time` import missing) | ✅ | zcode-p0a · 2026-09-07 | worse than reported: kills the startup thread on fresh installs (no API key) — fixed with module-level import |
+| P0-A5 | `actions/proactive.py:54-55` silence math (`now - last_triggered + min_silence` ≠ `now - last_user_speech`) | ✅ | zcode-p0a · 2026-09-07 | engine records `last_user_speech` in should_trigger; build_prompt reports real silence |
 
 ### P0-B — Security triage · owns: `dashboard/server.py`, `actions/desktop.py`, `actions/dev_agent.py`, TLS keys, `.gitignore`
 | ID | Task | Status | Owner | Notes |
@@ -65,11 +65,14 @@ per `research/06`) → agent loop v0 → policy engine → FastMCP server wrap (
 ## Verification Log (phase deliverables — evidence or it didn't happen)
 | Date | Deliverable | Verified by | Checks run + evidence | Result |
 |---|---|---|---|---|
-| | | | | |
+| 2026-09-07 | P0-A crash bugs (A1–A5), branch `p0-crash-bugs` @ bd36d98+1 | zcode-p0a | `python -m py_compile main.py ui.py actions/system_monitor.py actions/proactive.py` → OK (Py 3.14.7). Runtime probes on Py 3.13.7 (the install with project deps): A3 `auto_close_heavy_background_apps()` with stubbed `process_iter` → `[]`, no NameError; `sm.os.getpid()` resolves. A5 gate: triggers at 16 min silence, not at 5 min; `build_prompt` prints `User silence: 16 minutes` (matches real silence, was inflated by `+min_silence` before); cooldown blocks retrigger. A4 `ui.time` present at module scope. A2 `start_camera_stream` emits `SYS: Camera preview not available — using still capture only.`, stop/show no-op; `grep raise NotImplementedError ui.py` → 0 hits. A1 `import main` clean (full dep chain); E2E `_capture_screen()` → 106,981 bytes image/jpeg (real screenshot) | PASS — all 5 fixed, no new Kill-List violations (no new modules, no model strings, no spoken raw exceptions) |
 
 ## Findings / Blockers (append-only)
 - 2026-09-07: board created from `docs/ROADMAP.md` §4 Phase 0; ownership split to allow 2–4 parallel chats.
+- 2026-09-07 (zcode-p0a): two Python installs on this machine — default `python` is 3.14.7 without project deps (`psutil` missing); Python 3.13.7 has them. P0-E: CI must install from `requirements.txt`, not assume system deps.
+- 2026-09-07 (zcode-p0a): camera live preview (HUD) is still unimplemented by design — flagged off in `ui.py`, real implementation is Phase 4 (J-16) per `docs/research/03` §5 capture note.
 
 ## Changelog
 - 2026-09-07: zcode-p0a claimed P0-A (all 5 rows); branch `p0-crash-bugs`.
+- 2026-09-07: P0-A complete — A1–A5 fixed, verification logged; branch `p0-crash-bugs` ready for merge review (no merge: Phase 0 gate needs CI green first).
 - 2026-09-07: board created; streams P0-A…P0-E defined.
