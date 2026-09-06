@@ -47,7 +47,7 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 ### P0-C — Dead code & dedup · owns: `core/tts.py`, `core/stt.py`, `memory/cmr_manager.py`, `reminder_manager.py`, `screen_processor.py`, aliases
 | ID | Task | DEP | Status | Owner | Sign-off |
 |---|---|---|---|---|---|
-| P0-C1 | Delete dead files: `core/tts.py`, `core/stt.py`, `cmr_manager.py`, `reminder_manager.py`, `_VisionSession` | 🔓 | 🔶 | zcode-p0c 2026-09-07 | dead = imported by nothing; zero conflicts |
+| P0-C1 | Delete dead files: `core/tts.py`, `core/stt.py`, `cmr_manager.py`, `reminder_manager.py`, `_VisionSession` | 🔓 | ✅ | zcode-p0c 2026-09-07 | ✍ zcode-p0c 2026-09-07 — deleted `core/tts.py`, `core/stt.py`, `memory/cmr_manager.py`, `memory/reminder_manager.py` (board's `reminder_manager.py` = `memory/` copy); dead second vision stack removed from `screen_processor.py` (`_VisionSession`, `_session*` globals, `_ensure_session`, dead `screen_process`/`warmup_session`, `__main__` block) — live `_capture_screen`/`_capture_camera` untouched. Evidence: `py -3.13` py_compile OK; capture import OK; `import main` OK; grep lingering refs → 0 |
 | P0-C2 | Remove duplicate `organize_desktop` + duplicate shutdown tool | DEP: P0-A ✅signed | 🔶 | zcode-p0c 2026-09-07 | touches `main.py` regs — coordinate w/ `p0-crash-bugs` merge |
 | P0-C3 | `core/llm_client.py`: wire in or delete | 🔓 | 🔶 | zcode-p0c 2026-09-07 | decide via `research/06` gateway plan |
 | P0-C4 | Name purge: JARVIS/HUNNY aliases → **ULTRON** only | DEP: P0-A ✅signed | 🔶 | zcode-p0c 2026-09-07 | touches `main.py`/`ui.py` — coordinate merge |
