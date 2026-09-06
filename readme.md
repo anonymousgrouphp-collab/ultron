@@ -86,8 +86,7 @@ ULTRON/
 |-- requirements.txt             # Python package dependencies
 |-- config/
 |   |-- api_keys.json.example    # Template for API key configuration
-|   |-- __init__.py              # Config loader module
-|   +-- jarvis.ico               # Application icon
+|   +-- __init__.py              # Config loader module
 |-- core/                        # LLM client, TTS, STT engines
 |-- actions/                     # Tool modules (browser, system, desktop, etc.)
 |-- dashboard/                   # Remote web dashboard server & assets

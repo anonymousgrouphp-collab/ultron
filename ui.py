@@ -666,7 +666,3 @@ class UltronUI:
     def stop_speaking(self):
         if not self.muted:
             self.set_state("LISTENING")
-
-
-# Backward compatibility alias
-JarvisUI = UltronUI
