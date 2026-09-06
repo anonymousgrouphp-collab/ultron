@@ -5,6 +5,7 @@ import os
 import platform
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 if platform.system() == "Windows":
@@ -462,7 +463,6 @@ class UltronWebWindow(QMainWindow):
         self.on_remote_clicked = None
         self.on_interrupt = None
 
-        import time
         self._last_reload_time = 0.0
 
         if _WEBENGINE_OK:
@@ -522,7 +522,6 @@ class UltronWebWindow(QMainWindow):
                 self.on_text_command(cmd)
 
     def _on_render_process_terminated(self, termination_status, exit_code):
-        import time
         now = time.time()
         print(f"[ULTRON GUI WARNING] WebEngine Render Process Terminated (status: {termination_status}, exit code: {exit_code}).", file=sys.stderr)
         if hasattr(self, "_web") and self._web and (now - getattr(self, "_last_reload_time", 0) > 5.0):
