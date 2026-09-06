@@ -441,7 +441,6 @@ class UltronLive:
         "flight_finder": _handle_flight_finder,
         "system_status": _handle_system_status,
         "shutdown_ultron": _handle_shutdown,
-        "shutdown_jarvis": _handle_shutdown,
     }
 
     async def _execute_tool(self, fc) -> types.FunctionResponse:
