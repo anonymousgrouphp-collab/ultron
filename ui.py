@@ -569,10 +569,13 @@ class UltronWebWindow(QMainWindow):
         self._eval_js("if (typeof showToast === 'function') showToast('PHONE CONNECTED', 'Remote device paired');")
 
     def start_camera_stream(self):
-        raise NotImplementedError("Camera stream not yet implemented")
+        # Live camera preview is not implemented (Phase 4, J-16). The vision
+        # path only needs the still frame from _capture_camera(), so degrade
+        # quietly instead of raising into the tool handler.
+        self._log_sig.emit("SYS: Camera preview not available — using still capture only.")
 
     def stop_camera_stream(self):
-        raise NotImplementedError("Camera stream not yet implemented")
+        pass
 
 
 class UltronUI:
