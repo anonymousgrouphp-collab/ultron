@@ -1,9 +1,15 @@
 """
 dashboard/server.py — ULTRON Local HTTP Dashboard
 
-Plain HTTP on port 8000 (no SSL warnings, no firewall issues).
-Security at the application layer: AES-256-CBC with session-key-derived key.
-CryptoJS is auto-downloaded once and served locally — no CDN needed after that.
+Security posture (ROADMAP P0-B):
+- Binds 127.0.0.1 by default; LAN exposure only via ULTRON_DASHBOARD_HOST=0.0.0.0.
+- HTTPS when config/certs/ultron.{key,crt} exist (self-signed, never committed).
+- Bearer tokens are issued only after PIN/QR/device auth, expire after 12h,
+  and are pruned; every WebSocket (local or remote) requires a valid token.
+- Commands MUST arrive AES-256-CBC encrypted with the session-key-derived key
+  (PBKDF2-HMAC-SHA256, salt "ULTRON-DASHBOARD-v1", 100k iterations); plaintext
+  command payloads are rejected. CryptoJS is served locally for the client.
+- No firewall tampering, no UAC elevation, no network-profile changes.
 
 Install deps:  pip install fastapi "uvicorn[standard]" cryptography
 """
@@ -213,6 +219,28 @@ class DashboardServer:
         self._pending_keys[key] = now + expiry_secs
         return key
 
+    # ── bearer-token management (P0-B4: tokens expire and are pruned) ────
+
+    _TOKEN_TTL = 12 * 3600        # bearer tokens live 12h, then must re-login
+    _TOKEN_MAX = 64               # hard cap on live tokens (prune oldest first)
+
+    def _prune_tokens(self) -> None:
+        now = time.time()
+        self._tokens = {t: exp for t, exp in self._tokens.items() if exp > now}
+        if len(self._tokens) > self._TOKEN_MAX:
+            keep = sorted(self._tokens.items(), key=lambda kv: kv[1], reverse=True)
+            self._tokens = dict(keep[:self._TOKEN_MAX])
+
+    def _mint_token(self) -> str:
+        self._prune_tokens()
+        tok = secrets.token_urlsafe(32)
+        self._tokens[tok] = time.time() + self._TOKEN_TTL
+        return tok
+
+    def _valid_token(self, tok: str) -> bool:
+        exp = self._tokens.get(tok or "")
+        return exp is not None and exp > time.time()
+
     @staticmethod
     def _ssl_enabled() -> bool:
         certs = BASE_DIR / "config" / "certs"
@@ -271,7 +299,7 @@ class DashboardServer:
 
         def _auth(req: Request) -> bool:
             tok = req.headers.get("authorization", "").removeprefix("Bearer ").strip()
-            return bool(tok) and tok in self._tokens
+            return self._valid_token(tok)
 
         # serve CryptoJS from local cache, fallback to CDN redirect
         @app.get("/static/crypto.js")
@@ -294,12 +322,12 @@ class DashboardServer:
 
         @app.get("/", response_class=HTMLResponse)
         async def index():
-            tok = secrets.token_urlsafe(32)
-            self._tokens.add(tok)
+            # P0-B4: no token minting here. Bearer tokens are issued only after
+            # PIN/QR/device authentication. The client redirects to /login when
+            # the __TOKEN__ placeholder is left untouched.
             html = (self._app_html
                     .replace("__IP__", self._ip)
-                    .replace("__PORT__", str(PORT))
-                    .replace("__TOKEN__", tok))
+                    .replace("__PORT__", str(PORT)))
             return HTMLResponse(html, headers=_no_cache_headers)
 
         @app.post("/login")
@@ -309,8 +337,7 @@ class DashboardServer:
             now     = time.time()
             if entered in self._pending_keys and self._pending_keys[entered] > now:
                 del self._pending_keys[entered]          # one-time use
-                tok = secrets.token_urlsafe(32)
-                self._tokens.add(tok)
+                tok = self._mint_token()
                 self._token_keys[tok] = entered
                 self._aes_key(entered)                   # pre-derive & cache
                 if self._connect_callback:
@@ -340,9 +367,8 @@ class DashboardServer:
 </div></body></html>""")
 
             del self._pending_keys[key]
-            tok     = secrets.token_urlsafe(32)
+            tok     = self._mint_token()
             dev_tok = secrets.token_urlsafe(32)
-            self._tokens.add(tok)
             self._token_keys[tok] = key
             self._aes_key(key)
             self._device_sessions[dev_tok] = {"session_key": key}
@@ -381,8 +407,7 @@ class DashboardServer:
             if not dev_tok or dev_tok not in self._device_sessions:
                 return JSONResponse({"ok": False}, status_code=401)
             session_key = self._device_sessions[dev_tok]["session_key"]
-            tok = secrets.token_urlsafe(32)
-            self._tokens.add(tok)
+            tok = self._mint_token()
             self._token_keys[tok] = session_key
             self._aes_key(session_key)
             if self._connect_callback:
@@ -408,12 +433,12 @@ class DashboardServer:
             body  = await req.json()
             token = req.headers.get("authorization", "").removeprefix("Bearer ").strip()
             enc   = body.get("enc", "")
-            if enc:
-                text = self._decrypt(token, enc)
-                if text is None:
-                    return JSONResponse({"error": "Decryption failed"}, status_code=400)
-            else:
-                text = (body.get("text") or "").strip()
+            if not enc:
+                # P0-B4: plaintext commands are rejected, not accepted as a fallback.
+                return JSONResponse({"error": "Encrypted payload required"}, status_code=400)
+            text = self._decrypt(token, enc)
+            if text is None:
+                return JSONResponse({"error": "Decryption failed"}, status_code=400)
             if text:
                 await self._command_queue.put(text)
                 if self._wake_callback:
@@ -432,8 +457,7 @@ class DashboardServer:
 
         @app.websocket("/ws/phone-audio")
         async def phone_audio_ws(websocket: WebSocket, token: str = ""):
-            tok = token.strip()
-            if not tok or tok not in self._tokens:
+            if not self._valid_token(token.strip()):
                 await websocket.close(code=4001)
                 return
             await websocket.accept()
@@ -535,8 +559,7 @@ class DashboardServer:
         @app.get("/uploads/{filename}")
         async def download_file(filename: str, token: str = ""):
             # Auth via query param — browser <a download> can't send custom headers
-            tok = token.strip()
-            if not tok or tok not in self._tokens:
+            if not self._valid_token(token.strip()):
                 return JSONResponse({"error": "Unauthorized"}, status_code=401)
             safe = re.sub(r'[/\\]', '', filename)
             path = self._uploads_dir / safe
@@ -546,15 +569,13 @@ class DashboardServer:
 
         @app.websocket("/ws")
         async def ws_ep(websocket: WebSocket, token: str = ""):
+            # P0-B4: every WebSocket is authenticated — the old loopback bypass
+            # (and the token it silently minted) is gone. A browser tab that
+            # holds no valid session gets closed with 4001 and re-logs-in.
             tok = token.strip()
-            client_ip = websocket.client.host if websocket.client else ""
-            is_local = client_ip in ("127.0.0.1", "::1", "localhost")
-            if not is_local and (not tok or tok not in self._tokens):
+            if not self._valid_token(tok):
                 await websocket.close(code=4001)
                 return
-            if not tok:
-                tok = secrets.token_urlsafe(32)
-                self._tokens.add(tok)
             await websocket.accept()
             self._clients.add(websocket)
             for entry in self._history[-50:]:
@@ -567,7 +588,11 @@ class DashboardServer:
                     data = await websocket.receive_json()
                     if data.get("type") == "command":
                         enc = data.get("enc", "")
-                        t   = self._decrypt(tok, enc) if enc else (data.get("text") or "").strip()
+                        if not enc:
+                            # P0-B4: encryption is mandatory; ignore plaintext
+                            print("[Dashboard] Ignoring plaintext WS command.")
+                            continue
+                        t = self._decrypt(tok, enc)
                         if t:
                             await self._command_queue.put(t)
                             if self._wake_callback:
