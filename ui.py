@@ -647,7 +647,8 @@ class UltronUI:
         self._win._reconfig_sig.emit()
 
     def show_camera_frame(self, img_bytes: bytes):
-        raise NotImplementedError("Camera stream not yet implemented")
+        # Still-frame preview is part of the unimplemented camera HUD (Phase 4, J-16).
+        pass
 
     def start_camera_stream(self) -> None:
         self._win.start_camera_stream()
