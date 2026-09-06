@@ -45,6 +45,23 @@ ULTRON voice assistant into a JARVIS-like general agent harness (see `docs/ROADM
   dependencies merge; P0-E (CI) merges last because it tests everything.
 - Rebase your branch on `main` before opening the merge; CI must be green.
 
+### Progress discipline & sign-off (STRICT)
+
+- **Update your board row in the same commit as your code.** A commit without its
+  `PROGRESS.md` update is an incomplete commit. Non-negotiable with parallel chats.
+- **Sign-off:** on completing a task, set Status → ✅ and fill the Sign-off column
+  with `✍ <chat-name> <date>` plus an evidence reference in Notes. Only sign what
+  you verified (tests run / commands / greps — real output, not claims).
+- **DEP rule (dependencies):** every row in `PROGRESS.md` has a `DEP` column.
+  - `🔓 START NOW` → proceed, zero dependencies.
+  - `DEP: <ID>` → **check that ID on the board first.** If it is ✅ **and signed**,
+    proceed (mind its merge state in Notes). If it is still ⬜/🔶, **STOP and tell
+    the user**: "[my task] is blocked by [ID], which isn't signed off yet — pick
+    another 🔓 stream or wait." Never silently do someone else's stream to unblock
+    yourself; never edit a blocked dependency's files.
+- A stream is "done" only when: all rows ✅ + signed, a Verification Log entry with
+  evidence exists, and affected docs are still accurate.
+
 ## 4. Verification requirement (re-verify deliverables — this is not optional)
 
 **After every task:** run the checks your stream's board row lists (minimum:
