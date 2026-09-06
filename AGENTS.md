@@ -41,17 +41,21 @@ ULTRON voice assistant into a JARVIS-like general agent harness (see `docs/ROADM
   earlier one's merge (dependency column on the board).
 - **Isolation option:** if you must run truly conflicting streams at once, use
   `git worktree add ../ultron-<stream> p0-<stream>` and open the chat in that folder.
-- **Merge policy — merging is part of the task, not an afterthought.** When all your
-  stream's rows are ✅ + signed: rebase your branch on latest `main`, merge it into
-  `main`, push, then update the board (stream header `merged @ <sha>` + changelog).
-  - **Merge gate before CI exists** (until P0-E lands): your signed verification
-    evidence IS the gate. **After CI exists:** branch CI green is required first.
-  - **Conflicts:** during rebase, conflicts inside your OWNED files → resolve them.
-    Conflicts in another stream's files → **STOP and tell the user** — never guess.
+- **Merge policy — `main` has ONE owner: the main-branch chat (orchestrator session).**
+  Branch chats **never merge into `main` themselves** and never merge another
+  stream's branch. When all your stream's rows are ✅ + signed: push your branch,
+  set its Merge Queue row to 🟢 merge-ready, and stop there (pick another stream or
+  report to the user). The **main-branch chat** then: merges your branch into
+  `main`, resolves conflicts (your owned files fine; conflicts spanning foreign
+  files → coordinate via Findings or the user), pushes, and writes
+  `merged @ <sha>` in the stream header + Merge Queue + changelog.
+  - *Why:* parallel self-merges already caused a stalled cross-stream merge
+    (security content being merged into the config branch). One merger = no race.
+  - **Merge gate before CI exists** (until P0-E lands): the stream's signed
+    verification evidence IS the gate. **After CI exists:** branch CI green required.
   - If your change alters behavior pinned by P0-E's characterization tests, update
-    those tests in your merge commit (note it in your board row).
-  - Don't leave signed work unmerged >24h — dependent streams are waiting on merges,
-    not on signatures. Merge-ready branches are tracked in `PROGRESS.md` → Merge Queue.
+    those tests ON YOUR BRANCH before marking merge-ready.
+  - Merge-ready work unhandled >24h is a main-chat violation — flag it in Findings.
 
 ### Progress discipline & sign-off (STRICT)
 
