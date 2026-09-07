@@ -114,12 +114,14 @@ def brightness_up():
                 capture_output=True).returncode == 0:
             subprocess.run(["brightnessctl", "set", "+10%"], capture_output=True)
         else:
+            print("[Settings] Linux brightness changes require the brightnessctl utility.")
+            return
             subprocess.run(
                 'xrandr --output $(xrandr | grep " connected" | head -1 | cut -d " " -f1)'
                 ' --brightness $(python3 -c "import subprocess; '
                 'b=float(subprocess.check_output([\"xrandr\",\"--verbose\"]).decode()'
                 '.split(\"Brightness:\")[1].split()[0]); print(min(1.0,b+0.1))")',
-                shell=True, capture_output=True
+                shell=False, capture_output=True
             )
     else:
         try:
@@ -143,12 +145,14 @@ def brightness_down():
                 capture_output=True).returncode == 0:
             subprocess.run(["brightnessctl", "set", "10%-"], capture_output=True)
         else:
+            print("[Settings] Linux brightness changes require the brightnessctl utility.")
+            return
             subprocess.run(
                 'xrandr --output $(xrandr | grep " connected" | head -1 | cut -d " " -f1)'
                 ' --brightness $(python3 -c "import subprocess; '
                 'b=float(subprocess.check_output([\"xrandr\",\"--verbose\"]).decode()'
                 '.split(\"Brightness:\")[1].split()[0]); print(max(0.1,b-0.1))")',
-                shell=True, capture_output=True
+                shell=False, capture_output=True
             )
     else:
         try:

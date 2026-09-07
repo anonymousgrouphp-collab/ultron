@@ -63,7 +63,7 @@ class ToolResult:
     duration_ms: float = 0.0
 
     @classmethod
-    def ok(
+    def success(
         cls,
         call: ToolCall,
         data: Any = None,

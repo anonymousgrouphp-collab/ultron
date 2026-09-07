@@ -98,10 +98,14 @@ def get_api_key(key_name: str = "gemini_api_key") -> str | None:
 
 
 def get_dashboard_host() -> str:
-    """Dashboard bind address: 127.0.0.1 by default; LAN exposure (0.0.0.0)
-    only via explicit ULTRON_DASHBOARD_HOST opt-in (P0-B2 policy, P0-D2 home)."""
-    host = os.environ.get("ULTRON_DASHBOARD_HOST", "").strip()
-    return host or "127.0.0.1"
+    """Return the dashboard's only supported bind address: local loopback.
+
+    The prior LAN environment switch is intentionally ignored. Self-signed TLS
+    and a short pairing key are not a sufficient remote-control security model.
+    LAN access may return only after a separately designed auth and transport
+    gate; accepting arbitrary bind addresses is never supported.
+    """
+    return "127.0.0.1"
 
 
 def _atomic_write(target: Path, text: str) -> None:

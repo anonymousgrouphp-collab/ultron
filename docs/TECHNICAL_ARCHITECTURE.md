@@ -48,7 +48,7 @@ to authorize one.
 | Kernel | stdlib `asyncio`, typed dataclasses, EventBus, ToolRegistry | Existing P1-A/B foundation. No agent framework runtime. |
 | Safety | PolicyEngine + SQLite `AuditLog` | Existing P1-E foundation. Default: read allow, write/execute ask, destructive deny. |
 | Persistence | SQLite WAL | Audit first; memory follows P1-D. Runtime databases are gitignored. |
-| Local dashboard | FastAPI + Uvicorn, loopback only | LAN is disabled unless a later security gate approves TLS and standard auth. |
+| Local dashboard | FastAPI + Uvicorn, loopback only | LAN is disabled. It may return only after a security gate approves standard auth, certificate lifecycle, and revocation. |
 | Browser | Playwright | Reintroduce only as a scoped, consented tool with isolated profile and action preview. |
 | Tests | pytest, Ruff, mypy | Static checks become blocking for changed files before being repo-wide gates. |
 
@@ -113,8 +113,9 @@ asked to list a directory, because its old interface can also delete and move.
    clean failure text, and policy/audit integration tests.
 3. Tests use fakes only for the clock, network/provider, and irreversible external
    effects. Kernel wiring is tested with the real registry and policy engine.
-4. CI runs `ruff`, `mypy`, and pytest as required checks. Advisory static checks
-   are a temporary debt, not a definition of done.
+4. CI requires pytest plus Ruff and mypy on the maintained kernel, bootstrap, and
+   test surface. Extending those checks to legacy modules is tracked remediation;
+   advisory legacy scans are not a definition of done.
 5. Dependencies are declared from a reviewed input file and resolved into a
    reproducible lock before the next release.
 

@@ -1,46 +1,21 @@
 @echo off
-title ULTRON -- AI Desktop Assistant
-color 0A
-
-echo ===================================================
-echo    ULTRON AI Engine -- Launcher
-echo ===================================================
-echo.
+setlocal
+title ULTRON - Desktop Assistant
 
 cd /d "%~dp0"
+set "ULTRON_PYTHON=.venv\Scripts\python.exe"
 
-REM ── Check if setup has been completed ─────────────────────────────────
-if not exist ".ultron_setup_complete" (
-    echo First-time launch detected. Running setup...
-    echo.
-    
-    where python >nul 2>nul
-    if %ERRORLEVEL% NEQ 0 (
-        echo ERROR: Python was not found on this PC.
-        echo.
-        echo Please install Python 3.10 or newer from https://python.org
-        echo During install, make sure to check "Add python.exe to PATH".
-        echo Then double-click this file again.
-        echo.
-        pause
-        exit /b 1
-    )
-    
-    python ULTRON_SETUP.py
-    if %ERRORLEVEL% NEQ 0 (
-        echo.
-        echo Setup failed. Check the messages above.
-        pause
-        exit /b %ERRORLEVEL%
-    )
+if not exist "%ULTRON_PYTHON%" (
+    echo ULTRON is not set up yet. Creating the supported Python 3.13 environment...
+    call SETUP.bat
+    if errorlevel 1 exit /b %ERRORLEVEL%
 )
 
-REM ── Launch ULTRON ─────────────────────────────────────────────────────
-echo Launching ULTRON...
-python main.py
-
-if %ERRORLEVEL% NEQ 0 (
+"%ULTRON_PYTHON%" main.py
+set "ULTRON_EXIT=%ERRORLEVEL%"
+if not "%ULTRON_EXIT%"=="0" (
     echo.
-    echo ULTRON closed with an error (code %ERRORLEVEL%).
+    echo ULTRON closed with exit code %ULTRON_EXIT%.
     pause
 )
+exit /b %ULTRON_EXIT%

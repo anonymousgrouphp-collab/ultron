@@ -1,28 +1,23 @@
 @echo off
-title ULTRON -- Wake Word Service
-color 0A
-
-echo ==============================================
-echo   ULTRON -- Starting Wake Word Listener...
-echo ==============================================
+setlocal
+title ULTRON - Wake Word Listener
 
 cd /d "%~dp0"
+set "ULTRON_PYTHON=.venv\Scripts\python.exe"
 
-REM ── Check if setup has been completed ──────────────────────────────
-if not exist ".ultron_setup_complete" (
-    echo First-time launch detected. Running setup first...
-    echo.
-    python ULTRON_SETUP.py
-    if %ERRORLEVEL% NEQ 0 (
-        echo Setup failed. Check the messages above.
-        pause
-        exit /b %ERRORLEVEL%
-    )
+if not exist "%ULTRON_PYTHON%" (
+    echo ULTRON is not set up yet. Creating the supported Python 3.13 environment...
+    call SETUP.bat
+    if errorlevel 1 exit /b %ERRORLEVEL%
 )
 
-echo.
-echo Launching Wake Word Listener ("wake up ultron")...
-python wake_service.py
+"%ULTRON_PYTHON%" -c "import pyaudio" >nul 2>nul
+if errorlevel 1 (
+    echo The experimental wake-word service requires PyAudio, which is not part of the supported core install.
+    echo Install a compatible PyAudio wheel into .venv, then run this launcher again.
+    pause
+    exit /b 1
+)
 
-echo.
+"%ULTRON_PYTHON%" wake_service.py
 pause

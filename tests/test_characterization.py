@@ -120,14 +120,14 @@ def test_08_dashboard_host_defaults_loopback():
             os.environ["ULTRON_DASHBOARD_HOST"] = monkey_env
 
 
-def test_09_dashboard_host_env_opt_in():
-    """Setting ULTRON_DASHBOARD_HOST=0.0.0.0 is the explicit LAN opt-in (P0-B2/P0-D2)."""
+def test_09_dashboard_host_env_cannot_enable_lan():
+    """A legacy environment setting cannot expose dashboard remote control (P1-I)."""
     from config import loader
 
     old = os.environ.get("ULTRON_DASHBOARD_HOST")
     os.environ["ULTRON_DASHBOARD_HOST"] = "0.0.0.0"
     try:
-        assert loader.get_dashboard_host() == "0.0.0.0"
+        assert loader.get_dashboard_host() == "127.0.0.1"
     finally:
         if old is None:
             os.environ.pop("ULTRON_DASHBOARD_HOST", None)
@@ -142,6 +142,17 @@ def test_10_dashboard_server_honors_loader():
     assert srv.DASHBOARD_HOST == "127.0.0.1"  # test env never sets the opt-in
     src = (ROOT / "dashboard" / "server.py").read_text(encoding="utf-8")
     assert 'host="0.0.0.0"' not in src and "host='0.0.0.0'" not in src
+
+
+def test_10b_dashboard_url_is_always_loopback(monkeypatch):
+    """The server cannot advertise a LAN URL, even when legacy state is altered."""
+    import dashboard.server as srv
+
+    server = object.__new__(srv.DashboardServer)
+    server._ip = "127.0.0.1"
+    monkeypatch.setattr(server, "_ssl_enabled", lambda: False)
+
+    assert server.get_url() == "http://127.0.0.1:8000"
 
 
 def test_11_decrypt_rejects_garbage_ciphertext():

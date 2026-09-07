@@ -1,279 +1,150 @@
-"""
-ULTRON SETUP SCRIPT
+"""Create ULTRON's supported local runtime from a complete checkout.
 
-This is a portable first-time setup script for the ULTRON AI Desktop Assistant.
-It verifies project integrity, downloads missing files from GitHub,
-checks Python version, installs dependencies, configures API keys,
-and prepares the environment for running the assistant.
+Setup intentionally does not download, merge, or replace source files. A missing
+file means the checkout is incomplete and must be repaired through the normal
+source-control workflow. The only mutable setup output is the local virtual
+environment and an optional local API-key template.
 """
-import os
-import sys
+
+from __future__ import annotations
+
+import argparse
 import subprocess
-import urllib.request
-import zipfile
-import shutil
-import json
-from datetime import datetime
+import sys
 from pathlib import Path
-
-# Ensure UTF-8 output
-if hasattr(sys.stdout, 'reconfigure'):
-    sys.stdout.reconfigure(encoding='utf-8')
+from typing import Sequence
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_URL_GIT = "https://github.com/anonymousgrouphp-collab/ultron"
-REPO_URL_ZIP = "https://github.com/anonymousgrouphp-collab/ultron/archive/refs/heads/main.zip"
-
-MARKER_FILES = [
+SUPPORTED_PYTHON = (3, 13)
+REQUIRED_PROJECT_FILES = (
     "main.py",
     "ui.py",
     "requirements.txt",
-    "core/tts.py",
+    "core/prompt.txt",
     "actions/browser_control.py",
     "dashboard/server.py",
-]
+    "kernel/__init__.py",
+)
 
-def print_separator():
-    print("=" * 60)
 
-def show_manual_download_error():
-    print_separator()
-    print(" AUTOMATIC DOWNLOAD FAILED")
-    print_separator()
-    print("")
-    print(" Please download ULTRON manually:")
-    print("")
-    print(" Option 1 (Git):")
-    print(f"   git clone {REPO_URL_GIT}")
-    print("")
-    print(" Option 2 (Direct ZIP):")
-    print(f"   {REPO_URL_ZIP}")
-    print("")
-    print(" After downloading, extract all files into this folder:")
-    print(f"   {SCRIPT_DIR}")
-    print("")
-    print(" Then run this setup script again:")
-    print("   python ULTRON_SETUP.py")
-    print_separator()
+def missing_project_files() -> list[str]:
+    """Return the checkout files needed before an environment can be created."""
+    missing = [relative for relative in REQUIRED_PROJECT_FILES
+               if not (SCRIPT_DIR / relative).is_file()]
+    config_dir = SCRIPT_DIR / "config"
+    if not ((config_dir / "api_keys.json").is_file()
+            or (config_dir / "api_keys.json.example").is_file()):
+        missing.append("config/api_keys.json.example")
+    return missing
 
-def check_marker_files():
-    for marker in MARKER_FILES:
-        if not (SCRIPT_DIR / marker).exists():
-            return False
-    
-    config_json = SCRIPT_DIR / "config" / "api_keys.json"
-    config_example = SCRIPT_DIR / "config" / "api_keys.json.example"
-    
-    if not (config_json.exists() or config_example.exists()):
+
+def validate_python_version(version: tuple[int, int] | None = None) -> None:
+    """Reject interpreter lines that ULTRON does not verify in CI."""
+    current = version or sys.version_info[:2]
+    if current != SUPPORTED_PYTHON:
+        expected = ".".join(map(str, SUPPORTED_PYTHON))
+        actual = ".".join(map(str, current))
+        raise RuntimeError(f"ULTRON requires Python {expected}; found Python {actual}.")
+
+
+def virtualenv_python() -> Path:
+    return SCRIPT_DIR / ".venv" / "Scripts" / "python.exe"
+
+
+def ensure_project_checkout() -> None:
+    missing = missing_project_files()
+    if missing:
+        details = "\n  - ".join(missing)
+        raise RuntimeError(
+            "This directory is not a complete ULTRON checkout. Missing:\n"
+            f"  - {details}\n"
+            "Restore the checkout with Git or a verified project archive, then rerun setup."
+        )
+
+
+def create_virtualenv() -> Path:
+    """Create the project-local environment exactly once and return its Python."""
+    python = virtualenv_python()
+    if python.is_file():
+        return python
+    print("[setup] Creating .venv with the current Python 3.13 interpreter...")
+    subprocess.run([sys.executable, "-m", "venv", ".venv"], cwd=SCRIPT_DIR, check=True)
+    if not python.is_file():
+        raise RuntimeError("Virtual environment creation did not produce .venv/Scripts/python.exe.")
+    return python
+
+
+def install_requirements(python: Path) -> None:
+    """Install the reviewed, pinned direct dependency set into the project venv."""
+    print("[setup] Installing requirements into .venv...")
+    subprocess.run(
+        [str(python), "-m", "pip", "install", "--require-virtualenv", "-r", "requirements.txt"],
+        cwd=SCRIPT_DIR,
+        check=True,
+    )
+    subprocess.run([str(python), "-m", "pip", "check"], cwd=SCRIPT_DIR, check=True)
+
+
+def install_playwright_browser(python: Path) -> None:
+    """Install Chromium only when the user explicitly needs browser tooling."""
+    print("[setup] Installing Playwright Chromium...")
+    subprocess.run([str(python), "-m", "playwright", "install", "chromium"], cwd=SCRIPT_DIR, check=True)
+
+
+def ensure_config_file() -> bool:
+    """Copy the example config once; never modify an existing user config file."""
+    config_dir = SCRIPT_DIR / "config"
+    target = config_dir / "api_keys.json"
+    if target.is_file():
         return False
-        
+    example = config_dir / "api_keys.json.example"
+    if not example.is_file():
+        raise RuntimeError("config/api_keys.json.example is required to create local config.")
+    target.write_text(example.read_text(encoding="utf-8"), encoding="utf-8")
+    print("[setup] Created config/api_keys.json from the example. Add your Gemini API key there.")
     return True
 
-def download_from_github():
-    print("[INFO] Attempting to download ULTRON from GitHub...")
-    # Try Git clone
+
+def setup(*, with_browser: bool = False) -> Path:
+    ensure_project_checkout()
+    validate_python_version()
+    python = create_virtualenv()
+    install_requirements(python)
+    if with_browser:
+        install_playwright_browser(python)
+    ensure_config_file()
+    return python
+
+
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Create ULTRON's local Python 3.13 environment.")
+    parser.add_argument(
+        "--with-browser",
+        action="store_true",
+        help="install the Playwright Chromium binary for browser tooling",
+    )
+    parser.add_argument(
+        "--launch",
+        action="store_true",
+        help="launch ULTRON after a successful setup",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = parse_args(argv)
     try:
-        print("[INFO] Trying git clone...")
-        result = subprocess.run(
-            ["git", "clone", REPO_URL_GIT, "."],
-            cwd=str(SCRIPT_DIR),
-            capture_output=True,
-            text=True
-        )
-        if result.returncode == 0:
-            print("[INFO] Git clone successful.")
-            return True
-        else:
-            print("[WARN] Git clone failed. Git might not be installed or directory is not empty.")
-    except Exception as e:
-        print(f"[WARN] Git clone error: {e}")
+        python = setup(with_browser=args.with_browser)
+    except (OSError, RuntimeError, subprocess.CalledProcessError) as exc:
+        print(f"[setup] Failed: {exc}", file=sys.stderr)
+        return 1
 
-    # Try ZIP download
-    try:
-        print("[INFO] Trying direct ZIP download...")
-        zip_path = SCRIPT_DIR / "ultron_temp.zip"
-        urllib.request.urlretrieve(REPO_URL_ZIP, zip_path)
-        
-        print("[INFO] Extracting ZIP...")
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            # Need to extract contents of the inner folder, usually ULTRON-main
-            temp_extract = SCRIPT_DIR / "temp_extract"
-            zip_ref.extractall(temp_extract)
-            
-            # Find the root folder inside the zip
-            inner_folders = [f for f in temp_extract.iterdir() if f.is_dir()]
-            if inner_folders:
-                inner_root = inner_folders[0]
-                for item in inner_root.iterdir():
-                    dest = SCRIPT_DIR / item.name
-                    if not dest.exists():
-                        shutil.move(str(item), str(dest))
-                    
-        # Cleanup
-        shutil.rmtree(temp_extract, ignore_errors=True)
-        if zip_path.exists():
-            zip_path.unlink()
-            
-        print("[INFO] ZIP download and extraction successful.")
-        return True
-    except Exception as e:
-        print(f"[WARN] ZIP download failed: {e}")
-        
-    return False
+    print("[setup] ULTRON environment is ready.")
+    print(r"[setup] Launch with START_ULTRON.bat or .venv\Scripts\python.exe main.py")
+    if args.launch:
+        return subprocess.run([str(python), "main.py"], cwd=SCRIPT_DIR).returncode
+    return 0
 
-def check_python_version():
-    print("[INFO] Checking Python version...")
-    if sys.version_info < (3, 10):
-        print(f"[ERROR] Python 3.10 or higher is required. Found Python {sys.version_info.major}.{sys.version_info.minor}")
-        sys.exit(1)
-    print(f"[OK] Python {sys.version_info.major}.{sys.version_info.minor} verified.")
 
-def upgrade_pip():
-    print("[INFO] Upgrading pip...")
-    try:
-        subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "pip"], 
-                       capture_output=True, check=True)
-        print("[OK] Pip upgraded quietly.")
-    except Exception as e:
-        print(f"[WARN] Failed to upgrade pip: {e}")
-
-def install_requirements():
-    print("[INFO] Installing requirements.txt...")
-    req_file = SCRIPT_DIR / "requirements.txt"
-    if not req_file.exists():
-        print(f"[ERROR] {req_file.name} not found!")
-        sys.exit(1)
-        
-    try:
-        subprocess.run([sys.executable, "-m", "pip", "install", "-r", str(req_file)], 
-                       check=True)
-        print("[OK] Requirements installed.")
-    except subprocess.CalledProcessError as e:
-        print(f"[ERROR] Failed to install requirements: {e}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"[ERROR] Unexpected error installing requirements: {e}")
-        sys.exit(1)
-
-def install_playwright_chromium():
-    print("[INFO] Installing Playwright Chromium...")
-    try:
-        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], 
-                       check=True)
-        print("[OK] Playwright Chromium installed.")
-    except subprocess.CalledProcessError as e:
-        print(f"[ERROR] Failed to install Playwright Chromium: {e}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"[ERROR] Unexpected error installing Playwright Chromium: {e}")
-        sys.exit(1)
-
-def setup_api_keys():
-    print("[INFO] Setting up config/api_keys.json...")
-    config_dir = SCRIPT_DIR / "config"
-    config_dir.mkdir(parents=True, exist_ok=True)
-    
-    api_keys_file = config_dir / "api_keys.json"
-    api_keys_example = config_dir / "api_keys.json.example"
-    
-    if api_keys_file.exists():
-        print("[OK] api_keys.json already exists.")
-        return
-        
-    if api_keys_example.exists():
-        try:
-            shutil.copy(str(api_keys_example), str(api_keys_file))
-            print("[OK] Copied api_keys.json.example to api_keys.json.")
-        except Exception as e:
-            print(f"[ERROR] Failed to copy example config: {e}")
-            sys.exit(1)
-    else:
-        default_config = {
-            "gemini_api_key": "YOUR_GEMINI_API_KEY_HERE",
-            "os_system": "windows",
-            "morning_brief_enabled": True,
-            "assistant_name": "ULTRON",
-            "user_name": "",
-            "ui_color": "#00ff66"
-        }
-        try:
-            with open(api_keys_file, "w", encoding="utf-8") as f:
-                json.dump(default_config, f, indent=4)
-            print("[OK] Created default api_keys.json.")
-        except Exception as e:
-            print(f"[ERROR] Failed to create api_keys.json: {e}")
-            sys.exit(1)
-
-def write_setup_marker():
-    marker_file = SCRIPT_DIR / ".ultron_setup_complete"
-    try:
-        with open(marker_file, "w", encoding="utf-8") as f:
-            f.write(f"Setup completed on: {datetime.now().isoformat()}")
-        print("[OK] Wrote setup completion marker.")
-    except Exception as e:
-        print(f"[WARN] Failed to write setup marker: {e}")
-
-def main():
-    try:
-        # STEP 1: Integrity Check
-        if check_marker_files():
-            print("[OK] ULTRON base project verified.")
-        else:
-            # STEP 2: Download from GitHub
-            success = download_from_github()
-            
-            if not success:
-                show_manual_download_error()
-                sys.exit(1)
-                
-            if not check_marker_files():
-                show_manual_download_error()
-                sys.exit(1)
-            else:
-                print("[OK] ULTRON base project verified after download.")
-                
-        # STEP 3: Check Python Version
-        check_python_version()
-        
-        # STEP 4: Upgrade pip
-        upgrade_pip()
-        
-        # STEP 5: Install requirements.txt
-        install_requirements()
-        
-        # STEP 6: Install Playwright Chromium
-        install_playwright_chromium()
-        
-        # STEP 7: Setup config/api_keys.json
-        setup_api_keys()
-        
-        # STEP 8: Write Setup Complete Marker
-        write_setup_marker()
-        
-        # STEP 9: Print Success
-        print_separator()
-        print(" ULTRON SETUP COMPLETE!")
-        print_separator()
-        print("")
-        print(" To launch ULTRON:")
-        print("   python main.py")
-        print("   OR double-click START_ULTRON.bat")
-        print("")
-        print(" IMPORTANT: Add your Gemini API key in config/api_keys.json")
-        print(" Get a free key: https://aistudio.google.com/apikey")
-        print_separator()
-        
-        choice = input("Do you want to launch ULTRON now? (Press Enter to launch, N to exit): ")
-        if choice.strip().lower() != 'n':
-            print("[INFO] Launching ULTRON...")
-            subprocess.run([sys.executable, "main.py"], cwd=str(SCRIPT_DIR))
-            
-    except KeyboardInterrupt:
-        print("\n[WARN] Setup cancelled by user.")
-        sys.exit(1)
-    except Exception as e:
-        print(f"\n[ERROR] An unexpected error occurred: {e}")
-        sys.exit(1)
-
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    raise SystemExit(main())

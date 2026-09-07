@@ -9,7 +9,7 @@ A Tool bundles everything the kernel, gateway and policy engine need:
 
 Handler contract: `handler(call: ToolCall) -> ToolResult | Any`.
 - Return a ToolResult  → passed through (call_id/name re-stamped to the actual call).
-- Return anything else → wrapped as ToolResult.ok(call, data=result).
+- Return anything else → wrapped as ToolResult.success(call, data=result).
 - Raise               → retried (up to max_retries), then ToolResult.fail with a
   clean message. Handlers should return ToolResult.fail themselves for *expected*
   failures — those are NOT retried.

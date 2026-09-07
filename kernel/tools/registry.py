@@ -168,7 +168,7 @@ class ToolRegistry:
             if raw.call_id == call.id and raw.name == call.name:
                 return raw
             return dataclasses.replace(raw, call_id=call.id, name=call.name)
-        return ToolResult.ok(call, data=raw)
+        return ToolResult.success(call, data=raw)
 
 
 default_registry = ToolRegistry()

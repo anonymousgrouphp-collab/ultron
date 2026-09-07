@@ -132,11 +132,17 @@ def test_utils_env_delegates_to_loader(base_dir):
     assert env.get_api_key("gemini_api_key") == "real"
 
 
-def test_dashboard_host_defaults_to_loopback(base_dir, monkeypatch):
-    """P0-B2 policy, P0-D2 home: 127.0.0.1 unless explicitly opted out."""
+def test_dashboard_host_is_loopback_even_with_legacy_lan_env(base_dir, monkeypatch):
+    """P1-I: an environment variable must not expose dashboard remote control."""
     monkeypatch.delenv("ULTRON_DASHBOARD_HOST", raising=False)
     assert loader.get_dashboard_host() == "127.0.0.1"
     monkeypatch.setenv("ULTRON_DASHBOARD_HOST", "  ")
     assert loader.get_dashboard_host() == "127.0.0.1"
     monkeypatch.setenv("ULTRON_DASHBOARD_HOST", "0.0.0.0")
-    assert loader.get_dashboard_host() == "0.0.0.0"
+    assert loader.get_dashboard_host() == "127.0.0.1"
+
+
+def test_dashboard_host_rejects_unrecognized_bind_address(base_dir, monkeypatch):
+    monkeypatch.setenv("ULTRON_DASHBOARD_HOST", "192.168.1.25")
+
+    assert loader.get_dashboard_host() == "127.0.0.1"

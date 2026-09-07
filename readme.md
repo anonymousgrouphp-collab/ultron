@@ -1,137 +1,97 @@
-# ULTRON AI Desktop Assistant
+# ULTRON
 
-> **ULTRON** is a next-generation AI Desktop Assistant powered by Google Gemini. It features hands-free voice recognition, real-time voice synthesis, automated desktop control, browser automation, system monitoring, and a remote web dashboard.
+ULTRON is a local-first Windows desktop assistant under active reconstruction.
+It is becoming a policy-controlled agent runtime rather than a collection of
+desktop-automation demos. Read the [product requirements](docs/PRD.md) and
+[technical architecture](docs/TECHNICAL_ARCHITECTURE.md) before enabling more
+capabilities.
 
----
+## Current safety posture
 
-## Features
+The live tool path now crosses the kernel registry, policy engine, and local
+SQLite audit log. Read-only tools may run. Write and execute tools fail closed
+until a user-facing consent prompt exists; destructive tools are denied by
+default. The following legacy paths are deliberately unavailable:
 
-- **Google Gemini Engine** -- Ultra-fast LLM with native audio and text models
-- **Hands-Free Voice** -- Real-time speech recognition, neural TTS, and wake word ("Wake up Ultron")
-- **Computer Control** -- Volume, brightness, media, app launcher, window management, keyboard shortcuts
-- **Web Automation** -- Built-in Playwright engine for automated browsing, search, and page extraction
-- **Hardware Monitor** -- Real-time CPU, RAM, GPU, battery, and network telemetry
-- **Remote Dashboard** -- Web-based control panel accessible from any browser or phone
-- **File Processing** -- Read, write, analyze files and generate presentations
-- **Code Assistant** -- Write, debug, and explain code across languages
-...
----
+- unsandboxed code execution and the old coding agent;
+- automatic termination of user applications;
+- shell-based application launching.
 
-## Quick Start (Any Windows 10/11 PC)
+This is a development-stage desktop application. Do not use it to control
+accounts, send messages, buy items, or manage irreplaceable files.
 
-### Prerequisites
+## Supported environment
 
-- **Python 3.10+** installed with "Add python.exe to PATH" checked
-  - Download from [python.org](https://python.org) if needed
-- **Internet connection** for first-time setup (downloads dependencies)
+- Windows 11
+- CPython 3.13 installed with the Windows Python Launcher (`py`)
+- Internet access for dependency installation and Gemini features
 
-### Option 1: Automatic Setup (Recommended)
+Python 3.10, 3.11, 3.12, and 3.14 are not supported launch targets. ULTRON
+always runs from its project-local `.venv`; it does not use the first `python`
+found on PATH.
 
-```
-1. Download or clone this repository
-2. Double-click SETUP.bat
-3. Done! ULTRON installs all dependencies and launches automatically.
-```
+## Setup
 
-### Option 2: Manual Setup
+Clone a complete repository checkout, then double-click `SETUP.bat`. It creates
+`.venv`, installs the pinned direct dependencies, and copies
+`config/api_keys.json.example` to the ignored `config/api_keys.json` if needed.
 
-```bash
-git clone https://github.com/anonymousgrouphp-collab/ultron.git
-cd ultron
-python ULTRON_SETUP.py
-```
+From PowerShell:
 
-### Option 3: Step-by-Step Manual
-
-```bash
-git clone https://github.com/anonymousgrouphp-collab/ultron.git
-cd ultron
-pip install -r requirements.txt
-python -m playwright install chromium
-python main.py
+```powershell
+py -3.13 ULTRON_SETUP.py
 ```
 
----
+Browser automation binaries are optional and downloaded only when needed:
 
-## First Launch
-
-On the very first launch, ULTRON will ask for your **Gemini API Key**.
-
-1. Get a free key at [Google AI Studio](https://aistudio.google.com/apikey)
-2. Paste it when prompted, or edit `config/api_keys.json` manually
-3. optional if pyaudio error comes the go to requirements.txt and add ```pyaudio``` at the bottom
-
----
-
-## Wake Word (Hands-Free Activation)
-
-To keep ULTRON listening in the background:
-
-- Double-click **`Start_ULTRON_Wake_Word.bat`**
-- Say **"Wake up Ultron"** or **"Hey Ultron"** to activate
-
----
-
-## Repository Structure
-
-```
-ULTRON/
-|-- ULTRON_SETUP.py              # Portable first-time setup script
-|-- SETUP.bat                    # 1-click setup launcher (runs ULTRON_SETUP.py)
-|-- START_ULTRON.bat             # Main launcher (auto-runs setup on first use)
-|-- Start_ULTRON_Wake_Word.bat   # Wake word background listener
-|-- main.py                      # Main assistant entry point
-|-- ui.py                        # PyQt6 WebEngine visual HUD
-|-- wake_service.py              # Always-on voice wake word service
-|-- requirements.txt             # Python package dependencies
-|-- config/
-|   |-- api_keys.json.example    # Template for API key configuration
-|   +-- __init__.py              # Config loader module
-|-- core/                        # LLM client, TTS, STT engines
-|-- actions/                     # Tool modules (browser, system, desktop, etc.)
-|-- dashboard/                   # Remote web dashboard server & assets
-+-- memory/                      # Local assistant memory & preferences
+```powershell
+py -3.13 ULTRON_SETUP.py --with-browser
 ```
 
----
+Setup never downloads or merges application source. If it reports missing files,
+restore a clean checkout through Git or a verified archive rather than accepting
+a self-updating installer.
 
-## How Sharing Works
+Add a Gemini API key to `config/api_keys.json`, then launch with
+`START_ULTRON.bat` or:
 
-This project is **fully portable** -- no hardcoded paths.
+```powershell
+.venv\Scripts\python.exe main.py
+```
 
-**To share ULTRON with someone:**
+## Dashboard
 
-1. Push this repo to GitHub (or send as ZIP)
-2. Recipient clones/extracts to ANY folder on their PC
-3. They double-click `SETUP.bat` (or run `python ULTRON_SETUP.py`)
-4. Everything installs automatically
-5. ULTRON launches and works immediately
+The dashboard binds to `127.0.0.1` only. It is for the same computer only; the
+legacy `ULTRON_DASHBOARD_HOST` setting is deliberately ignored. LAN and phone
+remote control are not a Release 1 workflow. Reintroducing them requires a
+separate remote-security design, not a self-signed certificate and pairing key.
 
-**The setup script automatically:**
-- Verifies all project files are present
-- Downloads missing files from GitHub if needed
-- Installs all Python packages (PyQt6, sounddevice, google-genai, etc.)
-- Installs Playwright Chromium browser engine
-- Creates default configuration files
-- Provides manual download links if auto-download fails
+## Wake word listener
 
----
+`Start_ULTRON_Wake_Word.bat` is experimental. It uses the legacy
+SpeechRecognition/PyAudio stack and is not installed by default; the launcher
+will stop with a clear message when a compatible PyAudio wheel is unavailable.
+The supported voice roadmap is documented in
+[docs/research/02_voice_stack.md](docs/research/02_voice_stack.md).
 
-## Requirements
+## Development checks
 
-All dependencies are listed in `requirements.txt` and installed automatically by the setup script:
+```powershell
+.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.venv\Scripts\python.exe -m pytest tests -q
+.venv\Scripts\python.exe -m ruff check kernel tests ULTRON_SETUP.py
+.venv\Scripts\python.exe -m mypy kernel
+```
 
-- PyQt6 + PyQt6-WebEngine
-- sounddevice, PyAudio, SpeechRecognition
-- google-genai, google-generativeai
-- playwright, requests, beautifulsoup4
-- numpy, opencv-python, pillow
-- psutil, pyautogui, pyperclip
-- fastapi, uvicorn, cryptography
-- And more (see requirements.txt)
+The release contract is defined by [docs/PRD.md](docs/PRD.md); passing unit tests
+does not by itself mean the assistant is ready for autonomous desktop use.
 
----
+## Repository map
 
-## License
-
-Contributions, issues, and feature requests are welcome!
+- `kernel/` — typed events, tool registry, policy, audit, and migration seams
+- `actions/` — legacy handlers being ported or retired; do not add new handlers
+  here
+- `dashboard/` — local FastAPI dashboard and static UI
+- `config/` — one local configuration path; secrets are ignored by Git
+- `docs/` — roadmap, product requirements, architecture, ADRs, and research
+- `tests/` — characterization, kernel, migration, and setup regression coverage

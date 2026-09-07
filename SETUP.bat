@@ -1,36 +1,22 @@
 @echo off
-title ULTRON -- First-Time Setup
-color 0A
-
-echo ===================================================
-echo    ULTRON AI Engine -- First-Time Setup
-echo ===================================================
-echo.
+setlocal
+title ULTRON - Environment Setup
 
 cd /d "%~dp0"
 
-REM ── Check Python is installed ─────────────────────────────────────────
-where python >nul 2>nul
-if %ERRORLEVEL% NEQ 0 (
-    echo ERROR: Python was not found on this PC.
-    echo.
-    echo Please install Python 3.10 or newer from https://python.org
-    echo During install, make sure to check "Add python.exe to PATH".
-    echo Then double-click this file again.
-    echo.
+where py >nul 2>nul
+if errorlevel 1 (
+    echo Python Launcher was not found.
+    echo Install CPython 3.13 for Windows, including the Python Launcher, then run this again.
     pause
     exit /b 1
 )
 
-echo Running ULTRON setup...
-echo.
-python ULTRON_SETUP.py
-
-if %ERRORLEVEL% NEQ 0 (
+py -3.13 ULTRON_SETUP.py %*
+set "SETUP_EXIT=%ERRORLEVEL%"
+if not "%SETUP_EXIT%"=="0" (
     echo.
-    echo Setup encountered an error. Check the messages above.
+    echo ULTRON setup failed. Read the error above; no source files were changed.
     pause
-    exit /b %ERRORLEVEL%
 )
-
-pause
+exit /b %SETUP_EXIT%
