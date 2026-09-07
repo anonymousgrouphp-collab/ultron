@@ -19,6 +19,7 @@ they return lists.
 
 from __future__ import annotations
 
+import re
 import sqlite3
 import struct
 import threading
@@ -100,10 +101,17 @@ class SearchHit:
     score: float = 0.0
 
 
+_FTS_TOKEN = re.compile(r"[a-z0-9]+")
+
+
 def _fts_safe_query(text: str) -> str:
-    """Quote each token so user text can't inject FTS5 syntax."""
-    tokens = text.lower().split()
-    return " ".join(f'"{token}"' for token in tokens if token)
+    """Build an FTS5 query from user text: each alphanumeric run becomes a
+    PREFIX term (`plant*` matches plant/plants, `allerg*` matches allergic),
+    joined by OR — natural questions must not require EVERY token to match;
+    BM25 ranks the rows sharing the most/rarest terms. Prefix terms are
+    [a-z0-9]+ by construction (FTS5 operators are uppercase, so lowercase
+    tokens can't be syntax), making injection impossible."""
+    return " OR ".join(f"{run}*" for run in _FTS_TOKEN.findall(text.lower()))
 
 
 def _cosine(a: list[float], b: list[float]) -> float:
@@ -152,12 +160,15 @@ class MemoryEngine:
         source_ref: str | None = None,
         valid_from: float | None = None,
         expires_at: float | None = None,
+        known_at: float | None = None,
     ) -> int:
         """Store one fact; returns its id. The vector leg indexes it at write
-        time (write-time embedding, research/04 §10 write path, v0 flavor)."""
+        time (write-time embedding, research/04 §10 write path, v0 flavor).
+        `known_at` defaults to now — the eval harness backdates it to seed
+        sessions from the past (bi-temporal backfill)."""
         if not content or not content.strip():
             raise ValueError("content must be non-empty")
-        now = time.time()
+        now = time.time() if known_at is None else known_at
         vector = self._embedder.embed(content)
         blob = struct.pack(f"<{len(vector)}f", *vector)
         with self._lock:
