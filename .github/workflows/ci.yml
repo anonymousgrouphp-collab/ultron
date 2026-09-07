@@ -1,8 +1,7 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
+  push:   # all branches — branch-CI-green is the merge gate (PROGRESS.md rule 6); main-only trigger left branch merges ungated
   pull_request:
 
 concurrency:
