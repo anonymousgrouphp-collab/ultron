@@ -9,7 +9,6 @@ from pathlib import Path
 
 
 BASE_DIR        = get_base_dir()
-API_CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
 
 
 _MONTH_MAP: dict[str, int] = {

@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 
 BASE_DIR        = get_base_dir()
-API_CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
 
 
 def _gemini_search(query: str) -> str:

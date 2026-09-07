@@ -31,7 +31,6 @@ except ImportError:
     _PYPERCLIP = False
 
 _BASE         = get_base_dir()
-_CONFIG_PATH  = _BASE / "config" / "api_keys.json"
 _MEMORY_PATH  = _BASE / "memory" / "long_term.json"
 
 def _platform_os() -> str:
