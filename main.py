@@ -489,44 +489,6 @@ class UltronLive:
             response={"result": result}
         )
 
-        if name == "save_memory":
-            category = args.get("category", "notes")
-            key      = args.get("key", "")
-            value    = args.get("value", "")
-            if key and value:
-                update_memory({category: {key: {"value": value}}})
-                print(f"[Memory] 💾 save_memory: {category}/{key} = {value}")
-            if not self.ui.muted:
-                self.set_app_state("LISTENING")
-            return types.FunctionResponse(
-                id=fc.id, name=name,
-                response={"result": "ok", "silent": True}
-            )
-
-        loop   = asyncio.get_event_loop()
-        result = "Done."
-
-        try:
-            handler = self.TOOL_REGISTRY.get(name)
-            if handler:
-                result = await handler(self, args, loop)
-            else:
-                result = f"Unknown tool: {name}"
-
-        except Exception:
-            result = "Tool could not complete."
-            traceback.print_exc()
-            self.speak_error(name)
-
-        if not self.ui.muted:
-            self.set_app_state("LISTENING")
-
-        print(f"[ULTRON] 📤 {name} → {str(result)[:80]}")
-        return types.FunctionResponse(
-            id=fc.id, name=name,
-            response={"result": result}
-        )
-
     async def _send_realtime(self):
         while True:
             msg = await self.out_queue.get()
