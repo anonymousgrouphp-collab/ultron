@@ -214,7 +214,7 @@ class PacedGateway:
     exponential backoff on 429 (free-tier rate limits). Kernel stays clean —
     pacing/retry policy is an eval-runner concern until P2-C owns retries."""
 
-    def __init__(self, inner: Gateway, min_interval_s: float = 4.0,
+    def __init__(self, inner: Gateway, min_interval_s: float = 6.0,
                  max_retries: int = 4) -> None:
         self._inner = inner
         self._min = min_interval_s
