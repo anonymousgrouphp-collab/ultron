@@ -8,7 +8,6 @@ event loop). Evidence refs point at the P0 rows that motivated each pin.
 
 import inspect
 import os
-import time
 from pathlib import Path
 
 import pytest
@@ -196,14 +195,27 @@ def test_15_system_monitor_imports_os():
     assert callable(sm.auto_close_heavy_background_apps)
 
 
-def test_16_proactive_real_silence_math():
-    """Proactive trigger uses real user-silence, silence + min_silence inflation is dead (P0-A5)."""
-    from actions.proactive import ProactiveEngine
+def test_16_proactive_real_silence_math(monkeypatch):
+    """Proactive trigger uses real user-silence, silence + min_silence inflation is dead (P0-A5).
 
-    engine = ProactiveEngine(min_silence_secs=900)
-    now = time.monotonic()
-    assert engine.should_trigger(now - 60) is False          # 1 min silence → no
-    assert engine.should_trigger(now - 1000) is True         # ~16.7 min silence → yes
+    Clock is faked (uptime-independent — CI runners have monotonic() ~5min, which made
+    the raw `now - 1000` go negative AND the check_cooldown gap fail). Also pins the
+    two-condition semantics: silence >= min_silence AND gap since last trigger >= cooldown.
+    NOTE (main-owner): with the default `_last_triggered = 0.0`, a freshly booted machine
+    (uptime < check_cooldown) never triggers — latent uptime-dependence, documented not fixed.
+    """
+    from actions import proactive as pro
+
+    fake = {"t": 100_000.0}
+    monkeypatch.setattr(pro.time, "monotonic", lambda: fake["t"])
+    engine = pro.ProactiveEngine(min_silence_secs=900, check_cooldown=600)
+    engine._last_triggered = fake["t"] - 700          # last proactive 700s ago: cooldown passed
+
+    assert engine.should_trigger(fake["t"] - 60) is False    # 1 min silence → no
+    assert engine.should_trigger(fake["t"] - 1000) is True   # ~16.7 min silence → yes
+    engine.mark_triggered()
+    assert engine._last_triggered == fake["t"]               # mark uses the same clock
+    assert engine.should_trigger(fake["t"] - 1000) is False  # cooldown after mark blocks
 
 
 def test_17_screen_processor_single_live_capture():
