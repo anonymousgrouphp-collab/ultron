@@ -41,7 +41,7 @@ from fastmcp import Client, FastMCP
 from fastmcp.client.transports import StdioTransport, StreamableHttpTransport
 from fastmcp.exceptions import ToolError
 
-from kernel.mcp_server import jsonable
+from kernel.jsonable import jsonable
 from kernel.tools import ToolRegistry
 from kernel.tools.base import Tool
 from kernel.types import RiskClass, ToolCall, ToolResult

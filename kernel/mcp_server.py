@@ -29,12 +29,9 @@ imports (types.py doctrine).
 
 from __future__ import annotations
 
-import dataclasses
 import json
 import logging
 import uuid
-from collections.abc import Mapping
-from enum import Enum
 from typing import Any
 
 from fastmcp import FastMCP
@@ -58,19 +55,7 @@ SERVER_INSTRUCTIONS = (
 )
 
 
-def jsonable(value: Any) -> Any:
-    """Reduce a ToolResult payload to JSON-safe types (HTTP/model safe)."""
-    if value is None or isinstance(value, (bool, int, float, str)):
-        return value
-    if isinstance(value, Enum):
-        return jsonable(value.value)
-    if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return jsonable(dataclasses.asdict(value))
-    if isinstance(value, Mapping):
-        return {str(k): jsonable(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple, set)):
-        return [jsonable(item) for item in value]
-    return repr(value)  # last resort: a string rendering, never a crash
+from kernel.jsonable import jsonable  # noqa: E402 — shared stdlib helper
 
 
 def _bridge_tool(
