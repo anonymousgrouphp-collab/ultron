@@ -52,6 +52,8 @@ from actions.system_monitor    import SystemMonitor, get_system_status
 from actions.proactive         import ProactiveEngine
 from actions.web_search        import _news as _fetch_news_sync
 from config import loader
+from kernel.legacy import LegacyToolRuntime
+from kernel.types import ToolCall
 
 
 BASE_DIR    = loader.get_base_dir()
@@ -124,6 +126,11 @@ class UltronLive:
         self._sys_monitor      = SystemMonitor()  # persistent cooldown state
         self._proactive        = ProactiveEngine()
         self._last_user_speech = time.monotonic()  # updated on every user utterance
+        self._tool_runtime = LegacyToolRuntime(
+            declarations=TOOL_DECLARATIONS,
+            handlers=self._build_legacy_handlers(),
+            audit_path=BASE_DIR / ".ultron" / "audit.sqlite3",
+        )
 
     def _make_remote_key(self):
         """Called from Qt main thread when user presses Remote Control."""
@@ -213,8 +220,8 @@ class UltronLive:
             self._loop
         )
 
-    def speak_error(self, tool_name: str, error: str):
-        short = str(error)[:120]
+    def speak_error(self, tool_name: str):
+        short = "could not be completed"
         self.ui.write_log(f"ERR: {tool_name} — {short}")
         self.speak(f"Sir, {tool_name} encountered an error. {short}")
 
@@ -405,6 +412,27 @@ class UltronLive:
         threading.Thread(target=_shutdown, daemon=True).start()
         return "Done."
 
+    async def _handle_save_memory(self, args, loop):
+        category = args.get("category", "notes")
+        key = args.get("key", "")
+        value = args.get("value", "")
+        if not key or not value:
+            return "Memory was not saved because key or value was missing."
+        update_memory({category: {key: {"value": value}}})
+        print(f"[Memory] saved {category}/{key}")
+        return "Memory saved."
+
+    def _build_legacy_handlers(self):
+        """Expose the pre-kernel handlers only through the migration seam."""
+        def wrap(handler):
+            async def invoke(args):
+                return await handler(self, args, asyncio.get_running_loop())
+            return invoke
+
+        handlers = {name: wrap(handler) for name, handler in self.TOOL_REGISTRY.items()}
+        handlers["save_memory"] = wrap(self._handle_save_memory)
+        return handlers
+
     TOOL_REGISTRY = {
         "open_app": _handle_open_app,
         "weather_report": _handle_weather_report,
@@ -435,6 +463,28 @@ class UltronLive:
         print(f"[ULTRON] 🔧 {name}  {args}")
         self.set_app_state("THINKING")
 
+        call = ToolCall(
+            id=str(getattr(fc, "id", "") or f"live-{time.monotonic_ns()}"),
+            name=name,
+            args=args,
+            source="gemini-live",
+        )
+        structured = await self._tool_runtime.execute(call)
+        result = structured.data if structured.ok else structured.error
+        if not structured.ok:
+            self.ui.write_log(
+                f"TOOL: {name} not completed ({structured.risk.value}: {structured.error})"
+            )
+
+        if not self.ui.muted:
+            self.set_app_state("LISTENING")
+
+        print(f"[ULTRON] tool {name}: {'ok' if structured.ok else 'blocked/failed'}")
+        return types.FunctionResponse(
+            id=fc.id, name=name,
+            response={"result": result}
+        )
+
         if name == "save_memory":
             category = args.get("category", "notes")
             key      = args.get("key", "")
@@ -459,10 +509,10 @@ class UltronLive:
             else:
                 result = f"Unknown tool: {name}"
 
-        except Exception as e:
-            result = f"Tool '{name}' failed: {e}"
+        except Exception:
+            result = "Tool could not complete."
             traceback.print_exc()
-            self.speak_error(name, e)
+            self.speak_error(name)
 
         if not self.ui.muted:
             self.set_app_state("LISTENING")
@@ -716,14 +766,13 @@ class UltronLive:
     # ── System monitor ──────────────────────────────────────────────────────────
 
     async def _run_system_monitor(self) -> None:
-        """Background task: emergency siren & auto-close background apps monitor."""
+        """Background task: emergency alerts and non-destructive suggestions."""
         emergency_active = False
         while True:
             await asyncio.sleep(2.0)
             status = await asyncio.to_thread(self._sys_monitor.check_emergency)
             is_90 = status.get("is_emergency_90", False)
-            is_95 = status.get("is_overload_95", False)
-            closed = status.get("closed", [])
+            suggested_apps = status.get("suggested_apps", [])
             cpu = status.get("cpu", 0)
             ram = status.get("ram", 0)
 
@@ -745,12 +794,12 @@ class UltronLive:
                 self.ui.set_state("LISTENING" if not self.ui.muted else "MUTED")
                 self.ui.write_log("SYS: System usage normalized (<85%). Emergency alert deactivated.")
 
-            if closed and self.session:
-                app_names = ", ".join(closed).replace(".exe", "")
-                self.ui.write_log(f"SYS_ALERT: 95%+ OVERLOAD — Auto-terminated heavy background apps: {app_names}.")
+            if suggested_apps and self.session:
+                app_names = ", ".join(suggested_apps).replace(".exe", "")
+                self.ui.write_log(f"SYS_ALERT: 95%+ OVERLOAD - consider closing: {app_names}.")
                 try:
                     await self.session.send_client_content(
-                        turns={"parts": [{"text": f"[SYSTEM_ALERT] Critical system overload (>95%). Automatically terminated heavy background applications ({app_names}) to safeguard hardware. Inform user in 1 brief sentence."}]},
+                        turns={"parts": [{"text": f"[SYSTEM_ALERT] Critical system overload (>95%). Suggest the user manually close heavy applications ({app_names}); do not claim any application was closed."}]},
                         turn_complete=True,
                     )
                 except Exception:

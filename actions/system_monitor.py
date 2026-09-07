@@ -3,8 +3,6 @@ System Monitor — background metric checks with voice alert support.
 Zero subprocess calls on all platforms — uses ctypes/pynvml/psutil/wmi only.
 """
 import ctypes
-import os
-import platform
 import time
 
 import psutil
@@ -146,40 +144,29 @@ TARGET_HEAVY_PROCESSES = {
 }
 
 
-def auto_close_heavy_background_apps() -> list[str]:
-    """
-    Terminates non-essential heavy background applications to bring system usage down.
-    Protects current Python PID and the ULTRON core.
-    """
-    closed: set[str] = set()
-    my_pid = os.getpid()
+def find_heavy_background_apps() -> list[str]:
+    """Return applications a user may choose to close; never terminate them."""
+    candidates: set[str] = set()
     for proc in psutil.process_iter(["pid", "name"]):
         try:
-            pid = proc.info["pid"]
             name = (proc.info["name"] or "").lower()
-            if pid == my_pid or "python" in name:
-                continue
             if name in TARGET_HEAVY_PROCESSES:
-                proc.terminate()
-                closed.add(name)
+                candidates.add(name)
         except Exception:
             continue
-    import gc
-    gc.collect()
-    return list(closed)
+    return sorted(candidates)
 
 
 class SystemMonitor:
     """
     Stateful monitor — cooldown state persists across session reconnections.
-    Call check() periodically; returns a tuple of (alert_prompt, is_emergency_90, is_overload_95, closed_apps).
+    Call check() periodically; overloads generate alerts and suggestions only.
     """
 
     def __init__(self, thresholds: dict | None = None):
         self.thresholds   = {**DEFAULT_THRESHOLDS, **(thresholds or {})}
         self._last_alert: dict[str, float] = {}
         self._cpu_streak  = 0
-        self._last_auto_close_time = 0.0
 
     def _can_alert(self, key: str) -> bool:
         return (time.monotonic() - self._last_alert.get(key, 0)) > _COOLDOWN
@@ -189,28 +176,23 @@ class SystemMonitor:
 
     def check_emergency(self) -> dict:
         """
-        Evaluates CPU and RAM metrics for Emergency Siren (>=90%) and Auto-Close (>=95%).
+        Evaluates CPU and RAM metrics for Emergency Siren (>=90%) and suggestions (>=95%).
         """
         try:
             cpu = psutil.cpu_percent(interval=None)
             ram = psutil.virtual_memory().percent
         except Exception:
-            return {"is_emergency_90": False, "is_overload_95": False, "closed": [], "cpu": 0, "ram": 0}
+            return {"is_emergency_90": False, "is_overload_95": False, "suggested_apps": [], "cpu": 0, "ram": 0}
 
         max_usage = max(cpu, ram)
         is_emergency_90 = max_usage >= 90.0
         is_overload_95 = max_usage >= 95.0
-        closed_apps: list[str] = []
-
-        now = time.monotonic()
-        if is_overload_95 and (now - self._last_auto_close_time > 15.0):
-            self._last_auto_close_time = now
-            closed_apps = auto_close_heavy_background_apps()
+        suggested_apps = find_heavy_background_apps() if is_overload_95 else []
 
         return {
             "is_emergency_90": is_emergency_90,
             "is_overload_95": is_overload_95,
-            "closed": closed_apps,
+            "suggested_apps": suggested_apps,
             "cpu": round(cpu, 1),
             "ram": round(ram, 1),
         }
