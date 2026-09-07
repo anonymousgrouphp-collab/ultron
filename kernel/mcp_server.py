@@ -58,18 +58,18 @@ SERVER_INSTRUCTIONS = (
 )
 
 
-def _jsonable(value: Any) -> Any:
+def jsonable(value: Any) -> Any:
     """Reduce a ToolResult payload to JSON-safe types (HTTP/model safe)."""
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
     if isinstance(value, Enum):
-        return _jsonable(value.value)
+        return jsonable(value.value)
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return _jsonable(dataclasses.asdict(value))
+        return jsonable(dataclasses.asdict(value))
     if isinstance(value, Mapping):
-        return {str(k): _jsonable(v) for k, v in value.items()}
+        return {str(k): jsonable(v) for k, v in value.items()}
     if isinstance(value, (list, tuple, set)):
-        return [_jsonable(item) for item in value]
+        return [jsonable(item) for item in value]
     return repr(value)  # last resort: a string rendering, never a crash
 
 
@@ -99,7 +99,7 @@ def _bridge_tool(
             "ok": True,
             "name": result.name,
             "call_id": result.call_id,
-            "data": _jsonable(result.data),
+            "data": jsonable(result.data),
             "artifacts": list(result.artifacts),
             "risk": result.risk.value,
             "duration_ms": result.duration_ms,
@@ -151,5 +151,5 @@ def serve_http(server: FastMCP, *, host: str = "127.0.0.1", port: int = 8001) ->
     server.run(transport="http", host=host, port=port)
 
 
-__all__ = ["SERVER_INSTRUCTIONS", "SERVER_NAME",
+__all__ = ["SERVER_INSTRUCTIONS", "SERVER_NAME", "jsonable",
            "build_mcp_server", "serve_http", "serve_stdio"]
