@@ -7,6 +7,11 @@ brute-force cosine (personal-scale data); swapping in the sqlite-vec ANN index
 later changes only this file's retrieval internals, not the schema or API —
 vectors are already stored dimension-tagged per embedder.
 
+P3-A additions (research/04 §6.6): tombstones, not deletes — consolidation
+retires facts by marking them, keeping row/vector/FTS content for audit and
+undo; every read path filters them out. `update_fact` keeps the bi-temporal
+shape (valid_from preserved, known_at bumped only when content changes).
+
 Thread model: one connection guarded by an RLock (mirrors the P1-E AuditLog);
 every method is atomic. No method ever raises to a caller for "empty" results —
 they return lists.
@@ -34,7 +39,10 @@ CREATE TABLE IF NOT EXISTS semantic_facts (
     valid_from REAL,
     known_at REAL NOT NULL,
     expires_at REAL,
-    source_ref TEXT
+    source_ref TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
+    tombstone_reason TEXT,
+    tombstoned_at REAL
 );
 CREATE TABLE IF NOT EXISTS fact_vectors (
     fact_id INTEGER PRIMARY KEY REFERENCES semantic_facts(id) ON DELETE CASCADE,
@@ -66,6 +74,14 @@ CREATE TABLE IF NOT EXISTS preferences (
     value TEXT NOT NULL
 );
 """
+
+# Columns added after P1-D shipped — pre-existing DBs get them via ALTER TABLE
+# in _ensure_columns (idempotent; fresh DBs already have them from _SCHEMA).
+_P3A_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("status", "TEXT NOT NULL DEFAULT 'active'"),
+    ("tombstone_reason", "TEXT"),
+    ("tombstoned_at", "REAL"),
+)
 
 _RRF_K = 60  # standard RRF constant
 
@@ -110,8 +126,19 @@ class MemoryEngine:
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA foreign_keys=ON")
         self._conn.executescript(_SCHEMA)
+        self._ensure_columns()
         self._lock = threading.RLock()
         self._embedder = embedder if embedder is not None else HashingEmbedder()
+
+    def _ensure_columns(self) -> None:
+        """Add post-P1-D columns to DBs created before P3-A (idempotent)."""
+        existing = {row[1] for row in self._conn.execute(
+            "PRAGMA table_info(semantic_facts)").fetchall()}
+        for name, ddl in _P3A_COLUMNS:
+            if name not in existing:
+                self._conn.execute(
+                    f"ALTER TABLE semantic_facts ADD COLUMN {name} {ddl}")
+        self._conn.commit()
 
     # ------------------------------------------------------------ write ----
 
@@ -169,6 +196,111 @@ class MemoryEngine:
             self._conn.commit()
         return existed
 
+    def tombstone(self, fact_id: int, reason: str) -> bool:
+        """Retire a fact without destroying it (research/04 §6.6): every read
+        path filters it out, but row/vector/FTS content stays for audit and
+        `restore`. Only active facts can be tombstoned. True if it retired."""
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE semantic_facts SET status = 'tombstoned',"
+                " tombstone_reason = ?, tombstoned_at = ?"
+                " WHERE id = ? AND status = 'active'",
+                (reason, time.time(), fact_id),
+            )
+            self._conn.commit()
+            return cur.rowcount > 0
+
+    def restore(self, fact_id: int) -> bool:
+        """Undo a tombstone (audit + undo, §6.6). True if it came back."""
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE semantic_facts SET status = 'active',"
+                " tombstone_reason = NULL, tombstoned_at = NULL"
+                " WHERE id = ? AND status = 'tombstoned'",
+                (fact_id,),
+            )
+            self._conn.commit()
+            return cur.rowcount > 0
+
+    def update_fact(
+        self,
+        fact_id: int,
+        *,
+        content: str | None = None,
+        entity: str | None = None,
+        topic: str | None = None,
+        importance: float | None = None,
+    ) -> bool:
+        """Judge-driven UPDATE (mem0-style): replace fields on an active fact.
+        Content changes re-embed and refresh FTS, and bump `known_at` (when we
+        last learned it) while `valid_from` stays — bi-temporal, §1 Graphiti
+        schema idea. False if the fact is missing or tombstoned."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT content, entity, topic, importance FROM semantic_facts"
+                " WHERE id = ? AND status = 'active'",
+                (fact_id,),
+            ).fetchone()
+            if row is None:
+                return False
+            old_content, old_entity, old_topic, old_importance = row
+            new_content = old_content if content is None else content
+            if not new_content or not new_content.strip():
+                raise ValueError("content must be non-empty")
+            content_changed = new_content != old_content
+            known_at = time.time() if content_changed else None
+            self._conn.execute(
+                "UPDATE semantic_facts SET content = ?, entity = ?, topic = ?,"
+                " importance = ?"
+                + (", known_at = ?" if known_at is not None else "")
+                + " WHERE id = ?",
+                (
+                    new_content,
+                    old_entity if entity is None else entity,
+                    old_topic if topic is None else topic,
+                    old_importance if importance is None else importance,
+                    *((known_at,) if known_at is not None else ()),
+                    fact_id,
+                ),
+            )
+            if content_changed:
+                vector = self._embedder.embed(new_content)
+                blob = struct.pack(f"<{len(vector)}f", *vector)
+                # delete + reinsert, not UPDATE: rows that predate the indexes
+                # (pre-P3-A DBs, raw migrations) may have no vector/FTS row at
+                # all — this self-heals them
+                self._conn.execute(
+                    "DELETE FROM fact_vectors WHERE fact_id = ?", (fact_id,))
+                self._conn.execute(
+                    "INSERT INTO fact_vectors (fact_id, dim, embedding)"
+                    " VALUES (?,?,?)",
+                    (fact_id, len(vector), blob),
+                )
+                self._conn.execute(
+                    "DELETE FROM facts_fts WHERE rowid = ?", (fact_id,))
+                self._conn.execute(
+                    "INSERT INTO facts_fts (rowid, content, entity, topic)"
+                    " VALUES (?,?,?,?)",
+                    (fact_id, new_content,
+                     old_entity if entity is None else entity,
+                     old_topic if topic is None else topic),
+                )
+            self._conn.commit()
+        return True
+
+    def set_importance(self, fact_id: int, importance: float) -> bool:
+        """Consolidation-time decay writes importance WITHOUT bumping known_at
+        (decay must not make a fact look fresh). Clamps to [0.0, 1.0]."""
+        clamped = min(1.0, max(0.0, float(importance)))
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE semantic_facts SET importance = ?"
+                " WHERE id = ? AND status = 'active'",
+                (clamped, fact_id),
+            )
+            self._conn.commit()
+            return cur.rowcount > 0
+
     # ------------------------------------------------------------ read ----
 
     def search(self, query: str, *, k: int = 8) -> list[SearchHit]:
@@ -183,7 +315,8 @@ class MemoryEngine:
             for rank, (fact_id, score) in enumerate(fused, 1):
                 row = self._conn.execute(
                     "SELECT id, content, entity, topic, importance, known_at,"
-                    " source_ref FROM semantic_facts WHERE id = ?",
+                    " source_ref FROM semantic_facts WHERE id = ?"
+                    " AND status = 'active'",
                     (fact_id,),
                 ).fetchone()
                 if row is not None:
@@ -207,14 +340,15 @@ class MemoryEngine:
             if entity is None:
                 rows = self._conn.execute(
                     "SELECT id, content, entity, topic, importance, known_at,"
-                    " source_ref FROM semantic_facts ORDER BY known_at DESC, id DESC"
-                    " LIMIT ? OFFSET ?",
+                    " source_ref FROM semantic_facts WHERE status = 'active'"
+                    " ORDER BY known_at DESC, id DESC LIMIT ? OFFSET ?",
                     (limit, offset),
                 ).fetchall()
             else:
                 rows = self._conn.execute(
                     "SELECT id, content, entity, topic, importance, known_at,"
                     " source_ref FROM semantic_facts WHERE entity = ?"
+                    " AND status = 'active'"
                     " ORDER BY known_at DESC, id DESC LIMIT ? OFFSET ?",
                     (entity, limit, offset),
                 ).fetchall()
@@ -225,7 +359,35 @@ class MemoryEngine:
     def count(self) -> int:
         with self._lock:
             return int(self._conn.execute(
-                "SELECT COUNT(*) FROM semantic_facts").fetchone()[0])
+                "SELECT COUNT(*) FROM semantic_facts WHERE status = 'active'"
+            ).fetchone()[0])
+
+    def get_fact(self, fact_id: int) -> SearchHit | None:
+        """One active fact by id (judge UPDATE/DELETE validation), else None."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT id, content, entity, topic, importance, known_at,"
+                " source_ref FROM semantic_facts WHERE id = ?"
+                " AND status = 'active'",
+                (fact_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return SearchHit(id=row[0], content=row[1], entity=row[2], topic=row[3],
+                         importance=row[4], known_at=row[5], source_ref=row[6])
+
+    def active_facts(self) -> list[dict[str, Any]]:
+        """Every active fact incl. decay/expiry fields — the consolidation
+        job's working set (research/04 §6). Values included: caller's care."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, entity, topic, content, importance, known_at,"
+                " expires_at, source_ref FROM semantic_facts"
+                " WHERE status = 'active' ORDER BY known_at DESC, id DESC"
+            ).fetchall()
+        return [dict(zip(
+            ("id", "entity", "topic", "content", "importance", "known_at",
+             "expires_at", "source_ref"), r)) for r in rows]
 
     def close(self) -> None:
         with self._lock:
@@ -250,7 +412,9 @@ class MemoryEngine:
     def _vector_leg(self, query: str, k: int) -> list[int]:
         qvec = self._embedder.embed(query)
         rows = self._conn.execute(
-            "SELECT fact_id, dim, embedding FROM fact_vectors"
+            "SELECT fv.fact_id, fv.dim, fv.embedding FROM fact_vectors fv"
+            " JOIN semantic_facts sf ON sf.id = fv.fact_id"
+            " WHERE sf.status = 'active'"
         ).fetchall()
         scored: list[tuple[float, int]] = []
         for fact_id, dim, blob in rows:
@@ -275,11 +439,13 @@ class MemoryEngine:
             return int(cur.lastrowid or 0)
 
     def export_facts(self) -> list[dict[str, Any]]:
-        """JSON-able dump for evals/backup (values included — caller's care)."""
+        """JSON-able dump for evals/backup (values included — caller's care).
+        Active facts only: tombstones are audit residue, not memories."""
         with self._lock:
             rows = self._conn.execute(
                 "SELECT id, entity, topic, content, importance, known_at,"
-                " source_ref FROM semantic_facts ORDER BY id"
+                " source_ref FROM semantic_facts WHERE status = 'active'"
+                " ORDER BY id"
             ).fetchall()
         return [dict(zip(
             ("id", "entity", "topic", "content", "importance", "known_at",

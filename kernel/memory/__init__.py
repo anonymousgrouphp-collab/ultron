@@ -1,11 +1,18 @@
-"""kernel/memory — P1-D: the memory engine v0 (the moat's foundation).
+"""kernel/memory — P1-D engine + P3-A write policy & consolidation (the moat).
 
 SQLite WAL + five stores (research/04 §10), FTS5 ⊕ vector recall fused by RRF,
 injectable local embedders (hashing now, BGE-M3 optional), and the scripted
 long_term.json migration. `register_memory_tools` exposes memory_search /
 memory_page as kernel tools (RiskClass.READ) so the agent loop can recall.
+P3-A adds the write path: the judge (policy.propose_ops over the gateway) and
+the idle-time Consolidator (extract → decay → reflection, tombstones+undo).
 """
 
+from kernel.memory.consolidation import (
+    REFLECT_SCHEMA,
+    ConsolidationReport,
+    Consolidator,
+)
 from kernel.memory.engine import MemoryEngine, SearchHit
 from kernel.memory.embedders import (
     BGEM3Embedder,
@@ -14,6 +21,14 @@ from kernel.memory.embedders import (
     make_embedder,
 )
 from kernel.memory.migration import migrate_long_term_json
+from kernel.memory.policy import (
+    OPS_SCHEMA,
+    MemoryOp,
+    ProposedOps,
+    WritePolicy,
+    parse_ops_json,
+    propose_ops,
+)
 from kernel.tools import ToolRegistry
 from kernel.types import RiskClass
 
@@ -80,11 +95,20 @@ def register_memory_tools(registry: ToolRegistry, engine: MemoryEngine) -> None:
 
 __all__ = [
     "BGEM3Embedder",
+    "ConsolidationReport",
+    "Consolidator",
     "Embedder",
     "HashingEmbedder",
     "MemoryEngine",
+    "MemoryOp",
+    "OPS_SCHEMA",
+    "ProposedOps",
+    "REFLECT_SCHEMA",
     "SearchHit",
+    "WritePolicy",
     "make_embedder",
     "migrate_long_term_json",
+    "parse_ops_json",
+    "propose_ops",
     "register_memory_tools",
 ]
