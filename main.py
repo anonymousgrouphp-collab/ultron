@@ -140,8 +140,12 @@ class UltronLive:
                 "Run: pip install fastapi \"uvicorn[standard]\" cryptography"
             )
             return None
-        key    = self._dashboard.new_key()
-        url    = self._dashboard.get_url()
+        try:
+            url = self._dashboard.get_url()
+        except RuntimeError as exc:
+            self.ui.write_log(f"SYS: Remote Control unavailable: {exc}")
+            return None
+        key = self._dashboard.new_key()
         manual = self._dashboard.get_manual_url()
         return url, key, f"{url}/auto-login?key={key}", manual
 

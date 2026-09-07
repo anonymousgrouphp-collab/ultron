@@ -25,7 +25,7 @@ def test_02_toolcall_validation():
 
 def test_03_toolresult_ok_helper():
     call = ToolCall(id="c1", name="read_file")
-    res = ToolResult.ok(call, data="hello", risk=RiskClass.READ, duration_ms=12.5,
+    res = ToolResult.success(call, data="hello", risk=RiskClass.READ, duration_ms=12.5,
                         artifacts=("/tmp/a.txt",))
     assert res.ok and res.data == "hello" and res.error is None
     assert res.risk is RiskClass.READ and res.duration_ms == 12.5
@@ -47,7 +47,7 @@ def test_05_risk_classes_complete():
 
 def test_06_results_are_immutable():
     call = ToolCall(id="c3", name="x")
-    res = ToolResult.ok(call)
+    res = ToolResult.success(call)
     with pytest.raises(Exception):  # FrozenInstanceError
         res.ok = False
 

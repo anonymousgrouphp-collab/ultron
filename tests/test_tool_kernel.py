@@ -115,7 +115,7 @@ def test_12_toolresult_passthrough_restamped():
     reg = ToolRegistry()
 
     def handler(c):
-        return ToolResult.ok(ToolCall(id="WRONG", name="WRONG"), data={"v": 1})
+        return ToolResult.success(ToolCall(id="WRONG", name="WRONG"), data={"v": 1})
 
     reg.register(make_tool(name="bad_id", handler=handler))
     res = asyncio.run(reg.execute(call("bad_id")))

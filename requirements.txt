@@ -1,31 +1,44 @@
-PyQt6
-PyQt6-WebEngine
-sounddevice
-google-genai
-google-generativeai
-pillow
-requests
-beautifulsoup4
-duckduckgo-search
-playwright
-pyautogui
-pyperclip
-pygetwindow
-opencv-python
-numpy
-mss
-psutil
-send2trash
-youtube-transcript-api
-python-pptx
-fastapi
-uvicorn[standard]
-cryptography
-python-multipart
-comtypes; sys_platform == "win32"
-pycaw; sys_platform == "win32"
-win10toast; sys_platform == "win32"
-pywinauto; sys_platform == "win32"
-pywin32; sys_platform == "win32"
-qrcode[pil]
-SpeechRecognition
+# ULTRON runtime dependencies for CPython 3.13 on Windows 11.
+# Direct dependencies are pinned; resolve a fully hashed lock before a public release.
+
+# Desktop and audio
+PyQt6==6.11.0
+PyQt6-WebEngine==6.11.0
+sounddevice==0.5.6
+SpeechRecognition==3.17.0
+
+# Model and network
+google-genai==2.21.0
+requests==2.34.2
+beautifulsoup4==4.15.0
+duckduckgo-search==8.1.1
+
+# Browser and desktop integrations
+playwright==1.62.0
+PyAutoGUI==0.9.54
+pyperclip==1.11.0
+PyGetWindow==0.0.9
+mss==10.2.0
+Send2Trash==2.1.0
+youtube-transcript-api==1.2.4
+qrcode[pil]==8.2
+
+# File processing and monitoring
+Pillow==12.3.0
+opencv-python==5.0.0.93
+numpy==2.5.2
+python-pptx==1.0.2
+psutil==7.2.2
+
+# Local dashboard
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+cryptography==50.0.1
+python-multipart==0.0.32
+
+# Windows-only integrations
+comtypes==1.4.16 ; sys_platform == "win32"
+pycaw==20251023 ; sys_platform == "win32"
+win10toast==0.9 ; sys_platform == "win32"
+pywinauto==0.6.9 ; sys_platform == "win32"
+pywin32==312 ; sys_platform == "win32"

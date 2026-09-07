@@ -77,7 +77,7 @@ def test_live_function_call_uses_runtime_instead_of_direct_handler_lookup():
 
         async def execute(self, call):
             self.call = call
-            return ToolResult.ok(call, data="safe result", risk=RiskClass.READ)
+            return ToolResult.success(call, data="safe result", risk=RiskClass.READ)
 
     assistant = object.__new__(UltronLive)
     assistant.ui = UI()

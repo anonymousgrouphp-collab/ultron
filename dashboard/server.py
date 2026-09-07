@@ -1,8 +1,8 @@
 """
 dashboard/server.py — ULTRON Local HTTP Dashboard
 
-Security posture (ROADMAP P0-B):
-- Binds 127.0.0.1 by default; LAN exposure only via ULTRON_DASHBOARD_HOST=0.0.0.0.
+Security posture (ROADMAP P0-B / P1-I):
+- Binds 127.0.0.1 only. LAN remote control is deliberately unavailable.
 - HTTPS when config/certs/ultron.{key,crt} exist (self-signed, never committed).
 - Bearer tokens are issued only after PIN/QR/device auth, expire after 12h,
   and are pruned; every WebSocket (local or remote) requires a valid token.
@@ -50,10 +50,13 @@ STATIC_DIR  = Path(__file__).parent / "static"
 PORT        = 8000
 MAX_UPLOAD_MB = 500
 
-# P0-B2 (ROADMAP §4): bind loopback by default. Exposing the dashboard to the
-# LAN is an explicit opt-in — phones connect only when the user asks for it.
+# P1-I: local loopback is the only supported dashboard surface. The legacy
+# environment variable is ignored in config.loader until a real remote security
+# design (standard auth, certificate lifecycle, revocation) exists.
 DASHBOARD_HOST = loader.get_dashboard_host()
-_LAN_OPT_IN = DASHBOARD_HOST == "0.0.0.0"
+# Kept only to make the retired helper harmless while its legacy remote path is
+# removed module-by-module. It is never configurable at runtime.
+_LAN_OPT_IN = False
 
 
 def _make_uploads_dir() -> Path:
@@ -102,8 +105,6 @@ def _decrypt_cbc(aes_key: bytes, enc_b64: str) -> str:
 
 
 # ── CryptoJS (auto-download once, served locally) ─────────────────────────────
-_CRYPTOJS_CDN  = ("https://cdnjs.cloudflare.com/ajax/libs/"
-                  "crypto-js/4.2.0/crypto-js.min.js")
 _CRYPTOJS_FILE = STATIC_DIR / "crypto-js.min.js"
 
 
@@ -111,12 +112,11 @@ def _ensure_crypto_js() -> None:
     if _CRYPTOJS_FILE.exists():
         return
     try:
-        import urllib.request
         print("[Dashboard] Downloading CryptoJS (one-time setup)…")
-        urllib.request.urlretrieve(_CRYPTOJS_CDN, str(_CRYPTOJS_FILE))
+        raise RuntimeError("Dashboard's required local CryptoJS asset is missing.")
         print("[Dashboard] CryptoJS cached — will serve locally from now on.")
     except Exception as e:
-        print(f"[Dashboard] CryptoJS download failed: {e}")
+        print(f"[Dashboard] Local CryptoJS asset check failed: {e}")
         print(f"[Dashboard] Encryption will fall back to CDN load on client.")
 
 
@@ -184,7 +184,7 @@ def _read(name: str) -> str:
 class DashboardServer:
 
     def __init__(self):
-        self._ip                          = _local_ip() if _LAN_OPT_IN else "127.0.0.1"
+        self._ip                          = "127.0.0.1"
         self._tokens: dict[str, float]    = {}   # auth_token → expiry (unix time)
         self._token_keys: dict[str, str]  = {}   # auth_token → session_key
         self._aes_cache:  dict[str, bytes]= {}   # session_key → AES bytes
@@ -299,14 +299,16 @@ class DashboardServer:
             tok = req.headers.get("authorization", "").removeprefix("Bearer ").strip()
             return self._valid_token(tok)
 
-        # serve CryptoJS from local cache, fallback to CDN redirect
+        # Serve only the reviewed, vendored browser dependency.
         @app.get("/static/crypto.js")
         async def serve_crypto():
             if _CRYPTOJS_FILE.exists():
                 return FileResponse(str(_CRYPTOJS_FILE),
                                     media_type="application/javascript")
-            from fastapi.responses import RedirectResponse
-            return RedirectResponse(_CRYPTOJS_CDN)
+            return JSONResponse(
+                {"error": "Required local dashboard asset is missing."},
+                status_code=503,
+            )
 
         _no_cache_headers = {
             "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
@@ -651,9 +653,6 @@ class DashboardServer:
 
         proto = "https" if use_ssl else "http"
         print(f"[Dashboard] {proto}://{self._ip}:{PORT}")
-        if not _LAN_OPT_IN:
-            print("[Dashboard] Bound to 127.0.0.1 — this computer only.")
-            print("[Dashboard] For phone/remote control, restart with "
-                  "ULTRON_DASHBOARD_HOST=0.0.0.0 (explicit opt-in).")
-        print("[Dashboard] Press 'Remote Control' in ULTRON UI to get the QR code.")
+        print("[Dashboard] Bound to 127.0.0.1 — this computer only.")
+        print("[Dashboard] LAN and phone remote control are not supported in this release.")
         await uvicorn.Server(cfg).serve()
