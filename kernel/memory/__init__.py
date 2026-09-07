@@ -14,6 +14,13 @@ from kernel.memory.consolidation import (
     Consolidator,
 )
 from kernel.memory.engine import MemoryEngine, SearchHit
+from kernel.memory.evals import (
+    RecallReport,
+    build_eval_corpus,
+    recall_gate_ok,
+    run_recall_eval,
+    seed_eval_engine,
+)
 from kernel.memory.embedders import (
     BGEM3Embedder,
     Embedder,
@@ -104,11 +111,16 @@ __all__ = [
     "OPS_SCHEMA",
     "ProposedOps",
     "REFLECT_SCHEMA",
+    "RecallReport",
     "SearchHit",
     "WritePolicy",
+    "build_eval_corpus",
     "make_embedder",
     "migrate_long_term_json",
     "parse_ops_json",
     "propose_ops",
+    "recall_gate_ok",
     "register_memory_tools",
+    "run_recall_eval",
+    "seed_eval_engine",
 ]
