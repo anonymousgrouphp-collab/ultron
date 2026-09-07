@@ -152,6 +152,31 @@ def test_gemini_tool_calls_become_kernel_tool_calls() -> None:
     assert call.source == "model"
 
 
+def test_gemini_thought_signature_round_trip() -> None:
+    """Gemini 3 enforces thought signatures on echoed functionCall parts."""
+    body = {
+        "candidates": [{
+            "content": {"parts": [{
+                "functionCall": {"name": "open_app", "args": {"app": "calc"},
+                                 "thoughtSignature": "sig-abc"}}]},
+            "finishReason": "STOP",
+        }],
+    }
+    post = FakePost(body=body)
+    gw = GeminiAdapter(gemini_settings(), api_key="k", post=post)
+    resp = asyncio.run(gw.complete([Message(role="user", text="open calc")]))
+    assert resp.tool_signatures == ("sig-abc",)
+    history = [
+        Message(role="user", text="open calc"),
+        Message(role="assistant", tool_calls=resp.tool_calls,
+                tool_signatures=resp.tool_signatures),
+    ]
+    asyncio.run(gw.complete(history, tools=DECLS))
+    part = post.calls[1]["payload"]["contents"][1]["parts"][0]
+    assert part["thoughtSignature"] == "sig-abc"
+    assert part["functionCall"]["name"] == "open_app"
+
+
 def test_gemini_payload_shape_system_and_declarations() -> None:
     post = FakePost(body=GEMINI_TEXT_BODY)
     gw = GeminiAdapter(gemini_settings(), api_key="secret", post=post)
