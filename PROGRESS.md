@@ -106,7 +106,7 @@ real dependency is P1-A (contracts); code against the interface draft in
 ## Phase 2 — MCP + Orchestration
 | ID | Task (owns) | DEP | Status | Owner | Sign-off |
 |---|---|---|---|---|---|
-| P2-A | ULTRON tools as **FastMCP server** (`kernel/mcp_server.py`) | DEP: P1-B ✅ | 🔶 | zcode-p2a 2026-09-08 | spec: `research/05` §2 |
+| P2-A | ULTRON tools as **FastMCP server** (`kernel/mcp_server.py`) | DEP: P1-B ✅ | 🔶 | zcode-p2a 2026-09-08 | spec: `research/05` §2 — bridge built: MCP→PolicyEngine→ToolRegistry (no second path); schema/description fidelity from registry; risk tag in descriptions; JSON payload results; `fastmcp==4.0.3` pinned; 14 hermetic in-memory tests green (full suite re-run pending in sign-off) |
 | P2-B | **FastMCP client** + mount filesystem/fetch/GitHub (`kernel/mcp_client.py`) | DEP: P1-B | ⬜ | | |
 | P2-C | **Durable queue + orchestrator + subagents** (`kernel/orchestrator/`) | DEP: P1-A, P1-E | ⬜ | | `research/05` §5 |
 | P2-D | Browser-use research tool (J-05) | DEP: P2-B | ⬜ | | consent-gated |
