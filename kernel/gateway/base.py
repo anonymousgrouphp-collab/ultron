@@ -27,7 +27,7 @@ from typing import Any, ClassVar, Protocol
 
 from kernel.types import ToolCall
 
-DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_GEMINI_MODEL = "gemini-3.6-flash"  # 2.5 retired for new keys (API notice 2026-09-08)
 DEFAULT_OLLAMA_MODEL = "qwen3:8b"
 DEFAULT_OLLAMA_URL = "http://127.0.0.1:11434"
 DEFAULT_TIMEOUT_S = 60.0
@@ -99,27 +99,36 @@ class Message:
 
     role="assistant" echoes a previous model turn (optionally with the tool
     calls it made); role="tool" carries the results that answer those calls.
+    `tool_signatures` is a parallel array to `tool_calls` for provider-side
+    per-call metadata that must survive the round trip (Gemini 3 thought
+    signatures — enforced by the API, ignored by Ollama).
     """
 
     role: str
     text: str = ""
     tool_calls: tuple[ToolCall, ...] = ()
     tool_results: tuple[ToolResultLike, ...] = ()
+    tool_signatures: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.role not in _ROLES:
             raise ValueError(f"Message.role must be one of {_ROLES}, got {self.role!r}")
         if self.role == "tool" and not self.tool_results:
             raise ValueError("Message(role='tool') requires tool_results")
+        if self.tool_signatures and len(self.tool_signatures) != len(self.tool_calls):
+            raise ValueError("tool_signatures must align 1:1 with tool_calls")
 
 
 @dataclass(frozen=True)
 class Response:
     """A provider-neutral completion. `tool_calls` are kernel ToolCall structs
-    (source="model"), identical in shape from every adapter."""
+    (source="model"), identical in shape from every adapter. `tool_signatures`
+    is a parallel array of provider per-call round-trip payloads (Gemini 3
+    thought signatures; empty strings when the provider has none)."""
 
     text: str
     tool_calls: tuple[ToolCall, ...] = ()
+    tool_signatures: tuple[str, ...] = ()
     provider: str = ""
     model: str = ""
     finish: str = "stop"  # stop | tool_calls | length | safety | ...

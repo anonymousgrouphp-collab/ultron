@@ -143,6 +143,7 @@ class AgentLoop:
             conversation.append(Message(
                 role="assistant", text=response.text,
                 tool_calls=response.tool_calls,
+                tool_signatures=response.tool_signatures,
             ))
             for call in response.tool_calls:
                 result = await self._policy.run(

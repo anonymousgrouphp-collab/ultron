@@ -48,10 +48,12 @@ def _render_contents(
             parts: list[dict[str, Any]] = []
             if msg.text:
                 parts.append({"text": msg.text})
-            parts.extend(
-                {"functionCall": {"name": call.name, "args": dict(call.args)}}
-                for call in msg.tool_calls
-            )
+            for index, call in enumerate(msg.tool_calls):
+                fc: dict[str, Any] = {"name": call.name, "args": dict(call.args)}
+                part: dict[str, Any] = {"functionCall": fc}
+                if index < len(msg.tool_signatures) and msg.tool_signatures[index]:
+                    part["thoughtSignature"] = msg.tool_signatures[index]
+                parts.append(part)
             contents.append({"role": "model", "parts": parts or [{"text": ""}]})
         elif msg.role == "tool":
             parts = [
@@ -134,6 +136,13 @@ class GeminiAdapter(Gateway):
             )
             for index, part in enumerate(call_parts)
         ]
+        # Gemini 3 enforces thought signatures on echoed functionCall parts —
+        # capture them here so the agent loop can round-trip them (400 otherwise).
+        signatures = tuple(
+            str(part.get("thoughtSignature")
+                or part["functionCall"].get("thoughtSignature") or "")
+            for part in call_parts
+        )
         raw_finish = str(candidate.get("finishReason") or "STOP")
         finish = _FINISH.get(raw_finish.upper(), raw_finish.lower())
         meta = data.get("usageMetadata") or {}
@@ -144,6 +153,7 @@ class GeminiAdapter(Gateway):
         return Response(
             text=text,
             tool_calls=tuple(calls),
+            tool_signatures=signatures,
             provider=self.provider.value,
             model=self._settings.gemini_model,
             finish=finish,
