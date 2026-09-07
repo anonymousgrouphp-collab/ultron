@@ -38,8 +38,7 @@ def test_02_declaration_names_unique():
 
 
 def test_03_every_declared_tool_is_dispatchable():
-    """Each declared tool resolves to a handler: `save_memory` is inline (main.py:438),
-    everything else must live in UltronLive.TOOL_REGISTRY (or _handle_<name>) (#3)."""
+    """Each declared tool resolves to a legacy handler during the P1-F migration."""
     from core.tool_declarations import TOOL_DECLARATIONS
     from main import UltronLive
 
@@ -186,13 +185,13 @@ def test_14_camera_preview_is_stubbed_not_raising():
 
 
 def test_15_system_monitor_imports_os():
-    """actions.system_monitor has module-level `os` (P0-A3: CPU-kill path NameError)."""
-    import os as os_module
-
+    """Overload handling suggests apps; it never terminates user processes."""
     import actions.system_monitor as sm
 
-    assert sm.os is os_module
-    assert callable(sm.auto_close_heavy_background_apps)
+    assert callable(sm.find_heavy_background_apps)
+    assert not hasattr(sm, "auto_close_heavy_background_apps")
+    source = inspect.getsource(sm.find_heavy_background_apps)
+    assert ".terminate(" not in source and ".kill(" not in source
 
 
 def test_16_proactive_real_silence_math(monkeypatch):

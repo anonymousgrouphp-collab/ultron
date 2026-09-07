@@ -618,20 +618,8 @@ def dev_agent(
     session_memory=None,
     speak=None,
 ) -> str:
-    p            = parameters or {}
-    description  = p.get("description", "").strip()
-    language     = p.get("language", "python").strip()
-    project_name = p.get("project_name", "").strip()
-    timeout      = int(p.get("timeout", 30))
-
-    if not description:
-        return "Please describe the project you want me to build, sir."
-
-    return _build_project(
-        description  = description,
-        language     = language,
-        project_name = project_name,
-        timeout      = timeout,
-        speak        = speak,
-        player       = player,
+    """Block the unsandboxed legacy coding agent until P2-E replaces it."""
+    return (
+        "The legacy coding agent is disabled until the sandboxed coding workflow "
+        "is available."
     )

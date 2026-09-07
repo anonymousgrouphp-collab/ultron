@@ -1,3 +1,4 @@
+import os
 import time
 import subprocess
 import platform
@@ -78,27 +79,29 @@ def _normalize(raw: str) -> str:
     return raw  
 
 def _launch_windows(app_name: str) -> bool:
-
-    if shutil.which(app_name) or shutil.which(app_name.split(".")[0]):
+    executable = shutil.which(app_name) or shutil.which(app_name.split(".")[0])
+    if executable:
         try:
             subprocess.Popen(
-                app_name,
-                shell=True,
+                [executable],
+                shell=False,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
             time.sleep(1.5)
             return True
-        except Exception as e:
-            print(f"[open_app] subprocess failed: {e}")
+        except OSError:
+            return False
 
-    if ":" in app_name:
+    # The only URI emitted by ULTRON's built-in aliases is ms-settings.  Use
+    # Windows' URI API, never a shell command constructed from tool input.
+    if app_name.lower().startswith("ms-settings:"):
         try:
-            subprocess.Popen(f"start {app_name}", shell=True)
+            os.startfile(app_name)  # type: ignore[attr-defined]
             time.sleep(1.0)
             return True
-        except Exception:
-            pass
+        except OSError:
+            return False
 
     try:
         import pyautogui
@@ -110,8 +113,8 @@ def _launch_windows(app_name: str) -> bool:
         pyautogui.press("enter")
         time.sleep(2.5)
         return True
-    except Exception as e:
-        print(f"[open_app] Start Menu search failed: {e}")
+    except Exception:
+        print("[open_app] Start Menu search failed")
 
     return False
 
@@ -268,6 +271,6 @@ def open_app(
             f"Could not confirm that {app_name} launched. "
             f"It may still be loading, or it might not be installed."
         )
-    except Exception as e:
-        print(f"[open_app] Error: {e}")
-        return f"Failed to open {app_name}: {e}"
+    except Exception:
+        print("[open_app] launch failed")
+        return f"Failed to open {app_name}."

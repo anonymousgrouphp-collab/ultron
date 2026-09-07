@@ -453,19 +453,10 @@ def _process_code(path: Path, action: str, params: dict, speak=None) -> str:
     ext     = path.suffix.lstrip(".")
 
     if action == "run":
-        if ext == "py":
-            try:
-                result = subprocess.run(
-                    ["python", str(path)],
-                    capture_output=True, text=True, timeout=30
-                )
-                out = result.stdout or result.stderr
-                return f"Output:\n{out[:2000]}" if out else "No output."
-            except subprocess.TimeoutExpired:
-                return "Execution timed out (30s)."
-            except Exception as e:
-                return f"Run failed: {e}"
-        return f"Direct execution not supported for .{ext} files."
+        return (
+            "Code execution is disabled in the legacy file processor. "
+            "Use the future sandboxed coding workflow instead."
+        )
 
     if action == "info":
         lines = content.count("\n")

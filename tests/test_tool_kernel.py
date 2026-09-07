@@ -150,7 +150,7 @@ def test_14_retry_recovers_from_crashes():
     assert res.ok is True and state["n"] == 3
 
 
-def test_15_retries_exhausted_clean_message():
+def test_15_retries_exhausted_do_not_expose_exception_detail():
     reg = ToolRegistry()
 
     def always_broken(c):
@@ -159,7 +159,7 @@ def test_15_retries_exhausted_clean_message():
     reg.register(make_tool(name="broken", handler=always_broken, max_retries=1))
     res = asyncio.run(reg.execute(call("broken")))
     assert res.ok is False
-    assert "RuntimeError: boom detail" in res.error and "Traceback" not in res.error
+    assert res.error == "tool failed unexpectedly"
 
 
 def test_16_expected_failures_not_retried():

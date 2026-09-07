@@ -122,8 +122,11 @@ class ToolRegistry:
             except asyncio.TimeoutError:
                 last_error = f"timed out after {tool.timeout_s:g}s"
                 continue
-            except Exception as e:  # noqa: BLE001 — the choke point converts ALL crashes
-                last_error = f"{type(e).__name__}: {e}"
+            except Exception:  # noqa: BLE001 — the choke point converts ALL crashes
+                # Exception detail belongs in local logs, never in a tool result
+                # that may be sent to a model, dashboard, or spoken response.
+                log.exception("tool %s crashed on attempt %s", tool.name, attempts)
+                last_error = "tool failed unexpectedly"
                 continue
             break
         duration = (time.monotonic() - start) * 1000.0
