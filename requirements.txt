@@ -13,6 +13,9 @@ requests==2.34.2
 beautifulsoup4==4.15.0
 duckduckgo-search==8.1.1
 
+# MCP tool bus (kernel/mcp_server.py, P2-A — server+client framework per research/05 §2)
+fastmcp==4.0.3
+
 # Browser and desktop integrations
 playwright==1.62.0
 PyAutoGUI==0.9.54
