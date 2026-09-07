@@ -8,7 +8,6 @@ from pathlib import Path
 
 
 BASE_DIR         = get_base_dir()
-API_CONFIG_PATH  = BASE_DIR / "config" / "api_keys.json"
 PROJECTS_DIR     = Path.home() / "Desktop" / "UltronProjects"
 MAX_FIX_ATTEMPTS = 5
 MODEL_PLANNER    = "gemini-3.6-flash"
