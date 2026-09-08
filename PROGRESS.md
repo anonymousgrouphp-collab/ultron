@@ -42,7 +42,7 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 | `p2-d-research` | P2-D | ✅ merged & **DISSOLVED** (FF by zcode-p2a per user grant; local+remote deleted) | a0c756e | suite 200/200 at merge |
 | `p2-e-coding` | P2-E | ✅ merged & **DISSOLVED** (FF by zcode-p2a per user grant; local+remote deleted) | 23c1ed8 | suite 213/213 at merge |
 | `p2-f-briefing` | P2-F | ✅ merged & **DISSOLVED** (FF by zcode-p2a per user grant; local+remote deleted) | 87ef8e4 | suite 225/225 at merge |
-| `p2-gate` | P2 gate harness | ✅ merged (FF by zcode-p2a per user grant) | (this merge) | evals/phase2_gate.py + worker + filesystem server; gate PASS @ run |
+| `p2-gate` | P2 gate harness | ✅ merged (FF by zcode-p2a per user grant) | 3947ba0 | evals/phase2_gate.py + worker + filesystem server; gate PASS @ run |
 
 ---
 
