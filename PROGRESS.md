@@ -43,6 +43,7 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 | `p2-e-coding` | P2-E | ✅ merged & **DISSOLVED** (FF by zcode-p2a per user grant; local+remote deleted) | 23c1ed8 | suite 213/213 at merge |
 | `p2-f-briefing` | P2-F | ✅ merged & **DISSOLVED** (FF by zcode-p2a per user grant; local+remote deleted) | 87ef8e4 | suite 225/225 at merge |
 | `p2-gate` | P2 gate harness | ✅ merged (FF by zcode-p2a per user grant) | 3947ba0 | evals/phase2_gate.py + worker + filesystem server; gate PASS @ run |
+| `p3-memory` | **P3-A + P3-B + P3-C (Phase 3 COMPLETE)** | ✅ merged & **DISSOLVED** (rebased onto main + FF by main chat 2026-09-09; local+remote deleted) | see merge | branch CI green @ b6a5bc5; suite 214/214 local, ruff+mypy clean; **Phase-3 gate evidence: recall eval 1.0 > 0.80** in `tests/test_memory_recall_eval.py`; post-merge verification by main chat in Verification Log |
 
 ---
 
