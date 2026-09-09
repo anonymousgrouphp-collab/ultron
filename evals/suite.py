@@ -42,9 +42,18 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
 BASE = Path(__file__).resolve().parent.parent
 if str(BASE) not in sys.path:
     sys.path.insert(0, str(BASE))
+
+# Windows consoles default to a legacy code page (cp1252) that cannot print
+# arrow/emoji characters used in task details — reconfigure instead of
+# crashing mid-gate (found by the first branch-CI run: UnicodeEncodeError
+# on '→' in a PASS line).
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
 
 from kernel.gateway import Message, Response  # noqa: E402
 from kernel.loop import AgentLoop, LoopResult  # noqa: E402

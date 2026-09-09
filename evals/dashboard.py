@@ -34,6 +34,14 @@ BASE = Path(__file__).resolve().parent.parent
 if str(BASE) not in sys.path:
     sys.path.insert(0, str(BASE))
 
+# Windows consoles default to a legacy code page (cp1252) that cannot print
+# arrow/emoji characters used in task details — reconfigure instead of
+# crashing mid-gate (found by the first branch-CI run: UnicodeEncodeError
+# on '→' in a PASS line).
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+
 BASELINE_PATH = BASE / "evals" / "baseline.json"
 LIVE_TREND_PATH = BASE / ".ultron" / "eval" / "benchmark" / "live_trend.json"
 CATEGORIES = ("files", "memory", "web", "coding", "orchestration")
