@@ -20,7 +20,7 @@ from kernel.orchestrator import JobQueue, Orchestrator  # noqa: E402
 from kernel.policy import AuditLog, PolicyEngine  # noqa: E402
 from kernel.research import build_research_tools  # noqa: E402
 from kernel.tools import ToolRegistry  # noqa: E402
-from kernel.types import RiskClass, ToolCall, ToolResult  # noqa: E402
+from kernel.types import RiskClass, ToolCall  # noqa: E402
 
 SLOW_READ_S = 2.0
 
