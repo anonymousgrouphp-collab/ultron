@@ -48,3 +48,6 @@ config/certs/*
 
 # ─── Dev Agent pip allowlist (human-approved packages) ─────────────
 config/pip_allowlist.json
+
+# local tool scratch
+.freebuff/

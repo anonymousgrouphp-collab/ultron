@@ -395,3 +395,99 @@ def test_urllib_post_maps_connection_refusal_to_gateway_error() -> None:
         urllib_post(
             "http://127.0.0.1:1/api/chat", {}, {"model": "x"}, timeout_s=2.0
         )
+
+
+class TestOpenAIChatAdapter:
+    """P5 live-run wiring: the ChatGPT-compatible adapter renders the SAME
+    neutral shapes as Gemini/Ollama (research/06 §4 provider-neutrality)."""
+
+    def _adapter(self, post):
+        from kernel.gateway import GatewaySettings, OpenAIChatAdapter, Provider
+
+        settings = GatewaySettings(
+            provider=Provider.OPENAI,
+            openai_model="test-model", openai_base_url="https://unit.test/v1")
+        return OpenAIChatAdapter(settings, api_key="k", post=post)
+
+    def test_missing_key_refused(self) -> None:
+        import pytest
+        from kernel.gateway import GatewayError, GatewaySettings, OpenAIChatAdapter, Provider
+
+        with pytest.raises(GatewayError, match="API key"):
+            OpenAIChatAdapter(
+                GatewaySettings(provider=Provider.OPENAI),
+                api_key=None)
+
+    def test_tool_call_round_trip_and_id_pairing(self) -> None:
+        import asyncio
+        from kernel.gateway import Message, ToolResultLike
+        from kernel.types import ToolCall
+
+        captured: dict = {}
+
+        def post(url, headers, payload, timeout_s):
+            captured["url"] = url
+            captured["auth"] = headers.get("Authorization")
+            captured["payload"] = payload
+            # echo the requested tool call back
+            tc = payload["tools"][0]["function"]
+            return 200, {"model": payload["model"], "choices": [{"message": {
+                "content": "",
+                "tool_calls": [{"id": "call-1", "type": "function", "function": {
+                    "name": tc["name"], "arguments": '{"path": "a.txt"}'}}],
+            }}], "usage": {"prompt_tokens": 3, "completion_tokens": 5}}
+
+        gw = self._adapter(post)
+        assert gw.model == "test-model"
+        call = ToolCall(id="call-1", name="write_note", args={"path": "a.txt"})
+        response = asyncio.run(gw.complete(
+            [Message(role="user", text="make a note"),
+             Message(role="assistant", text="", tool_calls=(call,)),
+             Message(role="tool", tool_results=(ToolResultLike(
+                 name="write_note", ok=True, data="done"),))],
+            tools=[{"name": "write_note", "description": "d",
+                    "parameters": {"type": "object", "properties": {}}}],
+        ))
+        assert captured["url"].endswith("/chat/completions")
+        assert captured["auth"] == "Bearer k"
+        # the tool RESULT message answered the right call id positionally
+        tool_msgs = [m for m in captured["payload"]["messages"]
+                     if m["role"] == "tool"]
+        assert tool_msgs[0]["tool_call_id"] == "call-1"
+        # reply parses to the neutral Response with kernel ToolCalls
+        assert response.provider == "openai"
+        assert response.finish == "tool_calls"
+        assert response.tool_calls[0].name == "write_note"
+        assert response.tool_calls[0].args == {"path": "a.txt"}
+        assert response.tool_calls[0].source == "model"
+        assert response.usage == {"input": 3, "output": 5}
+
+    def test_text_reply_and_json_mode(self) -> None:
+        import asyncio
+        from kernel.gateway import Message
+
+        seen: dict = {}
+
+        def post(url, headers, payload, timeout_s):
+            seen["response_format"] = payload.get("response_format")
+            return 200, {"choices": [{"message": {
+                "content": "ready"}}]}
+
+        gw = self._adapter(post)
+        r = asyncio.run(gw.complete(
+            [Message(role="user", text="hi")],
+            response_schema={"type": "object", "properties": {}}))
+        assert r.text == "ready" and r.finish == "stop" and r.tool_calls == ()
+        assert seen["response_format"] == {"type": "json_object"}
+
+    def test_error_and_no_choices_clean(self) -> None:
+        import asyncio
+        import pytest
+        from kernel.gateway import GatewayError, Message
+
+        gw = self._adapter(lambda *a: (500, {}))
+        with pytest.raises(GatewayError, match="HTTP 500"):
+            asyncio.run(gw.complete([Message(role="user", text="x")]))
+        gw2 = self._adapter(lambda *a: (200, {"choices": []}))
+        with pytest.raises(GatewayError, match="no choices"):
+            asyncio.run(gw2.complete([Message(role="user", text="x")]))

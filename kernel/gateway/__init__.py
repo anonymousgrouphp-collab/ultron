@@ -9,6 +9,8 @@ from kernel.gateway.base import (
     DEFAULT_GEMINI_MODEL,
     DEFAULT_OLLAMA_MODEL,
     DEFAULT_OLLAMA_URL,
+    DEFAULT_OPENAI_MODEL,
+    DEFAULT_OPENAI_URL,
     Gateway,
     GatewayError,
     GatewaySettings,
@@ -22,17 +24,21 @@ from kernel.gateway.base import (
 )
 from kernel.gateway.gemini import GeminiAdapter
 from kernel.gateway.ollama import OllamaAdapter
+from kernel.gateway.openai import OpenAIChatAdapter
 
 __all__ = [
     "DEFAULT_GEMINI_MODEL",
     "DEFAULT_OLLAMA_MODEL",
     "DEFAULT_OLLAMA_URL",
+    "DEFAULT_OPENAI_MODEL",
+    "DEFAULT_OPENAI_URL",
     "Gateway",
     "GatewayError",
     "GatewaySettings",
     "GeminiAdapter",
     "Message",
     "OllamaAdapter",
+    "OpenAIChatAdapter",
     "Post",
     "Provider",
     "Response",

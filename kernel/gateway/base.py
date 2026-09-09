@@ -30,6 +30,8 @@ from kernel.types import ToolCall
 DEFAULT_GEMINI_MODEL = "gemini-3.6-flash"  # 2.5 retired for new keys (API notice 2026-09-08)
 DEFAULT_OLLAMA_MODEL = "qwen3:8b"
 DEFAULT_OLLAMA_URL = "http://127.0.0.1:11434"
+DEFAULT_OPENAI_MODEL = "gpt-4o-mini"          # overridden per endpoint
+DEFAULT_OPENAI_URL = "https://api.openai.com/v1"
 DEFAULT_TIMEOUT_S = 60.0
 
 _GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models"
@@ -39,6 +41,7 @@ _ROLES = ("system", "user", "assistant", "tool")
 class Provider(str, Enum):
     GEMINI = "gemini"
     OLLAMA = "ollama"
+    OPENAI = "openai"   # any ChatGPT-compatible /chat/completions endpoint
 
 
 class GatewayError(Exception):
@@ -144,6 +147,8 @@ class GatewaySettings:
     gemini_model: str = DEFAULT_GEMINI_MODEL
     ollama_model: str = DEFAULT_OLLAMA_MODEL
     ollama_base_url: str = DEFAULT_OLLAMA_URL
+    openai_model: str = DEFAULT_OPENAI_MODEL
+    openai_base_url: str = DEFAULT_OPENAI_URL
     request_timeout_s: float = DEFAULT_TIMEOUT_S
 
     @classmethod
@@ -153,13 +158,16 @@ class GatewaySettings:
             provider = Provider(raw)
         except ValueError:
             raise GatewayError(
-                f"unknown llm_provider {raw!r} (expected 'gemini' or 'ollama')"
+                f"unknown llm_provider {raw!r} (expected 'gemini', 'ollama' "
+                "or 'openai')"
             ) from None
         return cls(
             provider=provider,
             gemini_model=str(cfg.get("gemini_model") or DEFAULT_GEMINI_MODEL),
             ollama_model=str(cfg.get("ollama_model") or DEFAULT_OLLAMA_MODEL),
             ollama_base_url=str(cfg.get("ollama_base_url") or DEFAULT_OLLAMA_URL),
+            openai_model=str(cfg.get("openai_model") or DEFAULT_OPENAI_MODEL),
+            openai_base_url=str(cfg.get("openai_base_url") or DEFAULT_OPENAI_URL),
             request_timeout_s=float(cfg.get("llm_timeout_s") or DEFAULT_TIMEOUT_S),
         )
 
@@ -227,11 +235,14 @@ def build_gateway(
     """Factory: the only place that knows which adapters exist (config enum)."""
     from kernel.gateway.gemini import GeminiAdapter
     from kernel.gateway.ollama import OllamaAdapter
+    from kernel.gateway.openai import OpenAIChatAdapter
 
     if settings.provider is Provider.GEMINI:
         return GeminiAdapter(settings, api_key=api_key, post=post)
     if settings.provider is Provider.OLLAMA:
         return OllamaAdapter(settings, post=post)
+    if settings.provider is Provider.OPENAI:
+        return OpenAIChatAdapter(settings, api_key=api_key, post=post)
     raise GatewayError(f"no adapter for provider {settings.provider!r}")
 
 
@@ -239,6 +250,8 @@ __all__ = [
     "DEFAULT_GEMINI_MODEL",
     "DEFAULT_OLLAMA_MODEL",
     "DEFAULT_OLLAMA_URL",
+    "DEFAULT_OPENAI_MODEL",
+    "DEFAULT_OPENAI_URL",
     "Gateway",
     "GatewayError",
     "GatewaySettings",

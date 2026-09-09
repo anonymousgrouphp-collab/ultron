@@ -1090,16 +1090,29 @@ async def run_suite(
     if mode == "live":
         from config.loader import get_api_key, load_config
         from evals.phase1_gate import PacedGateway
-        from kernel.gateway import GatewaySettings, GeminiAdapter, \
-            OllamaAdapter, Provider
+        from kernel.gateway import (GatewaySettings, GeminiAdapter,
+                                    OllamaAdapter, OpenAIChatAdapter,
+                                    Provider)
 
-        settings = GatewaySettings.from_config(
-            {**load_config(), "llm_provider": provider, "llm_timeout_s": 300})
+        cfg = {**load_config(), "llm_provider": provider, "llm_timeout_s": 300}
+        if provider == "openai":
+            # ChatGPT-compatible endpoint: config may override base/model;
+            # the key comes from the ENV (never config, never committed).
+            import os
+            cfg.setdefault("openai_base_url", os.environ.get("OPENAI_BASE_URL", ""))
+            cfg.setdefault("openai_model", os.environ.get("OPENAI_MODEL", ""))
+        settings = GatewaySettings.from_config(cfg)
         if settings.provider is Provider.GEMINI:
             key = get_api_key("gemini_api_key")
             if not key:
                 raise SystemExit("no gemini_api_key — cannot run live mode")
             adapter: Any = GeminiAdapter(settings, api_key=key)
+        elif settings.provider is Provider.OPENAI:
+            import os
+            key = os.environ.get("OPENAI_API_KEY", "")
+            if not key:
+                raise SystemExit("no OPENAI_API_KEY in env — cannot run live mode")
+            adapter = OpenAIChatAdapter(settings, api_key=key)
         else:
             adapter = OllamaAdapter(settings)
         gateway = PacedGateway(adapter)
@@ -1176,7 +1189,7 @@ async def run_suite(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--provider", default=None,
-                        choices=["ollama", "gemini"],
+                        choices=["ollama", "gemini", "openai"],
                         help="live model via the gateway (omit for the "
                              "hermetic scripted runner)")
     parser.add_argument("--categories", default="",
