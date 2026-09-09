@@ -13,7 +13,12 @@ from kernel.memory.consolidation import (
     ConsolidationReport,
     Consolidator,
 )
-from kernel.memory.engine import MemoryEngine, SearchHit
+from kernel.memory.engine import (
+    MemoryEngine,
+    ProcedureHit,
+    ProcedureRecord,
+    SearchHit,
+)
 from kernel.memory.evals import (
     RecallReport,
     build_eval_corpus,
@@ -35,6 +40,15 @@ from kernel.memory.policy import (
     WritePolicy,
     parse_ops_json,
     propose_ops,
+)
+from kernel.memory.procedural import (
+    capture_procedure,
+    prime_messages,
+    recall_similar,
+    record_outcome,
+    register_procedural_tools,
+    replay,
+    should_prune,
 )
 from kernel.tools import ToolRegistry
 from kernel.types import RiskClass
@@ -109,18 +123,27 @@ __all__ = [
     "MemoryEngine",
     "MemoryOp",
     "OPS_SCHEMA",
+    "ProcedureHit",
+    "ProcedureRecord",
     "ProposedOps",
     "REFLECT_SCHEMA",
     "RecallReport",
     "SearchHit",
     "WritePolicy",
     "build_eval_corpus",
+    "capture_procedure",
     "make_embedder",
     "migrate_long_term_json",
     "parse_ops_json",
+    "prime_messages",
     "propose_ops",
     "recall_gate_ok",
+    "recall_similar",
+    "record_outcome",
     "register_memory_tools",
+    "register_procedural_tools",
+    "replay",
     "run_recall_eval",
     "seed_eval_engine",
+    "should_prune",
 ]

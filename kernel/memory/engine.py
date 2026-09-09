@@ -19,6 +19,7 @@ they return lists.
 
 from __future__ import annotations
 
+import json
 import re
 import sqlite3
 import struct
@@ -61,8 +62,16 @@ CREATE TABLE IF NOT EXISTS procedures (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     steps_json TEXT NOT NULL DEFAULT '[]',
+    summary TEXT NOT NULL DEFAULT '',
     success_count INTEGER NOT NULL DEFAULT 0,
-    fail_count INTEGER NOT NULL DEFAULT 0
+    fail_count INTEGER NOT NULL DEFAULT 0,
+    last_failure TEXT,
+    updated_at REAL
+);
+CREATE TABLE IF NOT EXISTS procedure_vectors (
+    procedure_id INTEGER PRIMARY KEY REFERENCES procedures(id) ON DELETE CASCADE,
+    dim INTEGER NOT NULL,
+    embedding BLOB NOT NULL
 );
 CREATE TABLE IF NOT EXISTS people (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,6 +92,11 @@ _P3A_COLUMNS: tuple[tuple[str, str], ...] = (
     ("tombstone_reason", "TEXT"),
     ("tombstoned_at", "REAL"),
 )
+_P3C_PROCEDURE_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("summary", "TEXT NOT NULL DEFAULT ''"),
+    ("last_failure", "TEXT"),
+    ("updated_at", "REAL"),
+)
 
 _RRF_K = 60  # standard RRF constant
 
@@ -98,6 +112,29 @@ class SearchHit:
     importance: float
     known_at: float
     source_ref: str | None
+    score: float = 0.0
+
+
+@dataclass(frozen=True)
+class ProcedureRecord:
+    """One replayable skill (research/04 §7): the tool-call script that
+    worked, its summary (the retrieval key), and its outcome tally."""
+
+    id: int
+    name: str
+    steps: tuple[dict[str, Any], ...]
+    summary: str
+    success_count: int = 0
+    fail_count: int = 0
+    last_failure: str | None = None
+    updated_at: float = 0.0
+
+
+@dataclass(frozen=True)
+class ProcedureHit:
+    """A procedure recalled by similarity; `score` is summary cosine."""
+
+    record: ProcedureRecord
     score: float = 0.0
 
 
@@ -139,14 +176,22 @@ class MemoryEngine:
         self._embedder = embedder if embedder is not None else HashingEmbedder()
 
     def _ensure_columns(self) -> None:
-        """Add post-P1-D columns to DBs created before P3-A (idempotent)."""
+        """Add post-P1-D columns to DBs created before P3-A/P3-C (idempotent)."""
+        self._add_missing_columns("semantic_facts", _P3A_COLUMNS)
+        self._add_missing_columns("procedures", _P3C_PROCEDURE_COLUMNS)
+        self._conn.commit()
+
+    def _add_missing_columns(
+        self,
+        table: str,
+        columns: tuple[tuple[str, str], ...],
+    ) -> None:
         existing = {row[1] for row in self._conn.execute(
-            "PRAGMA table_info(semantic_facts)").fetchall()}
-        for name, ddl in _P3A_COLUMNS:
+            f"PRAGMA table_info({table})").fetchall()}
+        for name, ddl in columns:
             if name not in existing:
                 self._conn.execute(
-                    f"ALTER TABLE semantic_facts ADD COLUMN {name} {ddl}")
-        self._conn.commit()
+                    f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
 
     # ------------------------------------------------------------ write ----
 
@@ -449,6 +494,159 @@ class MemoryEngine:
             self._conn.commit()
             return int(cur.lastrowid or 0)
 
+    # ------------------------------------------------ procedures (P3-C) --
+
+    def save_procedure(
+        self,
+        name: str,
+        steps: list[dict[str, Any]] | tuple[dict[str, Any], ...],
+        summary: str,
+    ) -> int:
+        """Store (or update, keyed by the unique name) one replayable skill:
+        the tool-call script plus a summary that doubles as the retrieval
+        key (embedded like facts). Returns the procedure id."""
+        if not name or not name.strip():
+            raise ValueError("procedure name must be non-empty")
+        if not summary or not summary.strip():
+            raise ValueError("procedure summary must be non-empty")
+        if not isinstance(steps, (list, tuple)) or not steps:
+            raise ValueError("procedure steps must be a non-empty sequence")
+        clean_steps = tuple(dict(step) for step in steps)
+        for step in clean_steps:
+            if not isinstance(step, dict):
+                raise ValueError("each step must be a dict")
+        now = time.time()
+        vector = self._embedder.embed(summary)
+        blob = struct.pack(f"<{len(vector)}f", *vector)
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT id FROM procedures WHERE name = ?", (name,)
+            ).fetchone()
+            if row is not None:
+                proc_id = int(row[0])
+                self._conn.execute(
+                    "UPDATE procedures SET steps_json = ?, summary = ?,"
+                    " updated_at = ? WHERE id = ?",
+                    (json.dumps(clean_steps), summary, now, proc_id),
+                )
+            else:
+                cur = self._conn.execute(
+                    "INSERT INTO procedures (name, steps_json, summary,"
+                    " updated_at) VALUES (?,?,?,?)",
+                    (name, json.dumps(clean_steps), summary, now),
+                )
+                proc_id = int(cur.lastrowid or 0)
+            self._conn.execute(
+                "DELETE FROM procedure_vectors WHERE procedure_id = ?",
+                (proc_id,))
+            self._conn.execute(
+                "INSERT INTO procedure_vectors (procedure_id, dim, embedding)"
+                " VALUES (?,?,?)",
+                (proc_id, len(vector), blob),
+            )
+            self._conn.commit()
+        return proc_id
+
+    def get_procedure(self, proc_id: int) -> ProcedureRecord | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT id, name, steps_json, summary, success_count,"
+                " fail_count, last_failure, updated_at FROM procedures"
+                " WHERE id = ?",
+                (proc_id,),
+            ).fetchone()
+        return self._procedure_row(row) if row is not None else None
+
+    def all_procedures(self) -> list[ProcedureRecord]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, name, steps_json, summary, success_count,"
+                " fail_count, last_failure, updated_at FROM procedures"
+                " ORDER BY id"
+            ).fetchall()
+        return [r for row in rows if (r := self._procedure_row(row)) is not None]
+
+    def record_procedure_outcome(
+        self,
+        proc_id: int,
+        success: bool,
+        failure_note: str | None = None,
+    ) -> bool:
+        """Tally one replay/attempt: success or failure (+ note). Skills that
+        regress get pruned — the policy lives in kernel/memory/procedural."""
+        with self._lock:
+            if success:
+                cur = self._conn.execute(
+                    "UPDATE procedures SET success_count = success_count + 1,"
+                    " updated_at = ? WHERE id = ?",
+                    (time.time(), proc_id),
+                )
+            else:
+                note = failure_note or "unspecified failure"
+                cur = self._conn.execute(
+                    "UPDATE procedures SET fail_count = fail_count + 1,"
+                    " last_failure = ?, updated_at = ? WHERE id = ?",
+                    (note, time.time(), proc_id),
+                )
+            self._conn.commit()
+            return cur.rowcount > 0
+
+    def search_procedures(
+        self,
+        query: str,
+        *,
+        k: int = 3,
+    ) -> list[ProcedureHit]:
+        """Recall similar past procedures by summary-embedding cosine
+        (research/04 §7: retrieved by embedding on similar future tasks)."""
+        if not query or not query.strip():
+            return []
+        qvec = self._embedder.embed(query)
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT pv.procedure_id, pv.dim, pv.embedding FROM"
+                " procedure_vectors pv"
+            ).fetchall()
+            scored: list[tuple[float, int]] = []
+            for proc_id, dim, blob in rows:
+                if dim != len(qvec):
+                    continue          # foreign embedder dimension — skip
+                stored = list(struct.unpack(f"<{dim}f", blob))
+                scored.append((_cosine(qvec, stored), int(proc_id)))
+        scored.sort(key=lambda pair: -pair[0])
+        hits: list[ProcedureHit] = []
+        for score, proc_id in scored[:k]:
+            record = self.get_procedure(proc_id)
+            if record is not None:
+                hits.append(ProcedureHit(record=record, score=score))
+        return hits
+
+    def prune_procedure(self, proc_id: int) -> bool:
+        """Hard-delete a regressed skill (row + FK-cascaded vector). Skills
+        are pruned, not tombstoned — unlike facts, a stale script has no
+        audit value worth keeping."""
+        with self._lock:
+            cur = self._conn.execute(
+                "DELETE FROM procedures WHERE id = ?", (proc_id,))
+            self._conn.commit()
+            return cur.rowcount > 0
+
+    @staticmethod
+    def _procedure_row(row: tuple[Any, ...]) -> ProcedureRecord | None:
+        try:
+            steps = json.loads(row[2]) if row[2] else []
+        except json.JSONDecodeError:
+            steps = []             # pre-P3-C raw rows — defensive, not fatal
+        if not isinstance(steps, list):
+            steps = []
+        return ProcedureRecord(
+            id=int(row[0]), name=str(row[1]),
+            steps=tuple(s for s in steps if isinstance(s, dict)),
+            summary=str(row[3] or ""), success_count=int(row[4]),
+            fail_count=int(row[5]), last_failure=row[6],
+            updated_at=float(row[7] or 0.0),
+        )
+
     def export_facts(self) -> list[dict[str, Any]]:
         """JSON-able dump for evals/backup (values included — caller's care).
         Active facts only: tombstones are audit residue, not memories."""
@@ -474,4 +672,4 @@ def _reciprocal_rank_fusion(
     return sorted(scores.items(), key=lambda pair: -pair[1])
 
 
-__all__ = ["MemoryEngine", "SearchHit"]
+__all__ = ["MemoryEngine", "ProcedureHit", "ProcedureRecord", "SearchHit"]
