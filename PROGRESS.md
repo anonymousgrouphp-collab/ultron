@@ -44,6 +44,7 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 | `p2-f-briefing` | P2-F | ✅ merged & **DISSOLVED** (FF by zcode-p2a per user grant; local+remote deleted) | 87ef8e4 | suite 225/225 at merge |
 | `p2-gate` | P2 gate harness | ✅ merged (FF by zcode-p2a per user grant) | 3947ba0 | evals/phase2_gate.py + worker + filesystem server; gate PASS @ run |
 | `p3-memory` | **P3-A + P3-B + P3-C (Phase 3 COMPLETE)** | ✅ merged & **DISSOLVED** (rebased onto main + FF by main chat 2026-09-09; local+remote deleted) | see merge | branch CI green @ b6a5bc5; suite 214/214 local, ruff+mypy clean; **Phase-3 gate evidence: recall eval 1.0 > 0.80** in `tests/test_memory_recall_eval.py`; post-merge verification by main chat in Verification Log |
+| `p5-evals` | **P5-A + P5-B (Phase 5)** | 🟡 in progress | — | worktree `../ultron-p5`, claimed 2026-09-09 by zcode-p5a; DEPs P1-G/P3-C both ✅+signed+merged |
 
 ---
 
@@ -146,8 +147,8 @@ real dependency is P1-A (contracts); code against the interface draft in
 ## Phase 5 — Evals & Self-Improvement
 | ID | Task (owns) | DEP | Status | Owner | Sign-off |
 |---|---|---|---|---|---|
-| P5-A | 50-task suite + regression dashboard in CI | DEP: P1-G | ⬜ | | `research/05` §7 |
-| P5-B | Self-improvement loop (skills close failures) | DEP: P3-C | ⬜ | | |
+| P5-A | 50-task suite + regression dashboard in CI | DEP: P1-G | 🔶 | zcode-p5a 2026-09-09 (worktree `../ultron-p5`, branch `p5-evals`; owns `evals/suite.py`, `evals/dashboard.py`, `tests/test_benchmark_suite.py`) | `research/05` §7 |
+| P5-B | Self-improvement loop (skills close failures) | DEP: P3-C | 🔶 | zcode-p5a 2026-09-09 (same stream; owns `kernel/memory/improve.py`, `tests/test_selfimprove.py`) | |
 
 ---
 
