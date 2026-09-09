@@ -147,7 +147,7 @@ real dependency is P1-A (contracts); code against the interface draft in
 ## Phase 5 — Evals & Self-Improvement
 | ID | Task (owns) | DEP | Status | Owner | Sign-off |
 |---|---|---|---|---|---|
-| P5-A | 50-task suite + regression dashboard in CI | DEP: P1-G | 🔶 | zcode-p5a 2026-09-09 (worktree `../ultron-p5`, branch `p5-evals`; owns `evals/suite.py`, `evals/dashboard.py`, `tests/test_benchmark_suite.py`) | `research/05` §7 |
+| P5-A | 50-task suite + regression dashboard in CI | DEP: P1-G | ✅ | zcode-p5a 2026-09-09 (worktree `../ultron-p5`, branch `p5-evals`) | ✍ zcode-p5a 2026-09-09 — `evals/suite.py` (50 tasks: files/memory/web/coding/orchestration ×10; dual-mode runner — hermetic scripted through the REAL loop→policy→registry stack, or live gateway via `--provider`; scripted end-state verifiers incl. DESTRUCTIVE-refusal + consent-gate + jail-escape + pip-refusal pins) + `evals/dashboard.py` (per-subsystem scorecards, non-regression gate vs tracked `evals/baseline.json`, live-trend log, markdown dashboard) + `evals/baseline.json` (recorded 1.0) + `tests/test_benchmark_suite.py` (14 CI pins: corpus integrity, scripted floor 1.0, dynamic range — consent-crippled run scores <0.9 and FAILS the gate, single-category regression detection, plateau/partial pass semantics) + CI gating step `python evals/dashboard.py`. Evidence: suite 292/292 (278+14), smoke 50/50 twice (re-run independence), ruff+mypy clean, `evals/dashboard.py` → PASS vs baseline. Live-mode run is operator-scheduled (Ollama leg one command) |
 | P5-B | Self-improvement loop (skills close failures) | DEP: P3-C | 🔶 | zcode-p5a 2026-09-09 (same stream; owns `kernel/memory/improve.py`, `tests/test_selfimprove.py`) | |
 
 ---

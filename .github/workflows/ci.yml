@@ -35,6 +35,11 @@ jobs:
           python -m pytest tests -v --tb=short 2>&1 | Tee-Object -FilePath pytest_out.txt
           exit $LASTEXITCODE
 
+      - name: Benchmark non-regression gate (P5-A, gating)
+        # Roadmap §4 Phase 5 / §6 NSM: the 50-task scripted suite may not
+        # drop below the tracked evals/baseline.json (per-subsystem too).
+        run: python evals/dashboard.py
+
       - name: Report failures as annotations (debug — main chat reads these via API)
         if: failure()
         run: |

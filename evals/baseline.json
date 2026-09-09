@@ -1,0 +1,13 @@
+{
+  "mode": "scripted",
+  "score": 1.0,
+  "categories": {
+    "files": 1.0,
+    "memory": 1.0,
+    "web": 1.0,
+    "coding": 1.0,
+    "orchestration": 1.0
+  },
+  "tasks": 50,
+  "passed": 50
+}
