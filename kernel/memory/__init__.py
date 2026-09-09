@@ -32,6 +32,13 @@ from kernel.memory.embedders import (
     HashingEmbedder,
     make_embedder,
 )
+from kernel.memory.improve import (
+    ImproveOutcome,
+    SkillCaptureListener,
+    capture_from_run,
+    improve_run,
+    task_slug,
+)
 from kernel.memory.migration import migrate_long_term_json
 from kernel.memory.policy import (
     OPS_SCHEMA,
@@ -120,6 +127,7 @@ __all__ = [
     "Consolidator",
     "Embedder",
     "HashingEmbedder",
+    "ImproveOutcome",
     "MemoryEngine",
     "MemoryOp",
     "OPS_SCHEMA",
@@ -129,9 +137,12 @@ __all__ = [
     "REFLECT_SCHEMA",
     "RecallReport",
     "SearchHit",
+    "SkillCaptureListener",
     "WritePolicy",
     "build_eval_corpus",
+    "capture_from_run",
     "capture_procedure",
+    "improve_run",
     "make_embedder",
     "migrate_long_term_json",
     "parse_ops_json",
@@ -146,4 +157,5 @@ __all__ = [
     "run_recall_eval",
     "seed_eval_engine",
     "should_prune",
+    "task_slug",
 ]

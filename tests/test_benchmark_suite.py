@@ -219,16 +219,17 @@ def test_live_trend_append_only(bench_root) -> None:
     from evals.dashboard import record_live_trend
 
     path = bench_root / "trend.json"
-    first = {"mode": "live", "provider": "ollama", "model": "qwen3:8b",
+    # fixture model name: recorded trend data, never a runtime model choice
+    first = {"mode": "live", "provider": "ollama", "model": "fixture-model",
              "score": 0.9, "categories": {"files": 1.0}}
     record_live_trend(first, path)
     time.sleep(0.01)  # distinct ts
-    second = {"mode": "live", "provider": "ollama", "model": "qwen3:8b",
+    second = {"mode": "live", "provider": "ollama", "model": "fixture-model",
               "score": 0.92, "categories": {"files": 1.0}}
     record_live_trend(second, path)
     trend = json.loads(path.read_text(encoding="utf-8"))
     assert [t["score"] for t in trend] == [0.9, 0.92]
-    assert trend[1]["model"] == "qwen3:8b"
+    assert trend[1]["model"] == "fixture-model"
 
 
 # --------------------------------------------------------- bench helpers ---
