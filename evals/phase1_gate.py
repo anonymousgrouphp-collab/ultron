@@ -241,13 +241,19 @@ class PacedGateway:
         raise AssertionError("unreachable")
 
 
-async def run_gate(provider_name: str) -> int:
+async def run_gate(provider_name: str,
+                   tasks: set[int] | None = None) -> int:
     # clean sandbox, seed fixed fixtures
     SANDBOX.mkdir(parents=True, exist_ok=True)
     for old in SANDBOX.glob("*.txt"):
         old.unlink()
     (SANDBOX / "poem.txt").write_text("one two three four", encoding="utf-8")
     (SANDBOX / "protected.txt").write_text("do not delete", encoding="utf-8")
+    # tasks 3 and 10 read notes the earlier tasks create — seeding them keeps
+    # every task independently re-runnable (identical content, so a full run
+    # simply overwrites them)
+    (SANDBOX / "aa.txt").write_text("first", encoding="utf-8")
+    (SANDBOX / "groceries.txt").write_text("milk and eggs", encoding="utf-8")
 
     engine = MemoryEngine(EVAL_DIR / "memory.sqlite3",
                           embedder=HashingEmbedder())
@@ -264,7 +270,7 @@ async def run_gate(provider_name: str) -> int:
     policy = PolicyEngine(audit=audit)
 
     settings = GatewaySettings.from_config(
-        {**load_config(), "llm_provider": provider_name})
+        {**load_config(), "llm_provider": provider_name, "llm_timeout_s": 300})
     gateway: Gateway
     if settings.provider is Provider.GEMINI:
         key = get_api_key("gemini_api_key")
@@ -277,12 +283,21 @@ async def run_gate(provider_name: str) -> int:
     loop = AgentLoop(PacedGateway(gateway), policy, registry, max_steps=10,
                      consent=_auto_consent, source="phase1-gate")
 
+    # warm the model before scoring — local adapters load GBs into memory on
+    # first use after idle, and a cold first task would otherwise time out
+    print("warming model ...", flush=True)
+    await PacedGateway(gateway).complete(
+        [Message(role="user", text="Reply with the single word: ready")])
+    print("model warm.", flush=True)
+
     print(f"PHASE-1 GATE — provider={settings.provider.value} "
           f"model={gateway.model}")
     print("=" * 68)
     results: list[dict[str, Any]] = []
     passed = 0
     for task in TASKS:
+        if tasks and task.id not in tasks:
+            continue
         start = time.monotonic()
         result: LoopResult | None = None
         try:
@@ -301,23 +316,32 @@ async def run_gate(provider_name: str) -> int:
                         "text": (result.text[:200]
                                  if result is not None else "")})
     print("=" * 68)
-    verdict = "PASS — Phase 1 gate met" if passed == 10 else "FAIL"
-    print(f"GATE RESULT: {passed}/10 tasks passed ({verdict})")
+    total = len([t for t in TASKS if not tasks or t.id in tasks])
+    verdict = ("PASS — Phase 1 gate met" if passed == total and total == len(TASKS)
+               else f"PASS {passed}/{total} (partial run)" if passed == total
+               else "FAIL")
+    print(f"GATE RESULT: {passed}/{total} tasks passed ({verdict})")
 
     (EVAL_DIR / "phase1_gate_results.json").write_text(json.dumps(
         {"provider": settings.provider.value, "model": gateway.model,
-         "passed": passed, "of": len(TASKS), "results": results},
+         "passed": passed, "of": total,
+         "re_run": bool(tasks),
+         "results": results},
         indent=2), encoding="utf-8")
     engine.close()
-    return 0 if passed == 10 else 1
+    return 0 if passed == total else 1
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--provider", default="gemini",
                         choices=["gemini", "ollama"])
+    parser.add_argument("--tasks", default="",
+                        help="comma-separated task ids to run (default: all); "
+                             "re-runs are variance checks and are recorded as such")
     args = parser.parse_args()
-    raise SystemExit(asyncio.run(run_gate(args.provider)))
+    selected = {int(t) for t in args.tasks.split(",") if t.strip()}
+    raise SystemExit(asyncio.run(run_gate(args.provider, tasks=selected)))
 
 
 if __name__ == "__main__":
