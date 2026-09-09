@@ -372,7 +372,6 @@ async def scenario_results() -> list[ScenarioResult]:
                 spawn = await h.call("spawn_app", command="calc.exe")
                 title = spawn.data["title"]
                 target_title = title
-                pre = None
             else:
                 tmp = tempfile.mkdtemp(prefix="ultron_gate_read_")
                 nf = Path(tmp) / f"read_{idx}.txt"
@@ -381,7 +380,6 @@ async def scenario_results() -> list[ScenarioResult]:
                                      args=[str(nf)])
                 title = spawn.data["title"]
                 target_title = title
-                pre = str(nf)
             if not spawn.ok:
                 record(idx, name, False, f"spawn failed: {spawn.error}", t0)
                 continue
