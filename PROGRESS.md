@@ -132,13 +132,13 @@ real dependency is P1-A (contracts); code against the interface draft in
 
 **Gate:** recall eval >80% in CI. — **MET: baseline 1.0 > 0.80 (strict), pinned by `tests/test_memory_recall_eval.py::test_phase3_gate_score_exceeds_80_percent` in the CI suite; merged+verified by main chat 2026-09-09 (278/278 post-merge).**
 
-## Phase 4 — Perception & Autonomy
+## Phase 4 — Perception & Autonomy — **IN PROGRESS (claimed by main-owner 2026-09-09 per Phase-1 precedent: main chat works directly on `main`, one stream per commit, board row in the SAME commit)**
 | ID | Task (owns) | DEP | Status | Owner | Sign-off |
 |---|---|---|---|---|---|
-| P4-A | UIA-first computer control + consent/dry-run (J-06/J-07) | DEP: P1-B, P1-E | ⬜ | | `research/03` |
-| P4-B | Voice upgrades: in-process openWakeWord, Silero VAD, speaker ID (J-01/J-02) | DEP: P1-H | ⬜ | | `research/02` |
-| P4-C | Home Assistant via MCP-Assist + Frigate/MQTT (J-14/J-16/J-17) | DEP: P2-B | ⬜ | | `research/08` §1,§3 |
-| P4-D | Proactive engine rebuild (J-19) + HUD v2 (J-20) | DEP: P2-C | ⬜ | | event-driven, consent classes |
+| P4-A | UIA-first computer control + consent/dry-run (J-06/J-07) | DEP: P1-B ✅, P1-E ✅ | 🔶 | main-owner 2026-09-09 | `research/03` |
+| P4-B | Voice upgrades: in-process openWakeWord, Silero VAD, speaker ID (J-01/J-02) | DEP: P1-H ✅ | 🔶 | main-owner 2026-09-09 | `research/02` |
+| P4-C | Home Assistant via MCP-Assist + Frigate/MQTT (J-14/J-16/J-17) | DEP: P2-B ✅ | 🔶 | main-owner 2026-09-09 | `research/08` §1,§3 |
+| P4-D | Proactive engine rebuild (J-19) + HUD v2 (J-20) | DEP: P2-C ✅ | 🔶 | main-owner 2026-09-09 | event-driven, consent classes |
 
 **Gate:** 20 computer-use scenarios >70%; zero unconsented destructive actions.
 
