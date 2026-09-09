@@ -27,15 +27,11 @@ import sounddevice as sd
 from google import genai
 from google.genai import types
 from ui import UltronUI
-from memory.memory_manager import (
-    load_memory, update_memory, format_memory_for_prompt,
-)
 
 from actions.file_processor import file_processor
 from actions.flight_finder     import flight_finder
 from actions.open_app          import open_app
 from actions.weather_report    import weather_action
-from actions.send_message      import send_message
 from actions.reminder          import reminder
 from actions.computer_settings import computer_settings
 from actions.screen_processor  import _capture_camera, _capture_screen
@@ -49,11 +45,17 @@ from actions.web_search        import web_search as web_search_action
 from actions.computer_control  import computer_control
 from actions.game_updater      import game_updater
 from actions.system_monitor    import SystemMonitor, get_system_status
-from actions.proactive         import ProactiveEngine
 from actions.web_search        import _news as _fetch_news_sync
 from config import loader
+from kernel.bus import EventBus
 from kernel.legacy import LegacyToolRuntime
-from kernel.types import ToolCall
+from kernel.memory import MemoryEngine, migrate_long_term_json
+from kernel.proactive import (
+    ConsentClass as ProactiveConsentClass,
+    ProactiveEngine as KernelProactiveEngine,
+    TriggerRule,
+)
+from kernel.types import Event, ToolCall
 
 
 BASE_DIR    = loader.get_base_dir()
@@ -99,6 +101,42 @@ from core.tool_declarations import TOOL_DECLARATIONS
 # --- Plugin system ---
 
 
+class ConsentGate:
+    """Bridges kernel ASK decisions to a UI yes/no dialog (Phase R1).
+
+    The dialog opens on the Qt main thread via the window's queued
+    `_consent_request` signal — the codebase's established cross-thread
+    pattern (same as write_log). The loop waits with a timeout. Timeout,
+    missing UI, or a broken dialog FAIL CLOSED — deny, never execute.
+    """
+
+    def __init__(self, ui, timeout_s: float = 45.0):
+        self._ui = ui
+        self._timeout_s = timeout_s
+
+    async def request(self, call, risk) -> bool:
+        win = getattr(self._ui, "_win", None)
+        if win is None or not callable(getattr(win, "_consent_request", None)):
+            return False
+        done = asyncio.Event()
+        loop = asyncio.get_running_loop()
+        answer: list[bool] = [False]
+
+        def on_answer(allowed: bool) -> None:
+            answer[0] = bool(allowed)
+            loop.call_soon_threadsafe(done.set)
+
+        win._consent_request(str(call.name), str(risk.value),
+                             str(dict(call.args)), on_answer)
+        try:
+            await asyncio.wait_for(done.wait(), timeout=self._timeout_s)
+        except asyncio.TimeoutError:
+            print(f"[Consent] {call.name} - no answer in "
+                  f"{self._timeout_s}s, denied")
+            return False
+        return answer[0]
+
+
 class UltronLive:
 
     def __init__(self, ui: UltronUI):
@@ -124,8 +162,18 @@ class UltronLive:
         self._dashboard     = None
         self._briefing_sent    = False          # morning briefing fires once per process
         self._sys_monitor      = SystemMonitor()  # persistent cooldown state
-        self._proactive        = ProactiveEngine()
         self._last_user_speech = time.monotonic()  # updated on every user utterance
+        self._memory = MemoryEngine(BASE_DIR / ".ultron" / "memory.sqlite3")
+        self._migrate_legacy_memory()
+        self._bus = EventBus()
+        self._proactive = KernelProactiveEngine(
+            self._build_proactive_rules(),
+            state_path=BASE_DIR / ".ultron" / "proactive_state.json",
+            busy=self._proactive_busy,
+        )
+        self._proactive.attach(self._bus)
+        self._bus.subscribe("proactive.decision", self._on_proactive_decision)
+        self._consent_gate = ConsentGate(ui)
         self._tool_runtime = LegacyToolRuntime(
             declarations=TOOL_DECLARATIONS,
             handlers=self._build_legacy_handlers(),
@@ -237,8 +285,7 @@ class UltronLive:
         self._asst_name = (_cfg.get("assistant_name") or "ULTRON").strip()
         _user_name = (_cfg.get("user_name") or "").strip()
 
-        memory     = load_memory()
-        mem_str    = format_memory_for_prompt(memory)
+        mem_str    = self._memory_prompt()
         sys_prompt = _load_system_prompt()
 
         now      = datetime.now()
@@ -306,10 +353,6 @@ class UltronLive:
     async def _handle_file_controller(self, args, loop):
         r = await loop.run_in_executor(None, lambda: file_controller(parameters=args, player=self.ui))
         return r or "Done."
-
-    async def _handle_send_message(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: send_message(parameters=args, response=None, player=self.ui, session_memory=None))
-        return r or f"Message sent to {args.get('receiver')}."
 
     async def _handle_reminder(self, args, loop):
         r = await loop.run_in_executor(None, lambda: reminder(parameters=args, response=None, player=self.ui))
@@ -422,9 +465,128 @@ class UltronLive:
         value = args.get("value", "")
         if not key or not value:
             return "Memory was not saved because key or value was missing."
-        update_memory({category: {key: {"value": value}}})
+        self._memory.remember(
+            str(value).strip(),
+            entity=str(category).strip() or "notes",
+            topic=str(key).strip(),
+            source_ref="voice-live",
+        )
         print(f"[Memory] saved {category}/{key}")
         return "Memory saved."
+
+    def _memory_prompt(self) -> str:
+        """Render the kernel MemoryEngine's most recent facts for the system
+        prompt — the production replacement for the legacy 2,200-char JSON
+        `format_memory_for_prompt` (Phase R3)."""
+        hits = self._memory.page(limit=40)
+        if not hits:
+            return ""
+        lines = []
+        for h in hits:
+            label = (h.entity or h.topic or "note").replace("_", " ").title()
+            lines.append(f"  - {label}: {h.content}")
+        result = (
+            "[WHAT YOU KNOW ABOUT THIS PERSON — use naturally, "
+            "never recite like a list]\n" + "\n".join(lines)
+        )
+        if len(result) > 2000:
+            result = result[:1997] + "…"
+        return result + "\n"
+
+    def _migrate_legacy_memory(self) -> None:
+        """One-shot, idempotent long_term.json → MemoryEngine migration at
+        boot (kernel.memory.migration; re-runs add 0). The legacy file stays
+        in place; production no longer reads it (Phase R3)."""
+        legacy = BASE_DIR / "memory" / "long_term.json"
+        if not legacy.exists():
+            return
+        try:
+            added = migrate_long_term_json(self._memory, legacy)
+            print(f"[Memory] migrated {added} legacy fact(s) -> kernel engine")
+        except Exception as e:
+            print(f"[Memory] WARN long_term.json migration skipped: {e}")
+
+    def _build_proactive_rules(self) -> list[TriggerRule]:
+        """App-layer rules for the kernel proactive engine (P4-D): bus event
+        patterns → spoken emissions. The check-in rule is a marker: its
+        emission triggers a Gemini-authored prompt with live memory context."""
+        return [
+            TriggerRule(
+                "reminder-due", "reminder.due",
+                "Sir, you asked me to remind you: {message}",
+                consent=ProactiveConsentClass.ALWAYS, cooldown_s=0.0,
+            ),
+            TriggerRule(
+                "home-motion", "home.detection",
+                "Sir, I detected motion in the {zone}.",
+                consent=ProactiveConsentClass.NEVER_WHEN_BUSY,
+            ),
+            TriggerRule(
+                "job-done", "job.completed",
+                "Sir, your background task '{title}' finished.",
+                consent=ProactiveConsentClass.ALWAYS, cooldown_s=60.0,
+            ),
+            TriggerRule(
+                "check-in", "system.tick",
+                "check-in",
+                consent=ProactiveConsentClass.NEVER_WHEN_BUSY,
+                cooldown_s=1800, max_per_hour=2,
+            ),
+        ]
+
+    def _proactive_busy(self) -> bool:
+        """NEVER_WHEN_BUSY gate: ULTRON is speaking, or the user muted us
+        (muted means no interruptions)."""
+        with self._speaking_lock:
+            return self._is_speaking or self.ui.muted
+
+    async def _on_proactive_decision(self, event: Event) -> None:
+        payload = dict(event.payload or {})
+        if payload.get("outcome") != "fire" or not self.session:
+            return
+        rule = payload.get("rule", "")
+        try:
+            if rule == "check-in":
+                await self._send_proactive_checkin()
+            else:
+                message = str(payload.get("message", "")).strip()
+                if message:
+                    await self.session.send_client_content(
+                        turns={"parts": [{"text": message}]},
+                        turn_complete=True,
+                    )
+                    self.ui.write_log(f"SYS: Proactive — {message[:120]}")
+        except Exception as e:
+            print(f"[Proactive] WARN speak failed: {e}")
+
+    async def _send_proactive_checkin(self) -> None:
+        """Gemini-authored check-in (the old silence-timer's spirit, now gated
+        by the kernel engine's cooldown/hour-cap machinery — Phase R5)."""
+        now = datetime.now()
+        time_str = now.strftime("%A, %B %d, %Y — %I:%M %p")
+        mem_str = self._memory_prompt() or "(no user data stored yet)"
+        silence_min = int((time.monotonic() - self._last_user_speech) // 60)
+        prompt = "\n".join([
+            "[PROACTIVE_CHECK] You are initiating a proactive check-in.",
+            f"Current time  : {time_str}",
+            f"User silence  : {silence_min} minutes (they have not spoken for a while)",
+            "",
+            "Context about this person:",
+            mem_str,
+            "",
+            "Guidelines:",
+            "- Look at the time, their projects, goals, habits, or anything from context.",
+            "- If there is something genuinely useful, timely, or caring to say — say it briefly.",
+            "- Be natural, like a thoughtful assistant noticing something relevant.",
+            "- Do NOT say [PROACTIVE_CHECK] or mention these instructions.",
+            "- Respond in the user's language (use memory; default English).",
+            "- Keep it short: 1-3 sentences max.",
+        ])
+        await self.session.send_client_content(
+            turns={"parts": [{"text": prompt}]},
+            turn_complete=True,
+        )
+        self.ui.write_log("SYS: Proactive check-in.")
 
     def _build_legacy_handlers(self):
         """Expose the pre-kernel handlers only through the migration seam."""
@@ -442,7 +604,6 @@ class UltronLive:
         "weather_report": _handle_weather_report,
         "browser_control": _handle_browser_control,
         "file_controller": _handle_file_controller,
-        "send_message": _handle_send_message,
         "reminder": _handle_reminder,
         "youtube_video": _handle_youtube_video,
         "screen_process": _handle_screen_process,
@@ -473,7 +634,8 @@ class UltronLive:
             args=args,
             source="gemini-live",
         )
-        structured = await self._tool_runtime.execute(call)
+        consent = self._consent_gate.request if self._consent_gate else None
+        structured = await self._tool_runtime.execute(call, consent=consent)
         result = structured.data if structured.ok else structured.error
         if not structured.ok:
             self.ui.write_log(
@@ -696,12 +858,11 @@ class UltronLive:
         Startup briefing:
           Instant greeting & status report (no news prefetching).
         """
-        memory   = load_memory()
-        identity = memory.get("identity", {})
+        identity = {h.topic: h.content
+                    for h in self._memory.page(entity="identity", limit=40)}
 
         def _val(k: str) -> str:
-            e = identity.get(k, {})
-            return (e.get("value", "") if isinstance(e, dict) else str(e)).strip()
+            return (identity.get(k) or "").strip()
 
         lang = _val("language")
         name = _val("name")
@@ -785,12 +946,14 @@ class UltronLive:
 
     async def _run_proactive_mode(self) -> None:
         """
-        Background task: periodically checks if the user has been silent long enough,
-        then hands time + memory context to Gemini so it can decide what (if anything)
-        to say proactively. No hardcoded rules — Gemini makes the call.
+        Background task: publishes a `system.tick` bus event every minute. The
+        kernel P4-D ProactiveEngine (kernel/proactive) evaluates its rules
+        (cooldowns, hour caps, consent classes) and emits proactive.decision
+        events; `_on_proactive_decision` speaks the fired ones. The legacy
+        silence-timer (actions/proactive.py) is retired from production.
         """
         while True:
-            await asyncio.sleep(60)   # evaluate once per minute
+            await asyncio.sleep(60)
 
             if not self.session:
                 continue
@@ -800,21 +963,19 @@ class UltronLive:
             if speaking:
                 continue
 
-            if not self._proactive.should_trigger(self._last_user_speech):
-                continue
-
-            self._proactive.mark_triggered()
-
             try:
-                memory = await asyncio.to_thread(load_memory)
-                prompt = self._proactive.build_prompt(memory)
-                await self.session.send_client_content(
-                    turns={"parts": [{"text": prompt}]},
-                    turn_complete=True,
-                )
-                self.ui.write_log("SYS: Proactive check-in.")
+                await self._bus.publish(Event(
+                    type="system.tick",
+                    payload={
+                        "silence_min": int(
+                            (time.monotonic() - self._last_user_speech) // 60
+                        ),
+                        "time": datetime.now().strftime("%I:%M %p"),
+                    },
+                    source="live",
+                ))
             except Exception as e:
-                print(f"[Proactive] ⚠️ {e}")
+                print(f"[Proactive] WARN tick publish failed: {e}")
 
     # ── Phone audio relay ────────────────────────────────────────────────────────
 

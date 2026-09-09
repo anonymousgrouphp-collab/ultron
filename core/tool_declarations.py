@@ -61,19 +61,6 @@ TOOL_DECLARATIONS = [
         }
     },
     {
-        "name": "send_message",
-        "description": "Sends a text message via WhatsApp, Telegram, or other messaging platform.",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "receiver":     {"type": "STRING", "description": "Recipient contact name"},
-                "message_text": {"type": "STRING", "description": "The message to send"},
-                "platform":     {"type": "STRING", "description": "Platform: WhatsApp, Telegram, etc."}
-            },
-            "required": ["receiver", "message_text", "platform"]
-        }
-    },
-    {
         "name": "reminder",
         "description": "Sets a timed reminder using Task Scheduler.",
         "parameters": {

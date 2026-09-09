@@ -431,6 +431,7 @@ class UltronWebWindow(QMainWindow):
     _content_sig = pyqtSignal(str, str)
     _reconfig_sig = pyqtSignal()
     _camera_sig = pyqtSignal(bytes)
+    _consent_sig = pyqtSignal(str, str, str)   # Phase R1: (tool, risk, args) -> dialog on the Qt thread
 
     def __init__(self, face_path: str = "face.png"):
         super().__init__()
@@ -488,6 +489,8 @@ class UltronWebWindow(QMainWindow):
         self._log_sig.connect(self._on_log)
         self._content_sig.connect(self._on_content)
         self._reconfig_sig.connect(self._on_reconfig)
+        self._consent_sig.connect(self._on_consent_request)
+        self._consent_callback = None
 
         # Keyboard shortcuts for settings
         self._shortcut_settings = QShortcut(QKeySequence("Ctrl+,"), self)
@@ -536,6 +539,41 @@ class UltronWebWindow(QMainWindow):
         escaped_text = json.dumps(text)
         js = f"if (typeof addChatMessage === 'function') addChatMessage({escaped_title}, {escaped_text});"
         self._eval_js(js)
+
+    def _consent_request(self, tool_name: str, risk: str, args_summary: str,
+                         callback) -> None:
+        """Thread-safe consent entry (Phase R1): queues the yes/no dialog
+        onto the Qt main thread via the queued `_consent_sig` connection;
+        `callback(allowed: bool)` runs on the main thread after the dialog
+        closes. Timeout/broken paths deny — the gate on the caller side is
+        fail-closed, so a missing callback here is a deny too."""
+        self._consent_callback = callback
+        self._consent_sig.emit(tool_name, risk, args_summary)
+
+    def _on_consent_request(self, tool_name: str, risk: str, args_summary: str):
+        """Runs ON the Qt main thread (queued connection)."""
+        cb = self._consent_callback
+        self._consent_callback = None
+        if not callable(cb):
+            return
+        try:
+            summary = (args_summary or "")[:220]
+            box = QMessageBox(self)
+            box.setWindowTitle("ULTRON — Action Permission")
+            box.setText(f"ULTRON wants to run: {tool_name}")
+            box.setInformativeText(
+                f"Risk class: {risk}"
+                + (f"\nArguments: {summary}"
+                   if summary and summary != "{}" else "")
+                + "\n\nAllow this action?"
+            )
+            allow = box.addButton("Allow", QMessageBox.ButtonRole.AcceptRole)
+            deny = box.addButton("Deny", QMessageBox.ButtonRole.RejectRole)
+            box.setDefaultButton(deny)
+            box.exec()
+            cb(box.clickedButton() is allow)
+        except Exception:
+            cb(False)
 
     def _on_reconfig(self, error_message: str = ""):
         dlg = EngineSettingsDialog(self, error_message)

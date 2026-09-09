@@ -27,7 +27,6 @@ LEGACY_TOOL_RISKS: dict[str, RiskClass] = {
     "weather_report": RiskClass.READ,
     "browser_control": RiskClass.EXECUTE,
     "file_controller": RiskClass.DESTRUCTIVE,
-    "send_message": RiskClass.WRITE,
     "reminder": RiskClass.WRITE,
     "youtube_video": RiskClass.EXECUTE,
     "screen_process": RiskClass.READ,
