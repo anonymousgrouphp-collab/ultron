@@ -44,7 +44,7 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 | `p2-f-briefing` | P2-F | ✅ merged & **DISSOLVED** (FF by zcode-p2a per user grant; local+remote deleted) | 87ef8e4 | suite 225/225 at merge |
 | `p2-gate` | P2 gate harness | ✅ merged (FF by zcode-p2a per user grant) | 3947ba0 | evals/phase2_gate.py + worker + filesystem server; gate PASS @ run |
 | `p3-memory` | **P3-A + P3-B + P3-C (Phase 3 COMPLETE)** | ✅ merged & **DISSOLVED** (rebased onto main + FF by main chat 2026-09-09; local+remote deleted) | see merge | branch CI green @ b6a5bc5; suite 214/214 local, ruff+mypy clean; **Phase-3 gate evidence: recall eval 1.0 > 0.80** in `tests/test_memory_recall_eval.py`; post-merge verification by main chat in Verification Log |
-| `p5-evals` | **P5-A + P5-B (Phase 5)** | 🟢 merge-ready | — | worktree `../ultron-p5`; both rows ✅+signed @ zcode-p5a 2026-09-09; suite 302/302, ruff+mypy clean; code @ c16ce78 + P5-B commit; awaiting main-chat merge (branch CI will run on push — trigger is all-branches) |
+| `p5-evals` | **P5-A + P5-B (Phase 5)** | 🟢 merge-ready | — | **branch CI green @ b4a5857** (run 34399559563 — all 7 steps incl. the new benchmark non-regression gate; first run #52 failed on a cp1252 console UnicodeEncodeError printing '→', fixed by stdout UTF-8 reconfigure, verified under PYTHONIOENCODING=cp1252); suite 302/302, ruff+mypy clean; both rows ✅+signed; awaiting main-chat merge |
 
 ---
 
