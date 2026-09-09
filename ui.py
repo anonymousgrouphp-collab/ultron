@@ -8,6 +8,12 @@ import sys
 import time
 
 from config import loader
+from kernel.gateway import (
+    DEFAULT_GEMINI_MODEL,
+    DEFAULT_OLLAMA_MODEL,
+    DEFAULT_OLLAMA_URL,
+    DEFAULT_OPENAI_MODEL,
+)
 
 if platform.system() == "Windows":
     _WIN_HIDE: dict = {"creationflags": subprocess.CREATE_NO_WINDOW}
@@ -115,11 +121,19 @@ def _save_full_config(new_cfg: dict) -> None:
 
 
 def _needs_api_key() -> bool:
-    """True if using Gemini and API key is missing or placeholder."""
+    """True when the current provider needs a stored key (Phase R4 — the UI
+    must require exactly what the kernel gateway requires): Ollama is
+    local-only (no key); the openai-compatible leg's OpenAIChatAdapter
+    requires a key (any value works for local servers); Gemini needs its
+    own key. Provider strings outside {gemini, ollama, openai} are legacy
+    aliases — normalized to their gateway provider."""
     cfg = _read_full_config()
     provider = str(cfg.get("llm_provider", "gemini")).strip().lower()
-    if provider in ("ollama", "openai", "lmstudio", "localai", "jan", "llamacpp"):
+    if provider == "ollama":
         return False
+    if provider in ("openai", "groq", "lmstudio", "localai", "jan",
+                    "llamacpp"):
+        return not str(cfg.get("openai_api_key", "")).strip()
     key = str(cfg.get("gemini_api_key", "")).strip()
     return not key or key == loader.PLACEHOLDER_KEY
 
@@ -202,13 +216,13 @@ class EngineSettingsDialog(QDialog):
         self.provider_combo = QComboBox()
         self.provider_combo.addItem("🔴 Google Gemini (Multimodal Live Voice / Free)", "gemini")
         self.provider_combo.addItem("🦙 Ollama (100% Free / Local Offline)", "ollama")
-        self.provider_combo.addItem("💻 LM Studio / LocalAI / OpenAI API (100% Free Local)", "openai")
-        self.provider_combo.addItem("⚡ Groq Cloud (Free Ultra-Fast Open Models)", "groq")
+        self.provider_combo.addItem("💻 LM Studio / LocalAI / OpenAI API", "openai")
+        self.provider_combo.addItem("⚡ Groq Cloud (OpenAI-compatible)", "groq")
 
         current_prov = str(cfg.get("llm_provider", "gemini")).strip().lower()
         if current_prov == "ollama":
             self.provider_combo.setCurrentIndex(1)
-        elif current_prov == "openai":
+        elif current_prov in ("openai", "lmstudio", "localai", "jan", "llamacpp"):
             self.provider_combo.setCurrentIndex(2)
         elif current_prov == "groq":
             self.provider_combo.setCurrentIndex(3)
@@ -226,7 +240,10 @@ class EngineSettingsDialog(QDialog):
 
         self.api_key_input = QLineEdit()
         self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.api_key_input.setText(cfg.get("gemini_api_key", ""))
+        _key_cfg = ("openai_api_key" if current_prov in
+                    ("openai", "groq", "lmstudio", "localai", "jan",
+                     "llamacpp") else "gemini_api_key")
+        self.api_key_input.setText(cfg.get(_key_cfg, ""))
         self.api_key_label = QLabel("API Key:")
 
         self.key_row = QHBoxLayout()
@@ -243,13 +260,13 @@ class EngineSettingsDialog(QDialog):
         self.param_layout.addRow(self.api_key_label, self.key_row)
 
         self.url_input = QLineEdit()
-        self.url_input.setText(cfg.get("llm_url", "http://localhost:11434"))
+        self.url_input.setText(cfg.get("ollama_base_url") or DEFAULT_OLLAMA_URL)
         self.url_label = QLabel("Server Endpoint URL:")
         self.param_layout.addRow(self.url_label, self.url_input)
 
         self.model_input = QLineEdit()
-        self.model_input.setText(cfg.get("llm_model", "gemini-2.5-flash-native-audio-preview-12-2025"))
-        self.model_label = QLabel("Model Name:")
+        self.model_input.setText(cfg.get("gemini_model") or DEFAULT_GEMINI_MODEL)
+        self.model_label = QLabel("Model:")
         self.param_layout.addRow(self.model_label, self.model_input)
 
         self.hint_label = QLabel("")
@@ -305,10 +322,11 @@ class EngineSettingsDialog(QDialog):
             self.api_key_label.setVisible(True)
             self.api_key_input.setVisible(True)
             self.show_btn.setVisible(True)
+            self.api_key_input.setPlaceholderText("")
             self.url_label.setVisible(False)
             self.url_input.setVisible(False)
-            self.model_label.setText("Model:")
-            self.model_input.setText("gemini-2.5-flash-native-audio-preview-12-2025")
+            self.model_label.setText("Model (kernel gateway):")
+            self.model_input.setText(DEFAULT_GEMINI_MODEL)
             self.hint_label.setText("💡 Get a 100% free Gemini API key with zero billing at aistudio.google.com/apikey")
         elif prov == "ollama":
             self.api_key_label.setVisible(False)
@@ -316,21 +334,27 @@ class EngineSettingsDialog(QDialog):
             self.show_btn.setVisible(False)
             self.url_label.setVisible(True)
             self.url_input.setVisible(True)
-            self.url_input.setText("http://localhost:11434")
+            self.url_input.setText(DEFAULT_OLLAMA_URL)
             self.model_label.setText("Model:")
-            self.model_input.setText("qwen2.5:7b" if "qwen" in self.model_input.text() else "llama3.2:3b")
-            self.hint_label.setText("💡 100% Offline & Free. Requires Ollama installed (run: 'ollama run qwen2.5:7b' or 'llama3.2:3b')")
+            self.model_input.setText(DEFAULT_OLLAMA_MODEL)
+            self.hint_label.setText(
+                f"💡 100% Offline & Free. Requires Ollama installed "
+                f"(run: 'ollama run {DEFAULT_OLLAMA_MODEL}')"
+            )
         elif prov == "openai":
             self.api_key_label.setVisible(True)
             self.api_key_input.setVisible(True)
             self.show_btn.setVisible(True)
-            self.api_key_input.setPlaceholderText("not-needed (for local) or API key")
+            self.api_key_input.setPlaceholderText("any value works for local servers; real key for cloud")
             self.url_label.setVisible(True)
             self.url_input.setVisible(True)
             self.url_input.setText("http://localhost:1234/v1")
             self.model_label.setText("Model:")
-            self.model_input.setText("local-model")
-            self.hint_label.setText("💡 Works with LM Studio, LocalAI, Jan, or any OpenAI-compatible local server.")
+            self.model_input.setText(DEFAULT_OPENAI_MODEL)
+            self.hint_label.setText(
+                "💡 Works with LM Studio, LocalAI, Jan, or any OpenAI-compatible "
+                "server. Match the model name your server exposes."
+            )
         elif prov == "groq":
             self.api_key_label.setVisible(True)
             self.api_key_input.setVisible(True)
@@ -340,8 +364,8 @@ class EngineSettingsDialog(QDialog):
             self.url_input.setVisible(True)
             self.url_input.setText("https://api.groq.com/openai/v1")
             self.model_label.setText("Model:")
-            self.model_input.setText("llama-3.3-70b-versatile")
-            self.hint_label.setText("💡 Ultra-fast free cloud inference. Get free key at console.groq.com.")
+            self.model_input.setText(DEFAULT_OPENAI_MODEL)
+            self.hint_label.setText("💡 Ultra-fast free cloud inference (OpenAI-compatible). Free key at console.groq.com.")
 
     def _on_test_connection(self):
         prov = self.provider_combo.currentData()
@@ -386,9 +410,18 @@ class EngineSettingsDialog(QDialog):
     def _on_save(self):
         prov = self.provider_combo.currentData()
         cfg = _read_full_config()
-        cfg["llm_provider"] = prov
-        cfg["llm_url"] = self.url_input.text().strip()
-        cfg["llm_model"] = self.model_input.text().strip()
+        # Phase R4: the saved config must carry EXACTLY the keys
+        # GatewaySettings.from_config reads — provider, gemini_model,
+        # ollama_base_url/ollama_model, openai_base_url/openai_model. The
+        # legacy llm_url/llm_model keys are dropped (the gateway never reads
+        # them) along with the other providers' keys, so no stale value
+        # leaks across a switch. gemini_api_key is kept for the live-voice
+        # session regardless of provider.
+        for stale in ("llm_url", "llm_model", "gemini_model",
+                      "ollama_base_url", "ollama_model", "openai_base_url",
+                      "openai_model", "openai_api_key"):
+            cfg.pop(stale, None)
+        cfg["llm_provider"] = "openai" if prov in ("openai", "groq") else prov
         cfg["assistant_name"] = self.name_input.text().strip() or "ULTRON"
         cfg["morning_brief_enabled"] = self.brief_check.isChecked()
 
@@ -398,15 +431,25 @@ class EngineSettingsDialog(QDialog):
                 QMessageBox.warning(self, "ULTRON", "Please enter a valid Gemini API key or switch to Ollama.")
                 return
             cfg["gemini_api_key"] = key
+            cfg["gemini_model"] = self.model_input.text().strip()
             self.result_key = key
-        elif prov == "groq":
-            cfg["groq_api_key"] = self.api_key_input.text().strip()
-            self.result_key = cfg["groq_api_key"]
-        elif prov == "openai":
-            cfg["openai_api_key"] = self.api_key_input.text().strip()
-            self.result_key = "local"
-        else:
+        elif prov == "ollama":
+            cfg["ollama_base_url"] = self.url_input.text().strip()
+            cfg["ollama_model"] = self.model_input.text().strip()
             self.result_key = "ollama"
+        else:  # openai + groq both map to the gateway's openai provider
+            key = self.api_key_input.text().strip()
+            if not key:
+                QMessageBox.warning(
+                    self, "ULTRON",
+                    "OpenAI-compatible providers need an API key "
+                    "(any value works for local servers)."
+                )
+                return
+            cfg["openai_api_key"] = key
+            cfg["openai_base_url"] = self.url_input.text().strip()
+            cfg["openai_model"] = self.model_input.text().strip()
+            self.result_key = key
 
         _save_full_config(cfg)
         self.accept()
