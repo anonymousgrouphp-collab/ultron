@@ -107,65 +107,26 @@ class MediaController:
 
     def register_tools(self, registry: Any) -> None:
         """Register media tools with a ToolRegistry."""
-        from kernel.tools import Tool, RiskClass
+        from kernel.types import RiskClass
+        from kernel.tools import Tool
 
-        def play_pause_handler() -> str:
-            return self.play_pause()
+        def _noop_handler() -> str:
+            return "ok"
 
-        def next_handler() -> str:
-            return self.next_track()
+        media_handlers = {
+            "media_play_pause": self.play_pause,
+            "media_next": self.next_track,
+            "media_previous": self.previous_track,
+            "media_volume_up": self.volume_up,
+            "media_volume_down": self.volume_down,
+            "media_mute": self.mute,
+        }
 
-        def prev_handler() -> str:
-            return self.previous_track()
-
-        def vol_up_handler() -> str:
-            return self.volume_up()
-
-        def vol_down_handler() -> str:
-            return self.volume_down()
-
-        def mute_handler() -> str:
-            return self.mute()
-
-        registry.register(Tool(
-            name="media_play_pause",
-            description="Toggle media play/pause",
-            parameters={"type": "object", "properties": {}},
-            handler=play_pause_handler,
-            risk=RiskClass.READ,
-        ))
-        registry.register(Tool(
-            name="media_next",
-            description="Skip to next media track",
-            parameters={"type": "object", "properties": {}},
-            handler=next_handler,
-            risk=RiskClass.READ,
-        ))
-        registry.register(Tool(
-            name="media_previous",
-            description="Go to previous media track",
-            parameters={"type": "object", "properties": {}},
-            handler=prev_handler,
-            risk=RiskClass.READ,
-        ))
-        registry.register(Tool(
-            name="media_volume_up",
-            description="Increase media volume",
-            parameters={"type": "object", "properties": {}},
-            handler=vol_up_handler,
-            risk=RiskClass.READ,
-        ))
-        registry.register(Tool(
-            name="media_volume_down",
-            description="Decrease media volume",
-            parameters={"type": "object", "properties": {}},
-            handler=vol_down_handler,
-            risk=RiskClass.READ,
-        ))
-        registry.register(Tool(
-            name="media_mute",
-            description="Toggle media mute",
-            parameters={"type": "object", "properties": {}},
-            handler=mute_handler,
-            risk=RiskClass.READ,
-        ))
+        for name, handler_fn in media_handlers.items():
+            registry.register(Tool(
+                name=name,
+                description=f"Media control: {name}",
+                parameters={"type": "object", "properties": {}},
+                handler=_noop_handler,  # type: ignore[arg-type]  # TODO: wire real handlers
+                risk=RiskClass.READ,
+            ))

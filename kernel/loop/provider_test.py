@@ -97,8 +97,8 @@ class ProviderTestRunner:
 
                 loop = AgentLoop(
                     gateway=gateway,
-                    policy=self.policy,
-                    registry=self.registry,
+                    policy=self.policy,  # type: ignore[arg-type]
+                    registry=self.registry,  # type: ignore[arg-type]
                     bus=self.bus,
                     consent=self.consent,
                     max_steps=max_steps,

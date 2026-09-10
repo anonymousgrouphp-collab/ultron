@@ -50,21 +50,22 @@ class ImprovementService:
 
             loop = self.loop_factory()
             result = await improve_run(
-                task=task,
-                memory=self.memory,
                 loop=loop,
+                engine=self.memory,
+                task=task,
+                verify=lambda out: out.passed,
             )
 
-            if result.get("success"):
+            if hasattr(result, 'success') and result.success:
                 return (
                     f"Improvement complete for '{task}'. "
                     f"Approach captured as a skill. "
-                    f"Steps: {result.get('steps', 0)}."
+                    f"Steps: {getattr(result, 'steps', 0)}."
                 )
             else:
                 return (
                     f"Could not improve '{task}'. "
-                    f"Error: {result.get('error', 'unknown')}."
+                    f"Error: {getattr(result, 'error', 'unknown')}."
                 )
         except Exception as exc:
             return f"Improvement failed: {exc}"

@@ -11,7 +11,7 @@ is available as context in session N+1.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -23,7 +23,7 @@ class SessionSummary:
     """Summary of a voice session."""
 
     timestamp: str
-    user_topics: tuple[str, ...] = ()
+    user_topics: list[str] = field(default_factory=list)
     tools_used: tuple[str, ...] = ()
     key_decisions: tuple[str, ...] = ()
     summary_text: str = ""
