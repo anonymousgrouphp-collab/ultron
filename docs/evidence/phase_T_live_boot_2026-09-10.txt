@@ -1,0 +1,15 @@
+C:\Users\ceoha\OneDrive\Desktop\ULTRON\.venv\Lib\site-packages\pywinauto\__init__.py:80: UserWarning: Revert to STA COM threading mode
+  warnings.warn("Revert to STA COM threading mode", UserWarning)
+[Memory] migrated 0 legacy fact(s) -> kernel engine
+[ULTRON] Connecting...
+[Dashboard] https://127.0.0.1:8000
+[Dashboard] Bound to 127.0.0.1 — this computer only.
+[Dashboard] LAN and phone remote control are not supported in this release.
+[Dashboard] Manual entry:  127.0.0.1:8001  (type in browser, accept cert once)
+[ULTRON] Connected.
+[ULTRON] 🎤 Mic started
+[ULTRON] 🎤 Mic stream open
+[ULTRON] 👂 Recv started
+[ULTRON] 🔊 Play started
+Warning: there are non-data parts in the response: ['text', 'thought'], returning concatenated data result from data parts, check out the non data parts for full response from model.
+EXIT=124
