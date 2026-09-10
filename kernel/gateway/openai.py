@@ -70,6 +70,11 @@ class OpenAIChatAdapter(Gateway):
         tools: Sequence[Mapping[str, Any]],
         response_schema: Mapping[str, Any] | None,
     ) -> dict[str, Any]:
+        for msg in messages:
+            if msg.parts:
+                raise GatewayError(
+                    "openai adapter does not support inline data parts "
+                    "(image/audio) — use the gemini provider")
         rendered: list[dict[str, Any]] = []
         # Positional tool_call_id pairing: ToolResultLike carries the tool
         # NAME (not the call id), but the loop appends exactly one tool

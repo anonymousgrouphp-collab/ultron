@@ -1,4 +1,4 @@
-from utils.env import get_api_key, get_base_dir
+from utils.env import get_base_dir
 import subprocess
 import sys
 import json
@@ -6,12 +6,12 @@ import re
 import time
 from pathlib import Path
 
+import actions._llm as _llm
+
 
 BASE_DIR         = get_base_dir()
 PROJECTS_DIR     = Path.home() / "Desktop" / "UltronProjects"
 MAX_FIX_ATTEMPTS = 5
-MODEL_PLANNER    = "gemini-3.6-flash"
-MODEL_WRITER     = "gemini-3.6-flash"
 
 # P0-B5 (ROADMAP): the agent may no longer pip-install whatever the model
 # suggests. Every package must appear in the human-maintained allowlist below;
@@ -41,17 +41,6 @@ def _split_allowlisted(dependencies: list[str]) -> tuple[list[str], list[str]]:
     ok    = [d for d in dependencies if _dep_name(d) in allow]
     rest  = [d for d in dependencies if _dep_name(d) not in allow]
     return ok, rest
-
-def _get_model(model_name: str):
-    from google import genai
-    _c = genai.Client(api_key=get_api_key('gemini_api_key'))
-
-    class _W:
-        def generate_content(self, contents):
-            return _c.models.generate_content(model=model_name, contents=contents)
-
-    return _W()
-
 
 def _strip_fences(text: str) -> str:
     text = text.strip()
@@ -120,8 +109,6 @@ class RateLimitError(Exception):
 
 
 def _plan_project(description: str, language: str) -> dict:
-    model = _get_model(MODEL_PLANNER)
-
     prompt = f"""You are a senior software architect. Create a minimal, complete file plan for this project.
 
 Language: {language}
@@ -158,11 +145,10 @@ Critical rules:
 JSON:"""
 
     try:
-        response = model.generate_content(prompt)
-        raw = _strip_fences(response.text)
+        raw = _strip_fences(_llm.complete_text(prompt))
         return json.loads(raw)
     except json.JSONDecodeError as e:
-        raise ValueError(f"Planner returned invalid JSON: {e}\nRaw: {response.text[:300]}")
+        raise ValueError(f"Planner returned invalid JSON: {e}\nRaw: {raw[:300]}")
     except Exception as e:
         if _is_rate_limit(e):
             raise RateLimitError(str(e))
@@ -176,8 +162,6 @@ def _write_file(
     project_dir: Path,
     already_written: dict[str, str],
 ) -> str:
-    model = _get_model(MODEL_WRITER)
-
     file_path = file_info["path"]
     file_desc = file_info.get("description", "")
     file_imports = file_info.get("imports", [])
@@ -237,8 +221,7 @@ General rules:
 Code for {file_path}:"""
 
     try:
-        response = model.generate_content(prompt)
-        code = _strip_fences(response.text)
+        code = _strip_fences(_llm.complete_text(prompt))
 
         full_path = project_dir / file_path
         full_path.parent.mkdir(parents=True, exist_ok=True)
@@ -390,8 +373,6 @@ def _fix_files(
     entry_point: str,
 ) -> dict[str, str]:
 
-    model = _get_model(MODEL_PLANNER)
-
     error_file, error_line = _parse_traceback(error_output, list(file_codes.keys()))
     error_type = _classify_error(error_output)
 
@@ -452,8 +433,7 @@ Rules:
 Fixed code for {fix_path}:"""
 
         try:
-            response = model.generate_content(prompt)
-            fixed = _strip_fences(response.text)
+            fixed = _strip_fences(_llm.complete_text(prompt))
 
             full_path = project_dir / fix_path
             full_path.parent.mkdir(parents=True, exist_ok=True)

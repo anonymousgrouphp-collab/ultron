@@ -28,6 +28,11 @@ from typing import Any, ClassVar, Protocol
 from kernel.types import ToolCall
 
 DEFAULT_GEMINI_MODEL = "gemini-3.6-flash"  # 2.5 retired for new keys (API notice 2026-09-08)
+# R2: the live audio session's model string lives here too (Kill List #3 —
+# no model name outside the gateway). The gateway has no Live adapter yet
+# (P1-H modality-adapter residual), so the constant is the app's only touch
+# point; when a Live adapter lands it moves behind GatewaySettings.
+DEFAULT_GEMINI_LIVE_MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025"
 DEFAULT_OLLAMA_MODEL = "qwen3:8b"
 DEFAULT_OLLAMA_URL = "http://127.0.0.1:11434"
 DEFAULT_OPENAI_MODEL = "gpt-4o-mini"          # overridden per endpoint
@@ -97,6 +102,19 @@ class ToolResultLike:
 
 
 @dataclass(frozen=True)
+class InlineData:
+    """A binary part (image/audio/video bytes) for multimodal completions.
+
+    Rendered as Gemini `inlineData` parts (base64). Only the Gemini adapter
+    supports it today — Ollama/OpenAI adapters refuse with a clean error so
+    a multimodal call never silently degrades to text-only.
+    """
+
+    mime_type: str
+    data: bytes
+
+
+@dataclass(frozen=True)
 class Message:
     """One conversation turn in provider-neutral form.
 
@@ -105,10 +123,14 @@ class Message:
     `tool_signatures` is a parallel array to `tool_calls` for provider-side
     per-call metadata that must survive the round trip (Gemini 3 thought
     signatures — enforced by the API, ignored by Ollama).
+    `parts` carries multimodal inline data (images/audio) alongside `text` —
+    user role only (R2: the legacy actions' vision/audio calls route through
+    the gateway instead of the google SDK).
     """
 
     role: str
     text: str = ""
+    parts: tuple[InlineData, ...] = ()
     tool_calls: tuple[ToolCall, ...] = ()
     tool_results: tuple[ToolResultLike, ...] = ()
     tool_signatures: tuple[str, ...] = ()
@@ -120,6 +142,8 @@ class Message:
             raise ValueError("Message(role='tool') requires tool_results")
         if self.tool_signatures and len(self.tool_signatures) != len(self.tool_calls):
             raise ValueError("tool_signatures must align 1:1 with tool_calls")
+        if self.parts and self.role != "user":
+            raise ValueError("Message parts (multimodal) are only valid on role='user'")
 
 
 @dataclass(frozen=True)
@@ -209,9 +233,11 @@ class Gateway(ABC):
         response_schema: Mapping[str, Any] | None = None,
     ) -> Response:
         """One non-streaming completion. `tools` are registry.declarations()
-        (Gemini-style JSON-schema shape); `response_schema` forces structured
-        output (Gemini responseSchema / Ollama format). Blocking HTTP runs in a
-        thread so the caller's loop never stalls."""
+        (Gemini-style JSON-schema shape, or provider-native tool dicts like
+        `{"google_search": {}}` — the Gemini adapter passes those through
+        verbatim, see its payload builder); `response_schema` forces
+        structured output (Gemini responseSchema / Ollama format). Blocking
+        HTTP runs in a thread so the caller's loop never stalls."""
         if not messages:
             raise GatewayError("complete() needs at least one message")
         payload = self._build_payload(messages, tools, response_schema)
@@ -247,6 +273,7 @@ def build_gateway(
 
 
 __all__ = [
+    "DEFAULT_GEMINI_LIVE_MODEL",
     "DEFAULT_GEMINI_MODEL",
     "DEFAULT_OLLAMA_MODEL",
     "DEFAULT_OLLAMA_URL",
@@ -255,6 +282,7 @@ __all__ = [
     "Gateway",
     "GatewayError",
     "GatewaySettings",
+    "InlineData",
     "Message",
     "Post",
     "Provider",

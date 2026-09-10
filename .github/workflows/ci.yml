@@ -62,6 +62,12 @@ jobs:
       - name: Mypy (kernel, gating)
         run: python -m mypy kernel
 
+      - name: Kill-List enforcement (R2, gating)
+        # ROADMAP §5: no LLM call / model string outside the gateway — the
+        # app layer (actions/core/utils/dashboard/main/ui) must route every
+        # completion through actions/_llm.py → kernel.gateway.
+        run: python evals/killlist_check.py
+
       - name: Legacy static debt report (advisory)
         run: python -m ruff check core config memory actions
         continue-on-error: true

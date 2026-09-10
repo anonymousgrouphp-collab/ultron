@@ -6,6 +6,7 @@ Model strings live only here (Kill List #3).
 """
 
 from kernel.gateway.base import (
+    DEFAULT_GEMINI_LIVE_MODEL,
     DEFAULT_GEMINI_MODEL,
     DEFAULT_OLLAMA_MODEL,
     DEFAULT_OLLAMA_URL,
@@ -14,6 +15,7 @@ from kernel.gateway.base import (
     Gateway,
     GatewayError,
     GatewaySettings,
+    InlineData,
     Message,
     Post,
     Provider,
@@ -27,6 +29,7 @@ from kernel.gateway.ollama import OllamaAdapter
 from kernel.gateway.openai import OpenAIChatAdapter
 
 __all__ = [
+    "DEFAULT_GEMINI_LIVE_MODEL",
     "DEFAULT_GEMINI_MODEL",
     "DEFAULT_OLLAMA_MODEL",
     "DEFAULT_OLLAMA_URL",
@@ -36,6 +39,7 @@ __all__ = [
     "GatewayError",
     "GatewaySettings",
     "GeminiAdapter",
+    "InlineData",
     "Message",
     "OllamaAdapter",
     "OpenAIChatAdapter",

@@ -48,6 +48,7 @@ from actions.system_monitor    import SystemMonitor, get_system_status
 from actions.web_search        import _news as _fetch_news_sync
 from config import loader
 from kernel.bus import EventBus
+from kernel.gateway import DEFAULT_GEMINI_LIVE_MODEL
 from kernel.legacy import LegacyToolRuntime
 from kernel.memory import MemoryEngine, migrate_long_term_json
 from kernel.proactive import (
@@ -60,7 +61,7 @@ from kernel.types import Event, ToolCall
 
 BASE_DIR    = loader.get_base_dir()
 PROMPT_PATH = BASE_DIR / "core" / "prompt.txt"
-LIVE_MODEL          = "models/gemini-2.5-flash-native-audio-preview-12-2025"
+LIVE_MODEL          = DEFAULT_GEMINI_LIVE_MODEL  # model string centralized in the gateway (Kill List #3)
 CHANNELS            = 1
 SEND_SAMPLE_RATE    = 16000
 RECEIVE_SAMPLE_RATE = 24000

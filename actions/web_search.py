@@ -1,31 +1,18 @@
 #web_search.py
-from utils.env import get_api_key, get_base_dir
+from utils.env import get_base_dir
 import json
 import sys
 from pathlib import Path
+
+import actions._llm as _llm
 
 BASE_DIR        = get_base_dir()
 
 
 def _gemini_search(query: str) -> str:
-    from google import genai
-
-    client   = genai.Client(api_key=get_api_key('gemini_api_key'))
-    response = client.models.generate_content(
-        model="gemini-3.6-flash",
-        contents=query,
-        config={"tools": [{"google_search": {}}]},
-    )
-
-    text = ""
-    for part in response.candidates[0].content.parts:
-        if hasattr(part, "text") and part.text:
-            text += part.text
-
-    text = text.strip()
-    if not text:
-        raise ValueError("Gemini returned an empty response.")
-    return text
+    # R2 kill-list: grounded search now rides the kernel gateway (Gemini's
+    # google_search tool passes through the adapter verbatim).
+    return _llm.complete_grounded_search(query)
 
 
 def _ddg_search(query: str, max_results: int = 6) -> list[dict]:
@@ -109,19 +96,10 @@ def _gemini_headlines(n: int = 5) -> tuple[list[str], str]:
     Returns (headline_list, raw_text_for_display).
     """
     import re
-    from google import genai
 
-    client = genai.Client(api_key=get_api_key('gemini_api_key'))
-    response = client.models.generate_content(
-        model="gemini-3.6-flash",
-        contents=f"Current world news: {n} headlines. Numbered list, titles only.",
-        config={"tools": [{"google_search": {}}]},
+    raw = _llm.complete_grounded_search(
+        f"Current world news: {n} headlines. Numbered list, titles only."
     )
-
-    raw = ""
-    for part in response.candidates[0].content.parts:
-        if hasattr(part, "text") and part.text:
-            raw += part.text
 
     headlines = []
     for line in raw.strip().split("\n"):
