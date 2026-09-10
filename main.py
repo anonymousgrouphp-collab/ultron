@@ -16,34 +16,21 @@ if _platform.system() == "Windows":
 # ─────────────────────────────────────────────────────────────────────────────
 
 import asyncio
-import re
 import threading
 import time
 import sys
 import traceback
-from datetime import datetime
 
-import sounddevice as sd
 from ui import UltronUI
 
-from actions.file_processor import file_processor
-from actions.flight_finder     import flight_finder
-from actions.open_app          import open_app
-from actions.weather_report    import weather_action
-from actions.reminder          import reminder
-from actions.computer_settings import computer_settings
-from actions.screen_processor  import _capture_camera, _capture_screen
-from actions.youtube_video     import youtube_video
-from actions.desktop           import desktop_control
-from actions.browser_control   import browser_control
-from actions.file_controller   import file_controller
-from actions.code_helper       import code_helper
-from actions.dev_agent         import dev_agent
-from actions.web_search        import web_search as web_search_action
-from actions.computer_control  import computer_control
-from actions.game_updater      import game_updater
-from actions.system_monitor    import SystemMonitor, get_system_status
-from actions.web_search        import _news as _fetch_news_sync
+# Phase W0: the god module's task/handler blocks now live in app/ mixins —
+# UltronLive inherits them so callers and characterization pins are unchanged.
+from app.audio import AudioTasksMixin
+from app.briefing import BriefingMixin
+from app.handlers import LegacyHandlersMixin
+from app.monitors import MonitorTasksMixin
+
+from actions.system_monitor    import SystemMonitor
 from config import loader
 from kernel.bus import EventBus
 from kernel.gateway import DEFAULT_GEMINI_LIVE_MODEL, GatewaySettings
@@ -57,7 +44,7 @@ from kernel.loop.provider_test import ProviderTestRunner
 from kernel.diagnostics.health import HealthMonitor
 from kernel.diagnostics.cost_tracker import CostTracker
 from kernel.legacy import LegacyToolRuntime
-from kernel.memory import MemoryEngine, migrate_long_term_json
+from kernel.memory import MemoryEngine
 from kernel.proactive import (
     ConsentClass as ProactiveConsentClass,
     ProactiveEngine as KernelProactiveEngine,
@@ -96,13 +83,6 @@ def _load_system_prompt() -> str:
             "Be concise, direct, and always use the provided tools to complete tasks. "
             "Never simulate or guess results — always call the appropriate tool."
         )
-
-_CTRL_RE = re.compile(r"<ctrl\d+>", re.IGNORECASE)
-
-def _clean_transcript(text: str) -> str:    
-    text = _CTRL_RE.sub("", text)
-    text = re.sub(r"[\x00-\x08\x0b-\x1f]", "", text)
-    return text.strip()
 
 from core.tool_declarations import TOOL_DECLARATIONS
 
@@ -145,7 +125,12 @@ class ConsentGate:
         return answer[0]
 
 
-class UltronLive:
+class UltronLive(
+    LegacyHandlersMixin,    # the 20 _handle_* legacy bridges (Phase W0)
+    AudioTasksMixin,        # mic/recv/play audio pumps (Phase W0)
+    BriefingMixin,          # startup greeting + proactive check-in (Phase W0)
+    MonitorTasksMixin,      # system monitor + proactive tick + relays (Phase W0)
+):
 
     def __init__(self, ui: UltronUI):
         self.ui             = ui
@@ -524,175 +509,6 @@ class UltronLive:
             tool_declarations=TOOL_DECLARATIONS,
             voice_name="Charon",
         )
-
-    async def _handle_open_app(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: open_app(parameters=args, response=None, player=self.ui))
-        return r or f"Opened {args.get('app_name')}."
-
-    async def _handle_weather_report(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: weather_action(parameters=args, player=self.ui))
-        return r or "Weather delivered."
-
-    async def _handle_browser_control(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: browser_control(parameters=args, player=self.ui))
-        return r or "Done."
-
-    async def _handle_file_controller(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: file_controller(parameters=args, player=self.ui))
-        return r or "Done."
-
-    async def _handle_reminder(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: reminder(parameters=args, response=None, player=self.ui))
-        return r or "Reminder set."
-
-    async def _handle_youtube_video(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: youtube_video(parameters=args, response=None, player=self.ui))
-        return r or "Done."
-
-    async def _handle_screen_process(self, args, loop):
-        import time as _t_mod
-        _now = _t_mod.monotonic()
-        _cooldown = 4.0  # seconds — covers echo window after speaking ends
-        if self._vision_busy or (_now - self._vision_last_time) < _cooldown:
-            _wait = max(0, _cooldown - (_now - self._vision_last_time))
-            print(f"[Vision] ⏳ Cooldown active ({_wait:.1f}s remaining) — ignoring duplicate call")
-            return "Vision is still processing the previous request. I will not call this again."
-        else:
-            self._vision_busy      = True
-            self._vision_last_time = _now
-            angle     = args.get("angle", "screen").lower()
-            user_text = args.get("text", "What do you see?")
-            if angle == "camera":
-                img_b, mime_t = await loop.run_in_executor(None, _capture_camera)
-                self.ui.start_camera_stream()
-                self._vision_cam_active = True
-                print(f"[Vision] 📷 Camera: {len(img_b):,} bytes")
-                _stall = "camera"
-            else:
-                img_b, mime_t = await loop.run_in_executor(None, _capture_screen)
-                print(f"[Vision] 🖥️  Screen: {len(img_b):,} bytes")
-                _stall = "screen"
-            self._pending_vision = (img_b, mime_t, user_text, angle)
-            return (
-                f"[VISION_ACTIVE] {_stall.capitalize()} captured. "
-                f"Immediately say ONE short natural sentence in the user's own language, "
-                f"telling them you are looking at their {_stall} right now. "
-                f"Do NOT describe or guess content — the actual image arrives in the NEXT message."
-            )
-
-    async def _handle_close_camera(self, args, loop):
-        self.ui.stop_camera_stream()
-        return "Camera closed."
-
-    async def _handle_computer_settings(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: computer_settings(parameters=args, response=None, player=self.ui))
-        return r or "Done."
-
-    async def _handle_desktop_control(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: desktop_control(parameters=args, player=self.ui))
-        return r or "Done."
-
-    async def _handle_code_helper(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: code_helper(parameters=args, player=self.ui, speak=self.speak))
-        return r or "Done."
-
-    async def _handle_dev_agent(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: dev_agent(parameters=args, player=self.ui, speak=self.speak))
-        return r or "Done."
-
-    async def _handle_web_search(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: web_search_action(parameters=args, player=self.ui))
-        result = r or "Done."
-        # Mirror results to the on-screen content panel
-        _mode = args.get("mode", "search")
-        if r and not r.startswith("No results") and not r.startswith("Search failed"):
-            _query = args.get("query") or ", ".join(args.get("items", []))
-            _label = f"{_mode.upper()} — {_query[:38]}" if _query else _mode.upper()
-            self.ui.show_content(_label, r)
-        return result
-
-    async def _handle_file_processor(self, args, loop):
-        if not args.get("file_path") and self.ui.current_file:
-            args["file_path"] = self.ui.current_file
-        r = await loop.run_in_executor(
-            None,
-            lambda: file_processor(parameters=args, player=self.ui, speak=self.speak)
-        )
-        return r or "Done."
-
-    async def _handle_computer_control(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: computer_control(parameters=args, player=self.ui))
-        return r or "Done."
-
-    async def _handle_game_updater(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: game_updater(parameters=args, player=self.ui, speak=self.speak))
-        return r or "Done."
-
-    async def _handle_flight_finder(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: flight_finder(parameters=args, player=self.ui))
-        return r or "Done."
-
-    async def _handle_system_status(self, args, loop):
-        r = await loop.run_in_executor(None, get_system_status)
-        return str(r)
-
-    async def _handle_shutdown(self, args, loop):
-        self.ui.write_log("SYS: Shutdown requested.")
-        self.speak("Goodbye, sir.")
-        def _shutdown():
-            import time, os
-            time.sleep(1)
-            os._exit(0)
-        threading.Thread(target=_shutdown, daemon=True).start()
-        return "Done."
-
-    async def _handle_save_memory(self, args, loop):
-        category = args.get("category", "notes")
-        key = args.get("key", "")
-        value = args.get("value", "")
-        if not key or not value:
-            return "Memory was not saved because key or value was missing."
-        self._memory.remember(
-            str(value).strip(),
-            entity=str(category).strip() or "notes",
-            topic=str(key).strip(),
-            source_ref="voice-live",
-        )
-        print(f"[Memory] saved {category}/{key}")
-        return "Memory saved."
-
-    def _memory_prompt(self) -> str:
-        """Render the kernel MemoryEngine's most recent facts for the system
-        prompt — the production replacement for the legacy 2,200-char JSON
-        `format_memory_for_prompt` (Phase R3)."""
-        hits = self._memory.page(limit=40)
-        if not hits:
-            return ""
-        lines = []
-        for h in hits:
-            label = (h.entity or h.topic or "note").replace("_", " ").title()
-            lines.append(f"  - {label}: {h.content}")
-        result = (
-            "[WHAT YOU KNOW ABOUT THIS PERSON — use naturally, "
-            "never recite like a list]\n" + "\n".join(lines)
-        )
-        if len(result) > 2000:
-            result = result[:1997] + "…"
-        return result + "\n"
-
-    def _migrate_legacy_memory(self) -> None:
-        """One-shot, idempotent long_term.json → MemoryEngine migration at
-        boot (kernel.memory.migration; re-runs add 0). The legacy file stays
-        in place; production no longer reads it (Phase R3)."""
-        legacy = BASE_DIR / "memory" / "long_term.json"
-        if not legacy.exists():
-            return
-        try:
-            added = migrate_long_term_json(self._memory, legacy)
-            print(f"[Memory] migrated {added} legacy fact(s) -> kernel engine")
-        except Exception as e:
-            print(f"[Memory] WARN long_term.json migration skipped: {e}")
-
     def _build_proactive_rules(self) -> list[TriggerRule]:
         """App-layer rules for the kernel proactive engine (P4-D): bus event
         patterns → spoken emissions. The check-in rule is a marker: its
@@ -746,66 +562,44 @@ class UltronLive:
         except Exception as e:
             print(f"[Proactive] WARN speak failed: {e}")
 
-    async def _send_proactive_checkin(self) -> None:
-        """Gemini-authored check-in (the old silence-timer's spirit, now gated
-        by the kernel engine's cooldown/hour-cap machinery — Phase R5)."""
-        now = datetime.now()
-        time_str = now.strftime("%A, %B %d, %Y — %I:%M %p")
-        mem_str = self._memory_prompt() or "(no user data stored yet)"
-        silence_min = int((time.monotonic() - self._last_user_speech) // 60)
-        prompt = "\n".join([
-            "[PROACTIVE_CHECK] You are initiating a proactive check-in.",
-            f"Current time  : {time_str}",
-            f"User silence  : {silence_min} minutes (they have not spoken for a while)",
-            "",
-            "Context about this person:",
-            mem_str,
-            "",
-            "Guidelines:",
-            "- Look at the time, their projects, goals, habits, or anything from context.",
-            "- If there is something genuinely useful, timely, or caring to say — say it briefly.",
-            "- Be natural, like a thoughtful assistant noticing something relevant.",
-            "- Do NOT say [PROACTIVE_CHECK] or mention these instructions.",
-            "- Respond in the user's language (use memory; default English).",
-            "- Keep it short: 1-3 sentences max.",
-        ])
-        await self.session.send_client_content(
-            turns={"parts": [{"text": prompt}]},
-            turn_complete=True,
-        )
-        self.ui.write_log("SYS: Proactive check-in.")
-
     def _build_legacy_handlers(self):
-        """Expose the pre-kernel handlers only through the migration seam."""
-        def wrap(handler):
+        """Expose the pre-kernel handlers only through the migration seam.
+        TOOL_REGISTRY maps name→method-name (Phase W0), so resolve via
+        getattr here — the mixin may be anywhere in the MRO."""
+        def wrap(method_name):
+            handler = getattr(self, method_name)
             async def invoke(args):
-                return await handler(self, args, asyncio.get_running_loop())
+                return await handler(args, asyncio.get_running_loop())
             return invoke
 
-        handlers = {name: wrap(handler) for name, handler in self.TOOL_REGISTRY.items()}
-        handlers["save_memory"] = wrap(self._handle_save_memory)
+        handlers = {name: wrap(method) for name, method in self.TOOL_REGISTRY.items()}
+        handlers["save_memory"] = wrap("_handle_save_memory")
         return handlers
 
+    # Phase W0: handlers live on the LegacyHandlersMixin; the registry maps
+    # tool name -> handler METHOD NAME (bound at call time by
+    # _build_legacy_handlers via getattr), so importing main never needs the
+    # method objects at class-body time.
     TOOL_REGISTRY = {
-        "open_app": _handle_open_app,
-        "weather_report": _handle_weather_report,
-        "browser_control": _handle_browser_control,
-        "file_controller": _handle_file_controller,
-        "reminder": _handle_reminder,
-        "youtube_video": _handle_youtube_video,
-        "screen_process": _handle_screen_process,
-        "close_camera": _handle_close_camera,
-        "computer_settings": _handle_computer_settings,
-        "desktop_control": _handle_desktop_control,
-        "code_helper": _handle_code_helper,
-        "dev_agent": _handle_dev_agent,
-        "web_search": _handle_web_search,
-        "file_processor": _handle_file_processor,
-        "computer_control": _handle_computer_control,
-        "game_updater": _handle_game_updater,
-        "flight_finder": _handle_flight_finder,
-        "system_status": _handle_system_status,
-        "shutdown_ultron": _handle_shutdown,
+        "open_app": "_handle_open_app",
+        "weather_report": "_handle_weather_report",
+        "browser_control": "_handle_browser_control",
+        "file_controller": "_handle_file_controller",
+        "reminder": "_handle_reminder",
+        "youtube_video": "_handle_youtube_video",
+        "screen_process": "_handle_screen_process",
+        "close_camera": "_handle_close_camera",
+        "computer_settings": "_handle_computer_settings",
+        "desktop_control": "_handle_desktop_control",
+        "code_helper": "_handle_code_helper",
+        "dev_agent": "_handle_dev_agent",
+        "web_search": "_handle_web_search",
+        "file_processor": "_handle_file_processor",
+        "computer_control": "_handle_computer_control",
+        "game_updater": "_handle_game_updater",
+        "flight_finder": "_handle_flight_finder",
+        "system_status": "_handle_system_status",
+        "shutdown_ultron": "_handle_shutdown",
     }
 
     async def _execute_tool(self, fc) -> FunctionResponse:
@@ -839,422 +633,12 @@ class UltronLive:
             response={"result": result}
         )
 
-    async def _send_realtime(self):
-        while True:
-            msg = await self.out_queue.get()
-            await self.session.send_realtime_input(media=msg)
-
-    async def _listen_audio(self):
-        print("[ULTRON] 🎤 Mic started")
-        loop = asyncio.get_event_loop()
-
-        def callback(indata, frames, time_info, status):
-            with self._speaking_lock:
-                ultron_speaking = self._is_speaking
-            if not ultron_speaking and not self.ui.muted and not self._phone_active:
-                data = indata.tobytes()
-                loop.call_soon_threadsafe(
-                    self.out_queue.put_nowait,
-                    {"data": data, "mime_type": "audio/pcm"}
-                )
-
-        try:
-            with sd.InputStream(
-                samplerate=SEND_SAMPLE_RATE,
-                channels=CHANNELS,
-                dtype="int16",
-                blocksize=CHUNK_SIZE,
-                callback=callback,
-            ):
-                print("[ULTRON] 🎤 Mic stream open")
-                while True:
-                    await asyncio.sleep(0.02)
-        except Exception as e:
-            print(f"[ULTRON] ❌ Mic: {e}")
-            raise
-
-    async def _receive_audio(self):
-        print("[ULTRON] 👂 Recv started")
-        out_buf, in_buf = [], []
-
-        try:
-            while True:
-                async for response in self.session.receive():
-
-                    if response.data:
-                        if self._interrupted:
-                            pass  # discard: interrupted
-                        else:
-                            if self._turn_done_event and self._turn_done_event.is_set():
-                                self._turn_done_event.clear()
-                            # Split into ~50 ms chunks so interrupt() stops audio within 50 ms
-                            # (24000 Hz × 2 bytes/sample × 0.05 s = 2400 bytes per slice)
-                            _audio_data = response.data
-                            _SLICE = 2400
-                            for _i in range(0, len(_audio_data), _SLICE):
-                                self.audio_in_queue.put_nowait(_audio_data[_i : _i + _SLICE])
-
-                    if response.server_content:
-                        sc = response.server_content
-
-                        if sc.output_transcription and sc.output_transcription.text:
-                            txt = _clean_transcript(sc.output_transcription.text)
-                            if txt and txt != (out_buf[-1] if out_buf else ""):
-                                out_buf.append(txt)
-
-                        if sc.input_transcription and sc.input_transcription.text:
-                            txt = _clean_transcript(sc.input_transcription.text)
-                            if txt:
-                                in_buf.append(txt)
-                                self._last_user_speech = time.monotonic()
-                                self.set_app_state("THINKING")
-
-                        if sc.turn_complete:
-                            if self._turn_done_event:
-                                self._turn_done_event.set()
-
-                            # If this turn_complete ends an interrupted response, clear the
-                            # flag and skip all further processing for that turn.
-                            if self._interrupted:
-                                self._interrupted = False
-                                in_buf  = []
-                                out_buf = []
-                                continue
-
-                            full_in = " ".join(in_buf).strip()
-                            if full_in:
-                                self.ui.write_log(f"You: {full_in}")
-                                self._session_user_messages.append(full_in)  # Phase I3: track for session summary
-                                if self._dashboard:
-                                    asyncio.create_task(self._dashboard.broadcast({
-                                        "type": "log", "speaker": "user",
-                                        "text": full_in,
-                                        "ts": datetime.now().isoformat(),
-                                    }))
-                            in_buf = []
-
-                            full_out = " ".join(out_buf).strip()
-                            if full_out:
-                                self.ui.write_log(f"{self._asst_name}: {full_out}")
-                                self._session_assistant_responses.append(full_out)  # Phase I3
-                                if self._dashboard:
-                                    asyncio.create_task(self._dashboard.broadcast({
-                                        "type": "log", "speaker": "ultron",
-                                        "text": full_out,
-                                        "ts": datetime.now().isoformat(),
-                                    }))
-                            out_buf = []
-
-                            # Vision injection: model finished tool-response turn → now send the image
-                            if self._pending_vision and self.session:
-                                import base64 as _b64
-                                img_b, mime_t, question, angle = self._pending_vision
-                                self._pending_vision = None
-                                b64 = _b64.b64encode(img_b).decode("ascii")
-                                print(f"[Vision] 📤 {len(img_b):,} bytes (angle={angle}) → main session")
-                                await self.session.send_client_content(
-                                    turns={"parts": [
-                                        {"inline_data": {"mime_type": mime_t, "data": b64}},
-                                        {"text": question},
-                                    ]},
-                                    turn_complete=True,
-                                )
-                                # Mark next turn_complete behaviour depending on angle
-                                if self._vision_cam_active:
-                                    # Camera: keep busy until ULTRON finishes speaking the answer
-                                    self._vision_cam_active    = False
-                                    self._vision_close_pending = True
-                                else:
-                                    # Screen-only: no camera to close; release busy flag now
-                                    self._vision_busy = False
-                            elif self._vision_close_pending:
-                                # This turn_complete IS the vision answer — close camera + release busy flag
-                                self._vision_close_pending = False
-                                self._vision_busy = False
-                                async def _cam_close():
-                                    await asyncio.sleep(2.0)
-                                    self.ui.stop_camera_stream()
-                                asyncio.create_task(_cam_close())
-
-                    if response.tool_call:
-                        fn_responses = []
-                        for fc in response.tool_call.function_calls:
-                            print(f"[ULTRON] 📞 {fc.name}")
-                            self._session_tool_calls.append(fc.name)  # Phase I3: track for session summary
-                            fr = await self._execute_tool(fc)
-                            fn_responses.append(fr)
-                        await self.session.send_tool_response(
-                            function_responses=fn_responses
-                        )
-        except Exception as e:
-            print(f"[ULTRON] ❌ Recv: {e}")
-            traceback.print_exc()
-            raise
-
-    async def _play_audio(self):
-        print("[ULTRON] 🔊 Play started")
-
-        stream = sd.RawOutputStream(
-            samplerate=RECEIVE_SAMPLE_RATE,
-            channels=CHANNELS,
-            dtype="int16",
-            blocksize=CHUNK_SIZE,
-        )
-        stream.start()
-
-        try:
-            while True:
-                try:
-                    chunk = await asyncio.wait_for(
-                        self.audio_in_queue.get(),
-                        timeout=0.02
-                    )
-                except asyncio.TimeoutError:
-                    if (
-                        self._turn_done_event
-                        and self._turn_done_event.is_set()
-                        and self.audio_in_queue.empty()
-                    ):
-                        self.set_speaking(False)
-                        self._turn_done_event.clear()
-                    continue
-                self.set_speaking(True)
-                try:
-                    await asyncio.to_thread(stream.write, chunk)
-                except (RuntimeError, asyncio.CancelledError, Exception) as write_err:
-                    if isinstance(write_err, (RuntimeError, asyncio.CancelledError)):
-                        break   # executor shutting down — exit cleanly
-                    # PortAudio / device write failure during stream pause or interrupt
-                    pass
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            print(f"[ULTRON] ❌ Play: {e}")
-        finally:
-            self.set_speaking(False)
-            try:
-                if stream.active:
-                    stream.stop()
-            except Exception:
-                pass
-            try:
-                stream.close()
-            except Exception:
-                pass
-
-    # ── Morning briefing ────────────────────────────────────────────────────────
-
-    async def _send_startup_briefing(self) -> None:
-        """
-        Startup briefing:
-          Instant greeting & status report (no news prefetching).
-        """
-        identity = {h.topic: h.content
-                    for h in self._memory.page(entity="identity", limit=40)}
-
-        def _val(k: str) -> str:
-            return (identity.get(k) or "").strip()
-
-        lang = _val("language")
-        name = _val("name")
-        time_str = datetime.now().strftime("%H:%M")
-
-        await asyncio.sleep(0.3)
-        if not self.session:
-            return
-
-        # ── Instant greeting & status ─────────────────────────────────────────
-        lang_clause = f" Respond in {lang}." if lang else ""
-        name_clause = f" Address the user as {name}." if name else ""
-        p1 = (
-            f"Greet the user, mention it is {time_str}, state that systems and HUD ULTRON are fully operational, "
-            f"and ask how you can assist today. One or two short sentences only. Do not call any tools.{lang_clause}{name_clause}"
-        )
-
-        # Clear the turn-done event
-        if self._turn_done_event:
-            self._turn_done_event.clear()
-
-        await self.session.send_client_content(
-            turns={"parts": [{"text": p1}]},
-            turn_complete=True,
-        )
-        self.ui.write_log("SYS: Startup briefing greeting sent.")
-
-    # ── System monitor ──────────────────────────────────────────────────────────
-
-    async def _run_system_monitor(self) -> None:
-        """Background task: emergency alerts and non-destructive suggestions."""
-        emergency_active = False
-        while True:
-            await asyncio.sleep(2.0)
-            status = await asyncio.to_thread(self._sys_monitor.check_emergency)
-            is_90 = status.get("is_emergency_90", False)
-            suggested_apps = status.get("suggested_apps", [])
-            cpu = status.get("cpu", 0)
-            ram = status.get("ram", 0)
-
-            if is_90 and not emergency_active:
-                emergency_active = True
-                self.ui.set_state("EMERGENCY")
-                self.ui.write_log(f"SYS_ALERT: EMERGENCY SYSTEM OVERLOAD DETECTED (CPU: {cpu}%, RAM: {ram}%)! Red alert active.")
-                if self.session:
-                    try:
-                        await self.session.send_client_content(
-                            turns={"parts": [{"text": f"[SYSTEM_ALERT] Emergency system overload! CPU/RAM at {max(cpu, ram)}%. State that red alert emergency siren is active."}]},
-                            turn_complete=True,
-                        )
-                    except Exception:
-                        pass
-
-            elif not is_90 and emergency_active:
-                emergency_active = False
-                self.ui.set_state("LISTENING" if not self.ui.muted else "MUTED")
-                self.ui.write_log("SYS: System usage normalized (<85%). Emergency alert deactivated.")
-
-            if suggested_apps and self.session:
-                app_names = ", ".join(suggested_apps).replace(".exe", "")
-                self.ui.write_log(f"SYS_ALERT: 95%+ OVERLOAD - consider closing: {app_names}.")
-                try:
-                    await self.session.send_client_content(
-                        turns={"parts": [{"text": f"[SYSTEM_ALERT] Critical system overload (>95%). Suggest the user manually close heavy applications ({app_names}); do not claim any application was closed."}]},
-                        turn_complete=True,
-                    )
-                except Exception:
-                    pass
-
-            alert = await asyncio.to_thread(self._sys_monitor.check)
-            if alert and self.session and not is_90:
-                try:
-                    await self.session.send_client_content(
-                        turns={"parts": [{"text": alert}]},
-                        turn_complete=True,
-                    )
-                except Exception as e:
-                    print(f"[Monitor] ⚠️ Could not send alert: {e}")
-
-    # ── Proactive mode ──────────────────────────────────────────────────────────
-
-    async def _run_proactive_mode(self) -> None:
-        """
-        Background task: publishes a `system.tick` bus event every minute. The
-        kernel P4-D ProactiveEngine (kernel/proactive) evaluates its rules
-        (cooldowns, hour caps, consent classes) and emits proactive.decision
-        events; `_on_proactive_decision` speaks the fired ones. The legacy
-        silence-timer (actions/proactive.py) is retired from production.
-        """
-        while True:
-            await asyncio.sleep(60)
-
-            if not self.session:
-                continue
-
-            with self._speaking_lock:
-                speaking = self._is_speaking
-            if speaking:
-                continue
-
-            try:
-                await self._bus.publish(Event(
-                    type="system.tick",
-                    payload={
-                        "silence_min": int(
-                            (time.monotonic() - self._last_user_speech) // 60
-                        ),
-                        "time": datetime.now().strftime("%I:%M %p"),
-                    },
-                    source="live",
-                ))
-            except Exception as e:
-                print(f"[Proactive] WARN tick publish failed: {e}")
-
-    # ── Phone audio relay ────────────────────────────────────────────────────────
-
-    async def _relay_phone_audio(self) -> None:
-        """Forward phone mic PCM chunks from dashboard queue into the Gemini Live session."""
-        q = self._dashboard._phone_audio_queue
-        while True:
-            try:
-                chunk = await asyncio.wait_for(q.get(), timeout=1.0)
-            except asyncio.TimeoutError:
-                # No audio for 1 s → phone mic inactive, give PC mic back
-                self._phone_active = False
-                continue
-            self._phone_active = True   # phone is streaming — silence PC mic
-            with self._speaking_lock:
-                speaking = self._is_speaking
-            if not speaking and not self.ui.muted:
-                try:
-                    self.out_queue.put_nowait(chunk)
-                except asyncio.QueueFull:
-                    pass
-
-    def _on_phone_connected(self) -> None:
-        self.ui.write_log("SYS: Phone connected via Remote Dashboard.")
-        self.ui.notify_phone_connected()
-
-    # ── dashboard command relay ─────────────────────────────────────────────
-
-    async def _process_dashboard_commands(self) -> None:
-        import base64
-        while True:
-            try:
-                item = await asyncio.wait_for(
-                    self._dashboard._command_queue.get(), timeout=0.02
-                )
-                if not item:
-                    continue
-                for _ in range(80):
-                    if self.session:
-                        break
-                    await asyncio.sleep(0.05)
-                if self.session:
-                    if isinstance(item, dict) and item.get("type") == "image":
-                        b64_str = item.get("data", "")
-                        mime = item.get("mime", "image/jpeg")
-                        img_bytes = base64.b64decode(b64_str)
-                        self.ui.write_log("SYS: Image received. ULTRON analyzing image...")
-                        await self.session.send_realtime_input(media={"data": img_bytes, "mime_type": mime})
-                        await self.session.send_client_content(
-                            turns={"parts": [{"text": "Please analyze this attached image in full detail, describe every visual element, and explain what it represents."}]},
-                            turn_complete=True,
-                        )
-                    else:
-                        text = str(item).strip()
-                        if text:
-                            if text in ("/toggle_mic", "toggle_mic", "mute", "unmute"):
-                                if text == "mute":
-                                    self.ui.muted = True
-                                elif text == "unmute":
-                                    self.ui.muted = False
-                                else:
-                                    self.ui.muted = not self.ui.muted
-                                new_state = "MUTED" if self.ui.muted else "LISTENING"
-                                self.set_app_state(new_state)
-                                self.ui.write_log(f"SYS: Microphone {'MUTED (OFF)' if self.ui.muted else 'UNMUTED (ON)'}.")
-                                continue
-                            await self.session.send_client_content(
-                                turns={"parts": [{"text": text}]},
-                                turn_complete=True,
-                            )
-                            self.ui.write_log(f"[Web]: {text}")
-                else:
-                    print(f"[Dashboard] Dropped item (no session)")
-            except asyncio.TimeoutError:
-                pass
-            except Exception as e:
-                print(f"[Dashboard] Command error: {e}")
-                await asyncio.sleep(0.1)
-
-    # ── main loop ───────────────────────────────────────────────────────────
-
     async def run(self):
         self._loop = asyncio.get_event_loop()
 
         # Start dashboard (optional — needs: pip install fastapi "uvicorn[standard]" cryptography)
         try:
-            from dashboard.server import DashboardServer, PORT
-            import webbrowser
+            from dashboard.server import DashboardServer
             self._dashboard = DashboardServer()
             self._dashboard.set_connect_callback(self._on_phone_connected)
             asyncio.create_task(self._dashboard.serve())
@@ -1291,7 +675,7 @@ class UltronLive:
 
                     # Reset transient state that must not carry over from a previous session
                     self._pending_vision       = None
-                    self._vision_cam_active    = False  
+                    self._vision_cam_active    = False
                     self._vision_close_pending = False
                     self._vision_busy          = False
                     self._vision_last_time     = 0.0

@@ -40,7 +40,10 @@ def test_02_declaration_names_unique():
 
 
 def test_03_every_declared_tool_is_dispatchable():
-    """Each declared tool resolves to a legacy handler during the P1-F migration."""
+    """Each declared tool resolves to a legacy handler during the P1-F migration.
+    Phase W0: TOOL_REGISTRY maps name → handler METHOD NAME (handlers live on
+    the app/ LegacyHandlersMixin), so dispatchability = the method exists on
+    UltronLive and is callable when bound."""
     from core.tool_declarations import TOOL_DECLARATIONS
     from main import UltronLive
 
@@ -52,8 +55,9 @@ def test_03_every_declared_tool_is_dispatchable():
             or name in registry
             or hasattr(UltronLive, f"_handle_{name}")
         ), f"declared tool {name!r} has no handler"
-    for name, handler in registry.items():
-        assert callable(handler), f"registry entry {name!r} not callable"
+    for name, method in registry.items():
+        handler = getattr(UltronLive, method, None)
+        assert callable(handler), f"registry entry {name!r} -> {method!r} not callable"
 
 
 def test_03b_registry_names_are_declared():
