@@ -17,10 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -51,7 +48,7 @@ class TestAgentRunner:
 
     def test_run_task_simple_stop(self):
         from kernel.loop.runner import AgentRunner
-        from kernel.gateway import Message, Response
+        from kernel.gateway import Response
         from kernel.types import RiskClass
         from kernel.policy import PolicyEngine
         from kernel.tools import ToolRegistry, Tool
@@ -185,7 +182,8 @@ class TestProviderTestRunner:
         runner = ProviderTestRunner()
         results = {
             "gemini": ProviderResult(provider="gemini", model="g", text="ok", steps=1, finish="stop", duration_s=0.1),
-            "ollama": ProviderResult(provider="ollama", model="o", text="fail", steps=0, finish="error", duration_s=0, error="timeout"),
+            "ollama": ProviderResult(provider="ollama", model=        "o", text="fail", steps=0, finish="error",
+        duration_s=0, error="timeout"),
         }
         report = runner.compare(results)
         assert "gemini" in report
@@ -262,7 +260,7 @@ class TestPersonaTraits:
     """Tests for kernel.persona.traits.PersonaTraits."""
 
     def test_import(self):
-        from kernel.persona.traits import PersonaTraits, PersonaStyle, build_persona_directive
+        from kernel.persona.traits import PersonaTraits, PersonaStyle
         assert PersonaTraits is not None
         assert PersonaStyle is not None
 
@@ -318,7 +316,7 @@ class TestSessionSummary:
     """Tests for kernel.memory.session_summary."""
 
     def test_import(self):
-        from kernel.memory.session_summary import generate_session_summary, SessionSummary
+        from kernel.memory.session_summary import generate_session_summary
         assert generate_session_summary is not None
 
     def test_empty_session(self):
@@ -359,7 +357,7 @@ class TestSessionSummary:
                 self.stored.append(kwargs)
 
         mem = FakeMemory()
-        s = generate_session_summary(
+        _ = generate_session_summary(
             user_messages=["test"],
             tool_calls=["echo"],
             assistant_responses=["ok"],
@@ -432,7 +430,7 @@ class TestHealthMonitor:
     """Tests for kernel.diagnostics.health.HealthMonitor."""
 
     def test_import(self):
-        from kernel.diagnostics.health import HealthMonitor, HealthReport, HealthStatus
+        from kernel.diagnostics.health import HealthMonitor, HealthStatus
         assert HealthMonitor is not None
         assert HealthStatus.HEALTHY == "healthy"
 
@@ -483,7 +481,7 @@ class TestCostTracker:
     """Tests for kernel.diagnostics.cost_tracker.CostTracker."""
 
     def test_import(self):
-        from kernel.diagnostics.cost_tracker import CostTracker, CostReport
+        from kernel.diagnostics.cost_tracker import CostTracker
         assert CostTracker is not None
 
     def test_record_usage(self):
@@ -571,6 +569,6 @@ class TestLiveSessionImport:
         assert hasattr(live, "FunctionResponse")
 
     def test_gateway_exports(self):
-        from kernel.gateway import LiveSession, build_live_config, FunctionResponse
+        from kernel.gateway import LiveSession, build_live_config
         assert LiveSession is not None
         assert build_live_config is not None
