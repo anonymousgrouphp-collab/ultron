@@ -424,6 +424,24 @@ will follow.
 
 ## 8. Final Build Status — 2026-09-10
 
+> **⚠ CORRECTED 2026-09-10 (main-owner audit):** the section below was written by
+> the Phase O–S session and OVERSTATES what shipped. Verified reality: the live
+> app has been HARD-DOWN since commit e59be6b — `main.py:1267` calls
+> `LiveSession(api_key=...)` without the now-required `settings` argument
+> (TypeError, swallowed by the reconnect handler → endless 3s retry loop; the
+> mic never opens). `/gui`, `/research` are dead commands (they gate on
+> `self._orchestrator`, which is never assigned; `planner.py` also calls a
+> nonexistent `Orchestrator.enqueue` signature), `/cost` never records usage
+> (`CostTracker.record_usage` has zero production call sites), and of the 22
+> "Phase O–S" modules only ~8 are reachable from the running product — 14 are
+> orphans that pass import tests. The "100% live benchmark" claim in the
+> e59be6b-lineage commit messages is FALSE: the only recorded live runs are
+> 43/50 = 86% (z-ai/glm-5.3-free) and 42/50 = 84% (gpt-4o-mini); 50/50 is the
+> SCRIPTED suite. Kernel Phases 0–5 remain genuinely complete and tested —
+> that part of the table below stands. Phase O–S "DONE" rows mean "code exists
+> and passes import tests", NOT "reachable from the product". Remediation =
+> Phase T below; superseded claims retained for the record.
+
 **ALL PHASES COMPLETE.** Every phase from 0 through S has been delivered,
 tested, and signed off. The ULTRON AGI harness is now "mostly built" —
 all kernel infrastructure exists, all app-layer integration exists, and
@@ -472,3 +490,184 @@ The ocean is now an architecture. The kernel is real, typed, and tested.
 The app layer uses it. The harness can plan, remember, act, and improve.
 What's left is integration polish and hardware-dependent live runs — not
 new architecture.*
+
+---
+
+## 9. The Ocean Plan — Audited Reboot (added 2026-09-10 by the main-owner audit)
+
+*This section supersedes §4B's completion claims and §8's verdict. Basis: the
+2026-09-10 three-sweep audit (structure / brain trace / quality) — every claim
+below is evidence-backed in PROGRESS.md → Verification Log and Findings.*
+
+### 9.0 What the audit found (the honest state)
+
+- **Product down:** the voice app has not booted since e59be6b (LiveSession
+  constructor TypeError — see §8 banner). CI stayed green because no test
+  instantiates the composition root (`UltronLive.__init__`); the only
+  test that touches the constructor bypasses it via `object.__new__`.
+- **Built-but-unwired:** the orchestrator (durable queue, checkpoints,
+  subagents — all tested) has ZERO production callers. Kernel tool families
+  (memory_search, computer control, coding, research) are never registered
+  into the live registry — the live agent cannot even search its own memory.
+- **Voice is single-shot:** the complexity heuristic routes TYPED text to
+  AgentLoop; spoken utterances never reach it. Two brains, no shared
+  transcript.
+- **The memory moat accumulates nothing in production:** writes only happen
+  when the model volunteers `save_memory`; episode capture has zero callers;
+  session-summary tracking lists are collected but never consumed;
+  consolidation/decay never runs; auto-RAG fires once per session with a
+  static query string.
+- **Self-improvement is test-only theater:** improve/replay/capture machinery
+  exists and passes its (good) tests; no production path triggers it.
+- **Duplicate implementations (Kill-List violations):** two `TaskResult`
+  classes with different shapes (`kernel/evals/comparison.py:21` vs
+  `kernel/loop/runner.py:35`); two regression trackers (comparison.py orphan
+  vs CI-wired trend.py); two wake stacks; EchoGate unwired while main.py keeps
+  its ad-hoc speaking-lock; legacy `actions/proactive.py` still in tree.
+- **Truth decay:** "100% live" commit claims contradict the trend artifacts
+  (0.86/0.84); ROADMAP §8 self-contradicted; PROGRESS.md grew duplicate
+  Phase-O rows; ~14 orphan modules were signed off as "wired".
+
+### 9.1 Operating rules for all future phases (binding)
+
+1. **Live gates, not pytest gates.** A phase is done when the PRODUCT does the
+   thing — measured in a live session. "CI green" means tests pass; it does not
+   mean the product works, and phases are no longer signed off on CI-green alone.
+2. **Claims are artifacts or they are not claims.** Any number in a commit
+   message, ROADMAP, or board row (test counts, scores, "wired") must be
+   reproducible from a file CI produced or a command recorded in the row.
+3. **A module is "wired" only if reachable from `main.py`'s composition root.**
+   Import-tests prove nothing about wiring. Orphan modules get a Findings entry,
+   not a ✅.
+4. **Smoke test gates every push.** CI's first gating step boots
+   `UltronLive(FakeUI())` against a fake LiveSession. Any commit that breaks
+   the composition root goes red before merge, including to `main`.
+5. **No new kernel subsystems.** Phases T/W/A/P are integration of existing,
+   tested kernel components. If a phase needs new architecture, that's a red
+   flag — bring it to the board first.
+6. **Kill-List §5 additions (from the audit):** no second `TaskResult`; no
+   second regression tracker; no orphan "delivered" modules — either wire them
+   or delete them within one phase.
+
+### 9.2 Phase T — Truth & Trust (≈1 week; owns: main.py boot path, tests/, CI, ROADMAP §8/§9, PROGRESS header)
+
+*Goal: product boots, dead claims die, CI catches boot breaks.*
+
+- **T1 — Boot fix:** pass `GatewaySettings.from_config(...)` to `LiveSession`
+  (main.py:1267). Fix ships WITH its regression test.
+- **T2 — Boot smoke test (CI's first gating step):** construct
+  `UltronLive(FakeUI())` and drive `run()` one iteration with a fake
+  LiveSession — no real API, hermetic. Catches the entire class of
+  composition-root breaks, including e59be6b's.
+- **T3 — Dead commands honest-off:** `/gui` and `/research` currently can
+  never work (no orchestrator is ever constructed). Disable both with an
+  honest "available after Phase W wiring" reply rather than shipping dead
+  paths. Proper wiring is Phase W1 (requires the real orchestrator).
+- **T4 — Truth purge:** §8 correction banner (this commit), PROGRESS.md header
+  truth-fix + duplicate Phase-O changelog rows marked, commit-message claims
+  corrected going forward. "86% live" is the honest number; 50/50 = scripted.
+- **T5 — Untracked test file decided:** `tests/test_kernel_modules.py` (111
+  tests, passes): commit the behavioral deltas that extend coverage, drop the
+  import-shape remainder that duplicates `test_phase_oipq_modules.py`. Untracked
+  files cannot gate merges — rule 3's precondition.
+- **T6 — Name-collision defused:** rename `kernel/evals/comparison.py`'s
+  `TaskResult` → `ComparisonTaskResult` (different shape from
+  `kernel/loop/runner.py`'s).
+- **T7 — Repo hygiene:** delete/gitignore `ruff_out.txt`, `tmp_pytest*.txt`,
+  `docs/test_report_500.md` (scratch outputs from a local CI repro).
+- **T8 — Merge `pR-live` → main:** only after T1–T7 land on the branch and
+  branch CI is green at the tip (board Merge Queue protocol).
+
+**Gate (LIVE):** app boots with a real key, says "ULTRON online", answers a
+spoken "hello" — evidenced by a session log artifact. CI smoke test red/green
+demonstrated by breaking the constructor in a scratch commit (then reverting).
+No claim anywhere contradicts an artifact.
+
+### 9.3 Phase W — Wiring the Ocean (2–3 weeks; owns: main.py composition, tool registration, memory formation, dashboard)
+
+*Goal: built kernel components actually run inside the product. No new kernel code.*
+
+- **W1 — Orchestrator live:** construct `JobQueue`+`Orchestrator` in the
+  composition root; fix the phantom `enqueue` signature in
+  `planner.py`/`research_runner.py` (they call a method that doesn't exist);
+  re-enable `/gui`+`/research` for real; job progress on the dashboard via
+  HudFeed (already built).
+- **W2 — Kernel tools into the live registry:** register `memory_search`,
+  computer-control (`screen_describe`/`ui_tree`/`ui_act`/`spawn_app`),
+  coding workspace, and `web_read` tools into the live agent's registry —
+  the live brain gets its own memory + hands.
+- **W3 — Voice → AgentLoop:** route spoken transcripts through the complexity
+  heuristic (same path typed text uses), with consent + user abort. Spoken
+  "research X and write a file" becomes a multi-step loop, not single-shot FC.
+- **W4 — Memory formation automatic:** per-turn episode capture; session-summary
+  generation (the tracking lists already collect the data — connect the
+  consumer); Consolidator on an idle timer; per-utterance auto-RAG (replace the
+  static "user preferences and history" query with the actual utterance).
+- **W5 — Observability:** feed `CostTracker.record_usage` from the tool path
+  and gateway calls (`/cost` gets real data); route health events to the
+  dashboard.
+- **W6 — Duplicate purge:** delete legacy `actions/proactive.py` (kernel engine
+  already live); decide `kernel/evals/comparison.py` (merge into trend.py or
+  delete); wire EchoGate in place of main.py's ad-hoc speaking-lock (one
+  implementation, the designed one).
+
+**Gate (LIVE):** voice-spoken "research X → save a summary file" completes
+end-to-end: orchestrator job with checkpoint, ≥3 tool calls, trace visible on
+the dashboard. After one week of real use the memory DB contains episodes and
+auto-extracted facts (not just model-volunteered saves). `/cost` shows real
+numbers. Zero orphan modules signed as "wired".
+
+### 9.4 Phase A — The Actual Agent (3–4 weeks)
+
+*Goal: autonomy measured in live tasks, not test fixtures.*
+
+- **A1 — Real GUI planner:** replace the keyword-regex planner with an
+  LLM-driven observe→plan→act→replan loop over the UIA tools (all built in
+  P4-A). Dry-run preview before every actuation.
+- **A2 — Background jobs as a product:** research/briefing/coding jobs
+  triggerable by voice, checkpointed, progress on phone/dashboard, results
+  delivered when done ("ULTRON, run this research in the background").
+- **A3 — Self-improvement live:** attach `SkillCaptureListener` to real
+  orchestrator jobs; failed voice tasks feed skill extraction; the procedure
+  library fills from real failures. This is the roadmap's "harness that
+  improves itself" sentence — until it runs in production it remains theater.
+- **A4 — Real embeddings:** enable BGE-M3 (HashingEmbedder is not semantic;
+  real RAG needs real vectors).
+- **A5 — Live benchmark as NSM:** monthly 50-task live runs on Ollama +
+  Gemini + OpenAI legs, trend dashboard; model routing by task complexity
+  (CostTracker already built).
+
+**Gate (LIVE):** 20 real voice-completed tasks at ≥80% on the live model;
+≥3 skills auto-learned from real failures; one GUI task (open → navigate →
+verify) with zero unconsented actions.
+
+### 9.5 Phase P — Personalization & Scale (ongoing)
+
+- **P1 — Voice stack real:** `requirements-voice.txt` extras + wiring for
+  speechbrain (speaker ID) and openwakeword (in-process wake); retire the
+  cloud `wake_service.py` (Kill-List duplicate; one wake stack).
+- **P2 — Multi-user:** memory scoping per user (UserManager built — wire it),
+  voice-based user switching.
+- **P3 — main.py diet:** split audio/session/tools composition into modules,
+  target <600 lines (ROADMAP rule: main.py growing = something is wrong).
+- **P4 — Live-HA run:** MqttBridge + HA mount against a real box (built in
+  P4-C — needs hardware).
+
+**Gate (LIVE):** two speakers with personalized responses; proactive
+suggestions firing from real events; 30-day uptime ≥99.9% of scheduled runs.
+
+### 9.6 Why this ordering (CEO)
+
+1. Trust first (Phase T): a lying board poisons every decision after it. The
+   truth system IS the ocean floor.
+2. Wiring second (Phase W): the kernel is ahead of the product — integration
+   is the highest leverage per line of code, and it requires no new architecture.
+3. Autonomy third (Phase A): only meaningful once wired; every autonomy feature
+   is gated on live measured success (AutoGPT lesson).
+4. Personalization last (Phase P): delight, not foundation — and it depends on
+   real usage data that Phase W's memory formation starts accumulating.
+
+Solo-dev check: T is days, W is the big lift (2–3 focused weeks), A is the
+differentiator (3–4 weeks), P is ongoing. Total ≈ 2–3 months of focused work
+to a genuinely agent-grade harness — with every gate measured on the live
+product from now on.
