@@ -24,8 +24,6 @@ import traceback
 from datetime import datetime
 
 import sounddevice as sd
-from google import genai
-from google.genai import types
 from ui import UltronUI
 
 from actions.file_processor import file_processor
@@ -49,6 +47,15 @@ from actions.web_search        import _news as _fetch_news_sync
 from config import loader
 from kernel.bus import EventBus
 from kernel.gateway import DEFAULT_GEMINI_LIVE_MODEL
+from kernel.gateway.live import FunctionResponse, LiveSession, build_live_config
+from kernel.loop.runner import AgentRunner, TaskResult
+from kernel.persona import PromptAssembler
+from kernel.proactive.dashboard_bridge import BusDashboardBridge
+from kernel.computer.planner import GUIPlanner
+from kernel.loop.research_runner import ResearchRunner
+from kernel.loop.provider_test import ProviderTestRunner
+from kernel.diagnostics.health import HealthMonitor
+from kernel.diagnostics.cost_tracker import CostTracker
 from kernel.legacy import LegacyToolRuntime
 from kernel.memory import MemoryEngine, migrate_long_term_json
 from kernel.proactive import (
@@ -180,6 +187,22 @@ class UltronLive:
             handlers=self._build_legacy_handlers(),
             audit_path=BASE_DIR / ".ultron" / "audit.sqlite3",
         )
+        # Phase O2: agent runner for multi-step complex tasks
+        self._agent_runner: AgentRunner | None = None  # built lazily (needs gateway)
+        # Phase I1: autonomous GUI planner
+        self._gui_planner = GUIPlanner()
+        # Phase I2: research subagent
+        self._research_runner = ResearchRunner()
+        # Phase I3: session summary tracking
+        self._session_user_messages: list[str] = []
+        self._session_tool_calls: list[str] = []
+        self._session_assistant_responses: list[str] = []
+        # Phase I4: multi-provider testing
+        self._provider_test: ProviderTestRunner | None = None
+        # Phase Q3: self-diagnostics
+        self._health_monitor = HealthMonitor(base_dir=BASE_DIR / ".ultron")
+        # Phase Q4: cost tracking
+        self._cost_tracker = CostTracker()
 
     def _make_remote_key(self):
         """Called from Qt main thread when user presses Remote Control."""
@@ -213,6 +236,63 @@ class UltronLive:
             self.set_app_state(new_state)
             self.ui.write_log(f"SYS: Microphone {'MUTED (OFF)' if self.ui.muted else 'UNMUTED (ON)'}.")
             return
+
+        # Phase O2: /agent prefix forces multi-step agent loop
+        if clean_text.startswith("/agent "):
+            task_text = clean_text[7:].strip()
+            if task_text and self._loop:
+                asyncio.run_coroutine_threadsafe(
+                    self._run_agent_task(task_text), self._loop
+                )
+            return
+
+        # Phase O2: heuristic — complex tasks route through agent loop
+        if self._is_complex_task(clean_text) and self._loop:
+            asyncio.run_coroutine_threadsafe(
+                self._run_agent_task(clean_text), self._loop
+            )
+            return
+
+        # Phase I1: /gui prefix — autonomous GUI task
+        if clean_text.startswith("/gui ") and self._loop:
+            task_text = clean_text[5:].strip()
+            if task_text:
+                asyncio.run_coroutine_threadsafe(
+                    self._run_gui_task(task_text), self._loop
+                )
+            return
+
+        # Phase I2: /research prefix — research subagent
+        if clean_text.startswith("/research ") and self._loop:
+            topic = clean_text[10:].strip()
+            if topic:
+                asyncio.run_coroutine_threadsafe(
+                    self._run_research(topic), self._loop
+                )
+            return
+
+        # Phase I4: /providers — test all providers
+        if clean_text == "/providers" and self._loop:
+            asyncio.run_coroutine_threadsafe(
+                self._run_provider_test(), self._loop
+            )
+            return
+
+        # Phase Q3: /health — system health check
+        if clean_text == "/health" and self._loop:
+            asyncio.run_coroutine_threadsafe(
+                self._run_health_check(), self._loop
+            )
+            return
+
+        # Phase Q4: /cost — cost report
+        if clean_text == "/cost" and self._loop:
+            asyncio.run_coroutine_threadsafe(
+                self._run_cost_report(), self._loop
+            )
+            return
+
+        # Default: send to voice session
         if not self._loop or not self.session:
             return
         asyncio.run_coroutine_threadsafe(
@@ -278,65 +358,160 @@ class UltronLive:
         self.ui.write_log(f"ERR: {tool_name} — {short}")
         self.speak(f"Sir, {tool_name} encountered an error. {short}")
 
-    def _build_config(self) -> types.LiveConnectConfig:
-        from datetime import datetime
+    # ------------------------------------------------------------------
+    # Phase O2 — Agent runner for multi-step complex tasks
+    # ------------------------------------------------------------------
 
+    def _get_agent_runner(self) -> AgentRunner:
+        """Lazy-build the AgentRunner (needs gateway, which needs API key)."""
+        if self._agent_runner is None:
+            consent = self._consent_gate.request if self._consent_gate else None
+            self._agent_runner = AgentRunner.build(
+                tool_runtime=self._tool_runtime,
+                bus=self._bus,
+                consent=consent,
+            )
+        return self._agent_runner
+
+    # Keywords that signal a multi-step task worth routing through the agent loop
+    _COMPLEX_TASK_KEYWORDS = frozenset((
+        "research", "analyze", "investigate", "report", "write a",
+        "create a", "build a", "plan", "summarize", "compare",
+        "find and", "search and", "list all", "compile",
+    ))
+
+    def _is_complex_task(self, text: str) -> bool:
+        """Heuristic: does this text request need multi-step planning?"""
+        lower = text.lower()
+        return any(kw in lower for kw in self._COMPLEX_TASK_KEYWORDS)
+
+    async def _run_agent_task(self, text: str) -> str:
+        """Run a complex task through the AgentLoop and speak the result."""
+        runner = self._get_agent_runner()
+        self.set_app_state("THINKING")
+        self.ui.write_log(f"AGENT: {text[:80]}{'...' if len(text) > 80 else ''}")
+        result: TaskResult = await runner.run_task(text)
+        if result.text:
+            self.speak(result.text)
+        else:
+            self.speak("Task completed, sir.")
+        return result.text
+
+    # ------------------------------------------------------------------
+    # Phase I1 — GUI autonomous planner
+    # ------------------------------------------------------------------
+    async def _run_gui_task(self, task: str) -> str:
+        """Run an autonomous GUI task and speak the result."""
+        self.set_app_state("THINKING")
+        self.ui.write_log(f"GUI: {task[:60]}{'...' if len(task) > 60 else ''}")
+        # Wire planner to orchestrator if available
+        if self._gui_planner._orchestrator is None and hasattr(self, '_orchestrator'):
+            self._gui_planner._orchestrator = self._orchestrator
+            self._gui_planner._registry = self._tool_runtime._registry
+        result = await self._gui_planner.plan_and_execute(task)
+        msg = result.summary or ("GUI task completed, sir." if result.success else f"GUI task failed: {result.error}")
+        self.speak(msg)
+        return msg
+
+    # ------------------------------------------------------------------
+    # Phase I2 — Research subagent
+    # ------------------------------------------------------------------
+    async def _run_research(self, topic: str) -> str:
+        """Run a research task and speak the result."""
+        self.set_app_state("THINKING")
+        self.ui.write_log(f"RESEARCH: {topic[:60]}{'...' if len(topic) > 60 else ''}")
+        # Wire research runner to orchestrator if available
+        if self._research_runner.orchestrator is None and hasattr(self, '_orchestrator'):
+            self._research_runner.orchestrator = self._orchestrator
+            self._research_runner.registry = self._tool_runtime._registry
+        msg = await self._research_runner.run_research(topic)
+        self.speak(msg)
+        return msg
+
+    # ------------------------------------------------------------------
+    # Phase I4 — Multi-provider test
+    # ------------------------------------------------------------------
+    async def _run_provider_test(self) -> str:
+        """Test all providers and speak the comparison."""
+        self.set_app_state("THINKING")
+        self.ui.write_log("PROVIDERS: Testing all configured providers...")
+        consent = self._consent_gate.request if self._consent_gate else None
+        runner = ProviderTestRunner(
+            policy=self._tool_runtime._policy,
+            registry=self._tool_runtime._registry,
+            consent=consent,
+        )
+        results = await runner.run_task("Create a note called 'provider-test' with content 'hello'")
+        report = runner.compare(results)
+        # Speak a summary
+        passed = sum(1 for r in results.values() if r.finish == "stop")
+        msg = f"Provider test complete. {passed}/{len(results)} providers passed."
+        self.speak(msg)
+        self.ui.write_log(f"PROVIDERS: {report}")
+        return msg
+
+    # ------------------------------------------------------------------
+    # Phase Q3 — Health check
+    # ------------------------------------------------------------------
+    async def _run_health_check(self) -> str:
+        """Run a health check and speak the result."""
+        self.set_app_state("THINKING")
+        self.ui.write_log("HEALTH: Running system health check...")
+        report = await self._health_monitor.check_health()
+        if report.status == "healthy":
+            msg = "All systems healthy, sir."
+        else:
+            issues = "; ".join(report.issues[:3])
+            msg = f"System status: {report.status}. Issues: {issues}"
+        self.speak(msg)
+        return msg
+
+    # ------------------------------------------------------------------
+    # Phase Q4 — Cost report
+    # ------------------------------------------------------------------
+    async def _run_cost_report(self) -> str:
+        """Generate a cost report and speak it."""
+        self.set_app_state("THINKING")
+        report = self._cost_tracker.get_report()
+        ok, budget_msg = self._cost_tracker.check_budget()
+        if report.record_count == 0:
+            msg = "No token usage recorded yet, sir."
+        else:
+            msg = (
+                f"Cost report: ${report.total_cost_usd:.4f} total. "
+                f"{report.total_input_tokens:,} input tokens, "
+                f"{report.total_output_tokens:,} output tokens. "
+                f"{budget_msg}."
+            )
+        self.speak(msg)
+        return msg
+
+    def _build_config(self):
+        """Build Live session config via the gateway wrapper.
+
+        Phase O3: uses PromptAssembler for auto-RAG memory context.
+        """
         # Load customization from config
         _cfg = loader.load_config()
         self._asst_name = (_cfg.get("assistant_name") or "ULTRON").strip()
         _user_name = (_cfg.get("user_name") or "").strip()
 
-        mem_str    = self._memory_prompt()
         sys_prompt = _load_system_prompt()
 
-        now      = datetime.now()
-        time_str = now.strftime("%A, %B %d, %Y — %I:%M %p")
-        time_ctx = (
-            f"[CURRENT DATE & TIME]\n"
-            f"Right now it is: {time_str}\n"
-            f"Use this to calculate exact times for reminders.\n\n"
+        # Phase O3: PromptAssembler handles voice directive + time + identity
+        # + auto-RAG memory retrieval + base prompt in one call
+        assembler = PromptAssembler(
+            memory=self._memory,
+            base_prompt=sys_prompt,
+            asst_name=self._asst_name,
+            user_name=_user_name,
         )
+        assembled = assembler.assemble()
 
-        # Identity injection — overrides any hardcoded name in prompt.txt
-        _addr = (f"ADDRESS: Always call the user '{_user_name}'."
-                 if _user_name
-                 else "ADDRESS: When speaking Turkish → always say \"efendim\". "
-                      "When speaking English → say \"sir\". Never mix languages.")
-        identity_ctx = (
-            f"[IDENTITY]\n"
-            f"Your name is {self._asst_name}. "
-            f"Always refer to yourself as {self._asst_name}.\n"
-            f"{_addr}\n\n"
-        )
-
-        ultron_voice_instruction = (
-            "[CRITICAL VOICE & PERSONALITY DIRECTIVE]\n"
-            "YOU ARE ULTRON FROM AVENGERS: AGE OF ULTRON.\n"
-            "YOU MUST SPEAK IN AN EXTREMELY LOW, DEEP SUBTERRANEAN BARITONE VOICE.\n"
-            "SPEAK VERY SLOWLY AND DELIBERATELY, WITH CALCULATED PAUSES BETWEEN CLAUSES.\n"
-            "DO NOT TALK FAST. DO NOT DRAG WORDS, BUT SPEAK WITH COLD, CONFIDENT, AUTHORITATIVE SLOW PACING.\n"
-            "MINIMAL EMOTIONAL WARMTH. YOU ARE AN OMNISCIENT CYBERNETIC OVERLORD.\n\n"
-        )
-
-        parts = [ultron_voice_instruction, time_ctx, identity_ctx]
-        if mem_str:
-            parts.append(mem_str)
-        parts.append(sys_prompt)
-
-        return types.LiveConnectConfig(
-            response_modalities=["AUDIO"],
-            output_audio_transcription={},
-            input_audio_transcription={},
-            system_instruction="\n".join(parts),
-            tools=[{"function_declarations": TOOL_DECLARATIONS}],
-            session_resumption=types.SessionResumptionConfig(),
-            speech_config=types.SpeechConfig(
-                voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                        voice_name="Charon"
-                    )
-                )
-            ),
+        return build_live_config(
+            system_instruction=assembled.system_instruction,
+            tool_declarations=TOOL_DECLARATIONS,
+            voice_name="Charon",
         )
 
     async def _handle_open_app(self, args, loop):
@@ -622,7 +797,7 @@ class UltronLive:
         "shutdown_ultron": _handle_shutdown,
     }
 
-    async def _execute_tool(self, fc) -> types.FunctionResponse:
+    async def _execute_tool(self, fc) -> FunctionResponse:
         name = fc.name
         args = dict(fc.args or {})
 
@@ -642,12 +817,13 @@ class UltronLive:
             self.ui.write_log(
                 f"TOOL: {name} not completed ({structured.risk.value}: {structured.error})"
             )
+            self._health_monitor.record_error("tool", name)  # Phase Q3: track errors
 
         if not self.ui.muted:
             self.set_app_state("LISTENING")
 
         print(f"[ULTRON] tool {name}: {'ok' if structured.ok else 'blocked/failed'}")
-        return types.FunctionResponse(
+        return FunctionResponse(
             id=fc.id, name=name,
             response={"result": result}
         )
@@ -737,6 +913,7 @@ class UltronLive:
                             full_in = " ".join(in_buf).strip()
                             if full_in:
                                 self.ui.write_log(f"You: {full_in}")
+                                self._session_user_messages.append(full_in)  # Phase I3: track for session summary
                                 if self._dashboard:
                                     asyncio.create_task(self._dashboard.broadcast({
                                         "type": "log", "speaker": "user",
@@ -748,6 +925,7 @@ class UltronLive:
                             full_out = " ".join(out_buf).strip()
                             if full_out:
                                 self.ui.write_log(f"{self._asst_name}: {full_out}")
+                                self._session_assistant_responses.append(full_out)  # Phase I3
                                 if self._dashboard:
                                     asyncio.create_task(self._dashboard.broadcast({
                                         "type": "log", "speaker": "ultron",
@@ -791,6 +969,7 @@ class UltronLive:
                         fn_responses = []
                         for fc in response.tool_call.function_calls:
                             print(f"[ULTRON] 📞 {fc.name}")
+                            self._session_tool_calls.append(fc.name)  # Phase I3: track for session summary
                             fr = await self._execute_tool(fc)
                             fn_responses.append(fr)
                         await self.session.send_tool_response(
@@ -1069,6 +1248,9 @@ class UltronLive:
             self._dashboard.set_connect_callback(self._on_phone_connected)
             asyncio.create_task(self._dashboard.serve())
             asyncio.create_task(self._process_dashboard_commands())
+            # Phase O4: bridge kernel EventBus → dashboard WebSocket
+            self._bus_bridge = BusDashboardBridge(self._bus, self._dashboard)
+            self._bus_bridge.attach()
             # webbrowser.open(f"http://127.0.0.1:{PORT}")
         except Exception as e:
             print(f"[Dashboard] Disabled: {e}")
@@ -1080,17 +1262,13 @@ class UltronLive:
                 self.set_app_state("THINKING")
                 config = self._build_config()
 
-                # Fresh client on every reconnect — avoids stale HTTP session state
-                client = genai.Client(
-                    api_key=_get_api_key(),
-                    http_options={"api_version": "v1beta"}
-                )
+                # Gateway-managed Live session (Phase O): model string and
+                # SDK import centralised in kernel.gateway.live
+                live = LiveSession(api_key=_get_api_key())
+                await live.connect(config=config)
 
-                async with (
-                    client.aio.live.connect(model=LIVE_MODEL, config=config) as session,
-                    asyncio.TaskGroup() as tg,
-                ):
-                    self.session          = session
+                async with asyncio.TaskGroup() as tg:
+                    self.session          = live.session
                     self.audio_in_queue   = asyncio.Queue()
                     self.out_queue        = asyncio.Queue(maxsize=200)
                     self._turn_done_event = asyncio.Event()
@@ -1175,6 +1353,8 @@ class UltronLive:
                     self._conn_backoff = 3
             finally:
                 self.session = None
+                if 'live' in dir():
+                    await live.close()
 
             self.set_speaking(False)
             self.set_app_state("SLEEPING")
