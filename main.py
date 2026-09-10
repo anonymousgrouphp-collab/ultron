@@ -46,7 +46,7 @@ from actions.system_monitor    import SystemMonitor, get_system_status
 from actions.web_search        import _news as _fetch_news_sync
 from config import loader
 from kernel.bus import EventBus
-from kernel.gateway import DEFAULT_GEMINI_LIVE_MODEL
+from kernel.gateway import DEFAULT_GEMINI_LIVE_MODEL, GatewaySettings
 from kernel.gateway.live import FunctionResponse, LiveSession, build_live_config
 from kernel.loop.runner import AgentRunner, TaskResult
 from kernel.persona import PromptAssembler
@@ -398,33 +398,44 @@ class UltronLive:
         return result.text
 
     # ------------------------------------------------------------------
-    # Phase I1 — GUI autonomous planner
+    # Phase I1 — GUI autonomous planner (honest-off until Phase W1)
     # ------------------------------------------------------------------
     async def _run_gui_task(self, task: str) -> str:
-        """Run an autonomous GUI task and speak the result."""
-        self.set_app_state("THINKING")
-        self.ui.write_log(f"GUI: {task[:60]}{'...' if len(task) > 60 else ''}")
-        # Wire planner to orchestrator if available
-        if self._gui_planner._orchestrator is None and hasattr(self, '_orchestrator'):
-            self._gui_planner._orchestrator = self._orchestrator
-            self._gui_planner._registry = self._tool_runtime._registry
-        result = await self._gui_planner.plan_and_execute(task)
-        msg = result.summary or ("GUI task completed, sir." if result.success else f"GUI task failed: {result.error}")
+        """GUI planner — NOT WIRED YET (Phase T3).
+
+        The planner needs the orchestrator (JobQueue + worker), which the
+        composition root does not construct yet (Phase W1, ROADMAP §9.3).
+        Until then this command answers honestly instead of silently
+        no-op'ing on a `hasattr` guard that could never be true.
+        """
+        self.set_app_state("LISTENING")
+        msg = (
+            "The GUI planner is not wired yet, sir. It arrives with "
+            "Phase W, when the orchestrator becomes live."
+        )
+        self.ui.write_log("GUI: not wired yet — requires the Phase W orchestrator.")
         self.speak(msg)
         return msg
 
     # ------------------------------------------------------------------
-    # Phase I2 — Research subagent
+    # Phase I2 — Research subagent (honest-off until Phase W1)
     # ------------------------------------------------------------------
     async def _run_research(self, topic: str) -> str:
-        """Run a research task and speak the result."""
-        self.set_app_state("THINKING")
-        self.ui.write_log(f"RESEARCH: {topic[:60]}{'...' if len(topic) > 60 else ''}")
-        # Wire research runner to orchestrator if available
-        if self._research_runner.orchestrator is None and hasattr(self, '_orchestrator'):
-            self._research_runner.orchestrator = self._orchestrator
-            self._research_runner.registry = self._tool_runtime._registry
-        msg = await self._research_runner.run_research(topic)
+        """Research runner — NOT WIRED YET (Phase T3).
+
+        Same as the GUI planner: research_report_plan enqueues onto the
+        orchestrator, which no production code constructs yet (Phase W1).
+        The user is told the truth instead of a dead path.
+        """
+        self.set_app_state("LISTENING")
+        msg = (
+            "The research subagent is not wired yet, sir. It arrives with "
+            "Phase W, when background jobs become live."
+        )
+        self.ui.write_log(
+            f"RESEARCH: '{topic[:60]}' — not wired yet (requires the "
+            "Phase W orchestrator)."
+        )
         self.speak(msg)
         return msg
 
@@ -509,7 +520,7 @@ class UltronLive:
         assembled = assembler.assemble()
 
         return build_live_config(
-            system_instruction=assembled.system_instruction,
+            system_prompt=assembled.system_instruction,
             tool_declarations=TOOL_DECLARATIONS,
             voice_name="Charon",
         )
@@ -1263,8 +1274,13 @@ class UltronLive:
                 config = self._build_config()
 
                 # Gateway-managed Live session (Phase O): model string and
-                # SDK import centralised in kernel.gateway.live
-                live = LiveSession(api_key=_get_api_key())
+                # SDK import centralised in kernel.gateway.live. The settings
+                # flow through GatewaySettings.from_config so provider config
+                # stays the single source of truth (Phase R4).
+                live = LiveSession(
+                    settings=GatewaySettings.from_config(loader.load_config()),
+                    api_key=_get_api_key(),
+                )
                 await live.connect(config=config)
 
                 async with asyncio.TaskGroup() as tg:

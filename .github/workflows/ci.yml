@@ -30,6 +30,13 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install -r requirements-dev.txt
 
+      - name: Boot smoke test (Phase T2, gating — FIRST)
+        # The repo's hardest lesson: e59be6b shipped a composition-root break
+        # (LiveSession missing `settings`) while CI stayed green, because no
+        # test booted UltronLive. This gate runs before everything else so a
+        # broken product can never reach the merge queue silently.
+        run: python -m pytest tests/test_boot_smoke.py -v --tb=short
+
       - name: Run tests (gating)
         run: |
           python -m pytest tests -v --tb=short 2>&1 | Tee-Object -FilePath pytest_out.txt
