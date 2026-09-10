@@ -14,12 +14,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-__all__ = ["ModelComparator", "ComparisonReport"]
+__all__ = ["ModelComparator", "ComparisonReport", "ComparisonTaskResult"]
 
 
 @dataclass(frozen=True)
-class TaskResult:
-    """Result of a single benchmark task."""
+class ComparisonTaskResult:
+    """Result of a single benchmark task.
+
+    Name deliberately distinct from ``kernel.loop.runner.TaskResult``
+    (a different shape) — the audit's T6 defusal of a latent
+    name-collision landmine.
+    """
 
     task_id: str
     category: str
@@ -46,15 +51,15 @@ class ModelComparator:
     Usage::
 
         comparator = ModelComparator()
-        comparator.record("gemini", [TaskResult("t1", "files", True, 0.5)])
-        comparator.record("ollama", [TaskResult("t1", "files", False, 1.0, error="timeout")])
+        comparator.record("gemini", [ComparisonTaskResult("t1", "files", True, 0.5)])
+        comparator.record("ollama", [ComparisonTaskResult("t1", "files", False, 1.0, error="timeout")])
         report = comparator.compare()
     """
 
-    _results: dict[str, list[TaskResult]] = field(default_factory=dict)
+    _results: dict[str, list[ComparisonTaskResult]] = field(default_factory=dict)
     _baseline: dict[str, bool] | None = None
 
-    def record(self, provider: str, results: list[TaskResult]) -> None:
+    def record(self, provider: str, results: list[ComparisonTaskResult]) -> None:
         """Record results for a provider."""
         self._results[provider] = results
 
@@ -172,7 +177,7 @@ class ModelComparator:
         data = json.loads(path.read_text())
         for provider, results in data.items():
             self._results[provider] = [
-                TaskResult(
+                ComparisonTaskResult(
                     task_id=r["task_id"],
                     category=r["category"],
                     passed=r["passed"],

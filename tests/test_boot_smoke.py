@@ -24,8 +24,6 @@ stub needs none — the same posture as test_characterization).
 """
 
 import asyncio
-import sys
-from pathlib import Path
 
 import pytest
 
