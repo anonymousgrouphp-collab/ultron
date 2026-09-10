@@ -1,7 +1,5 @@
 #computer_settings.py
-from utils.env import get_api_key, get_base_dir, get_os
-import json
-import re
+from utils.env import get_base_dir, get_os
 import sys
 import time
 import subprocess
@@ -582,8 +580,7 @@ _DANGEROUS_ACTIONS = {"restart", "shutdown"}
 
 def _detect_action(description: str) -> dict:
 
-    from google import genai as _genai
-    _client = _genai.Client(api_key=get_api_key('gemini_api_key'))
+    import actions._llm as _llm
 
     available = ", ".join(sorted(ACTION_MAP.keys())) + \
                 ", volume_set, type_text, press_key, reload_n"
@@ -607,9 +604,7 @@ Rules:
 - Return ONLY the JSON, no explanation, no markdown."""
 
     try:
-        resp = _client.models.generate_content(model="gemini-3.5-flash-lite", contents=prompt)
-        text = re.sub(r"```(?:json)?", "", resp.text).strip().rstrip("`").strip()
-        return json.loads(text)
+        return _llm.complete_json(prompt)
     except Exception as e:
         print(f"[Settings] Intent detection failed: {e}")
         return {"action": description.lower().replace(" ", "_"), "value": None}

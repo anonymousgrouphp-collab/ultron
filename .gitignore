@@ -37,6 +37,9 @@ desktop.ini
 # ─── Scratch & Temp ───────────────────────────────
 scratch/
 
+# ─── Live-benchmark trend data (R6 — run artifacts, uploaded via workflow) ──
+evals/results/
+
 # ─── Memory Runtime Data ──────────────────────────
 memory/long_term.json
 memory/cmr_records.json

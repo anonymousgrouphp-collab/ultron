@@ -1,0 +1,109 @@
+name: Live Benchmark (R6)
+
+# R6 — live-model benchmark trend. Scheduled weekly + manual dispatch. This
+# workflow NEVER gates CI: live-model scores are model variance, so they go
+# to the trend log (evals/results/live_trend.jsonl) and uploaded artifacts,
+# and every step is fail-soft (continue-on-error / non-gating exits).
+# The tracked scripted gate stays `evals/dashboard.py` in the main CI.
+
+on:
+  schedule:
+    # Weekly: Sunday 05:00 UTC
+    - cron: "0 5 * * 0"
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: "Paid-key provider for the live suite leg"
+        type: choice
+        default: openai
+        options: [openai, gemini]
+      include_ollama:
+        description: "Also run the Ollama baseline (requires a self-hosted runner with Ollama installed)"
+        type: boolean
+        default: false
+
+env:
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+jobs:
+  live-provider:
+    name: Live suite (${{ inputs.provider || 'openai' }})
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements-dev.txt
+
+      - name: Write Gemini key into the (gitignored) config for suite live mode
+        # evals/suite.py reads gemini_api_key from config/api_keys.json;
+        # that file is gitignored and absent on fresh runners. The key
+        # arrives via the GEMINI_API_KEY secret and never leaves the runner.
+        if: ${{ inputs.provider == 'gemini' }}
+        run: |
+          $cfg = @{ gemini_api_key = $env:GEMINI_API_KEY } | ConvertTo-Json
+          Set-Content -Path config/api_keys.json -Value $cfg
+
+      - name: Run live suite + append trend (fail-soft, never gates)
+        continue-on-error: true
+        run: python evals/trend.py --provider ${{ inputs.provider || 'openai' }} --suite-root .ultron/eval/benchmark/live
+
+      - name: Upload trend + suite artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-benchmark-${{ inputs.provider || 'openai' }}
+          path: |
+            evals/results/
+            .ultron/eval/benchmark/live/
+          if-no-files-found: ignore
+
+  ollama-baseline:
+    # Hosted runners cannot run Ollama — this leg needs a self-hosted runner
+    # with `ollama serve` running. Dispatched manually via the
+    # include_ollama input (default false ⇒ scheduled runs skip it).
+    name: Ollama baseline (self-hosted)
+    runs-on: self-hosted
+    if: ${{ inputs.include_ollama == true }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements-dev.txt
+
+      - name: Run live suite (Ollama) + append trend (fail-soft, never gates)
+        continue-on-error: true
+        run: python evals/trend.py --provider ollama --suite-root .ultron/eval/benchmark/live
+
+      - name: Upload trend + suite artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-benchmark-ollama
+          path: |
+            evals/results/
+            .ultron/eval/benchmark/live/
+          if-no-files-found: ignore

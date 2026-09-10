@@ -185,15 +185,34 @@ class TestRegistryIntegration:
         assert not result.ok  # EXECUTE with no consent callback -> fail-safe deny
         assert "consent" in (result.error or "")
 
-    def test_read_tools_flow_without_consent(self) -> None:
+    def test_read_tools_flow_without_consent(self, monkeypatch) -> None:
+        # Hermetic: a REAL top_windows() call is a UIA COM round-trip that
+        # intermittently deadlocks on CI (the run-level hang behind the two
+        # cancelled 30-min CI runs) — the live evidence for enumeration
+        # lives in the real-desktop class below, so mock it here.
+        from kernel.computer.observe import WindowInfo
+        monkeypatch.setattr(
+            "kernel.computer.tools.top_windows",
+            lambda: [WindowInfo(handle=1, title="Fake", pid=100,
+                               process_name="fake.exe", is_visible=True)],
+        )
         reg, _ = _registry_with_tools()
         engine = PolicyEngine(policy=Policy.default())
         call = _mkcall("screen_describe")
         result = asyncio.run(engine.run(call, reg))
         assert result.ok
         assert isinstance(result.data, dict) and "windows" in result.data
+        assert result.data["windows"][0]["title"] == "Fake"
 
-    def test_spawn_app_missing_command_fails_clean(self) -> None:
+    def test_spawn_app_missing_command_fails_clean(self, monkeypatch) -> None:
+        # Hermetic: spawn_window_for snapshots top_windows() before launching —
+        # that snapshot is the same deadlocking UIA COM call (see above). The
+        # launch itself must still be the real OSError path (the fake exe
+        # doesn't exist), so only the enumeration is mocked.
+        monkeypatch.setattr(
+            "kernel.computer.tools.top_windows",
+            lambda: [],
+        )
         reg, _ = _registry_with_tools()
         call = _mkcall("spawn_app", command="definitely-not-a-real-exe-xyz.exe")
         res = asyncio.run(reg.execute(call))

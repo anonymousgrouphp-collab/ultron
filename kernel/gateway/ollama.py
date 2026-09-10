@@ -14,6 +14,7 @@ from typing import Any
 
 from kernel.gateway.base import (
     Gateway,
+    GatewayError,
     GatewaySettings,
     Message,
     Post,
@@ -49,6 +50,11 @@ class OllamaAdapter(Gateway):
         tools: Sequence[Mapping[str, Any]],
         response_schema: Mapping[str, Any] | None,
     ) -> dict[str, Any]:
+        for msg in messages:
+            if msg.parts:
+                raise GatewayError(
+                    "ollama adapter does not support inline data parts "
+                    "(image/audio) — use the gemini provider")
         rendered: list[dict[str, Any]] = []
         for msg in messages:
             if msg.role == "system":

@@ -7,6 +7,7 @@ become kernel ToolCall structs (ids are synthesized — Gemini emits none).
 
 from __future__ import annotations
 
+import base64
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -43,7 +44,17 @@ def _render_contents(
         if msg.role == "system":
             system.append(msg.text)
         elif msg.role == "user":
-            contents.append({"role": "user", "parts": [{"text": msg.text}]})
+            user_parts: list[dict[str, Any]] = []
+            if msg.text:
+                user_parts.append({"text": msg.text})
+            for inline in msg.parts:
+                user_parts.append({
+                    "inlineData": {
+                        "mimeType": inline.mime_type,
+                        "data": base64.b64encode(inline.data).decode("ascii"),
+                    }
+                })
+            contents.append({"role": "user", "parts": user_parts})
         elif msg.role == "assistant":
             parts: list[dict[str, Any]] = []
             if msg.text:
@@ -108,9 +119,17 @@ class GeminiAdapter(Gateway):
                 "parts": [{"text": text} for text in system]
             }
         if tools:
-            payload["tools"] = [
-                {"functionDeclarations": [dict(decl) for decl in tools]}
-            ]
+            # Provider-native tool dicts (e.g. {"google_search": {}}) pass
+            # through verbatim next to the JSON-schema function declarations
+            # (R2: web_search's grounded-search tool rides the gateway).
+            native = [dict(decl) for decl in tools
+                      if set(decl) == {"google_search"}]
+            funcs = [dict(decl) for decl in tools
+                     if set(decl) != {"google_search"}]
+            payload["tools"] = native
+            if funcs:
+                payload["tools"].append(
+                    {"functionDeclarations": funcs})
         gen_config: dict[str, Any] = {}
         if response_schema is not None:
             gen_config["responseMimeType"] = "application/json"

@@ -30,11 +30,13 @@ def test_01_declarations_structure():
 
 
 def test_02_declaration_names_unique():
-    """Tool names are unique and count is stable at 21 (#2)."""
+    """Tool names are unique and count is stable at 20 (#2; send_message
+    deleted in Phase R2 — its blind WhatsApp/Telegram automation is a
+    Kill-List removal)."""
     from core.tool_declarations import TOOL_DECLARATIONS
 
     names = [d["name"] for d in TOOL_DECLARATIONS]
-    assert len(names) == len(set(names)) == 21
+    assert len(names) == len(set(names)) == 20
 
 
 def test_03_every_declared_tool_is_dispatchable():

@@ -1,11 +1,15 @@
-"""kernel/gateway — P1-C: the one model gateway (Gemini + Ollama adapters).
+"""kernel/gateway — P1-C: the one model gateway (Gemini + Ollama + OpenAI adapters).
 
 The agent loop (P1-G) programs against :class:`Gateway.complete` and reads
 neutral :class:`Response` records; provider payloads never leave this package.
 Model strings live only here (Kill List #3).
+
+Live audio (Phase O): :class:`LiveSession` wraps the Gemini Live SDK so
+main.py imports from the gateway, not directly from ``google.genai``.
 """
 
 from kernel.gateway.base import (
+    DEFAULT_GEMINI_LIVE_MODEL,
     DEFAULT_GEMINI_MODEL,
     DEFAULT_OLLAMA_MODEL,
     DEFAULT_OLLAMA_URL,
@@ -14,6 +18,7 @@ from kernel.gateway.base import (
     Gateway,
     GatewayError,
     GatewaySettings,
+    InlineData,
     Message,
     Post,
     Provider,
@@ -23,10 +28,12 @@ from kernel.gateway.base import (
     urllib_post,
 )
 from kernel.gateway.gemini import GeminiAdapter
+from kernel.gateway.live import FunctionResponse, LiveSession, build_live_config
 from kernel.gateway.ollama import OllamaAdapter
 from kernel.gateway.openai import OpenAIChatAdapter
 
 __all__ = [
+    "DEFAULT_GEMINI_LIVE_MODEL",
     "DEFAULT_GEMINI_MODEL",
     "DEFAULT_OLLAMA_MODEL",
     "DEFAULT_OLLAMA_URL",
@@ -36,6 +43,9 @@ __all__ = [
     "GatewayError",
     "GatewaySettings",
     "GeminiAdapter",
+    "InlineData",
+    "FunctionResponse",
+    "LiveSession",
     "Message",
     "OllamaAdapter",
     "OpenAIChatAdapter",
@@ -44,5 +54,6 @@ __all__ = [
     "Response",
     "ToolResultLike",
     "build_gateway",
+    "build_live_config",
     "urllib_post",
 ]

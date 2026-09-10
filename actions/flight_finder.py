@@ -1,5 +1,5 @@
 #flight_finder.py
-from utils.env import get_api_key, get_base_dir, is_mac, is_windows
+from utils.env import get_base_dir, is_mac, is_windows
 import json
 import re
 import subprocess
@@ -51,17 +51,13 @@ def _parse_date(raw: str) -> str:
             return val.strftime("%Y-%m-%d")
 
     try:
-        from google import genai as _genai
-        _client  = _genai.Client(api_key=get_api_key('gemini_api_key'))
-        response = _client.models.generate_content(
-            model="gemini-3.5-flash-lite",
-            contents=(
-                f"Today is {today.strftime('%Y-%m-%d')}. "
-                f"Convert this date expression to YYYY-MM-DD: '{raw}'. "
-                f"Return ONLY the date string, nothing else."
-            )
+        import actions._llm as _llm
+
+        result = _llm.complete_text(
+            f"Today is {today.strftime('%Y-%m-%d')}. "
+            f"Convert this date expression to YYYY-MM-DD: '{raw}'. "
+            f"Return ONLY the date string, nothing else."
         )
-        result = response.text.strip()
         if re.match(r"\d{4}-\d{2}-\d{2}", result):
             return result
     except Exception as e:
@@ -143,10 +139,8 @@ def _parse_flights_with_gemini(
     destination: str,
     date:        str,
 ) -> list[dict]:
-    from google import genai as _genai
-    from google.genai import types
+    import actions._llm as _llm
 
-    _client = _genai.Client(api_key=get_api_key('gemini_api_key'))
     prompt  = (
         f"Extract flight options from {origin} to {destination} on {date} "
         f"from this Google Flights page text:\n\n{raw_text[:12000]}\n\n"
@@ -157,19 +151,14 @@ def _parse_flights_with_gemini(
     )
 
     try:
-        response = _client.models.generate_content(
-            model="gemini-3.6-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=(
-                    "You are a flight data extraction expert. "
-                    "Extract flight information from raw webpage text. "
-                    "Return ONLY valid JSON — no markdown, no explanation."
-                )
+        flights = _llm.complete_json(
+            prompt,
+            system=(
+                "You are a flight data extraction expert. "
+                "Extract flight information from raw webpage text. "
+                "Return ONLY valid JSON — no markdown, no explanation."
             ),
         )
-        text     = re.sub(r"```(?:json)?", "", response.text).strip().rstrip("`").strip()
-        flights  = json.loads(text)
         return flights if isinstance(flights, list) else []
     except Exception as e:
         print(f"[FlightFinder] ⚠️ Gemini parse failed: {e}")

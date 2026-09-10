@@ -27,7 +27,7 @@ def test_legacy_declarations_have_one_complete_risk_classification():
 
     assert set(LEGACY_TOOL_RISKS) == declared
     assert LEGACY_TOOL_RISKS["web_search"] is RiskClass.READ
-    assert LEGACY_TOOL_RISKS["send_message"] is RiskClass.WRITE
+    assert LEGACY_TOOL_RISKS["reminder"] is RiskClass.WRITE
     assert LEGACY_TOOL_RISKS["open_app"] is RiskClass.EXECUTE
     assert LEGACY_TOOL_RISKS["file_controller"] is RiskClass.DESTRUCTIVE
 
@@ -44,7 +44,8 @@ def test_legacy_runtime_allows_reads_but_denies_side_effects_without_consent(tmp
         id="read", name="web_search", args={"query": "ULTRON"}, source="test",
     )))
     write = asyncio.run(runtime.execute(ToolCall(
-        id="write", name="send_message", args={"receiver": "Ada"}, source="test",
+        id="write", name="reminder", args={"time": "09:00",
+                                           "message": "standup"}, source="test",
     )))
     destructive = asyncio.run(runtime.execute(ToolCall(
         id="delete", name="file_controller", args={"action": "delete"}, source="test",
@@ -75,14 +76,16 @@ def test_live_function_call_uses_runtime_instead_of_direct_handler_lookup():
         def __init__(self):
             self.call = None
 
-        async def execute(self, call):
+        async def execute(self, call, *, consent=None):
             self.call = call
+            self.consent = consent
             return ToolResult.success(call, data="safe result", risk=RiskClass.READ)
 
     assistant = object.__new__(UltronLive)
     assistant.ui = UI()
     assistant._dashboard = None
     assistant._tool_runtime = Runtime()
+    assistant._consent_gate = None
     response = asyncio.run(UltronLive._execute_tool(
         assistant, SimpleNamespace(id="fc-1", name="web_search", args={"query": "x"}),
     ))

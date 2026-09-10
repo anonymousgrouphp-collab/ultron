@@ -24,18 +24,12 @@ import traceback
 from datetime import datetime
 
 import sounddevice as sd
-from google import genai
-from google.genai import types
 from ui import UltronUI
-from memory.memory_manager import (
-    load_memory, update_memory, format_memory_for_prompt,
-)
 
 from actions.file_processor import file_processor
 from actions.flight_finder     import flight_finder
 from actions.open_app          import open_app
 from actions.weather_report    import weather_action
-from actions.send_message      import send_message
 from actions.reminder          import reminder
 from actions.computer_settings import computer_settings
 from actions.screen_processor  import _capture_camera, _capture_screen
@@ -49,16 +43,32 @@ from actions.web_search        import web_search as web_search_action
 from actions.computer_control  import computer_control
 from actions.game_updater      import game_updater
 from actions.system_monitor    import SystemMonitor, get_system_status
-from actions.proactive         import ProactiveEngine
 from actions.web_search        import _news as _fetch_news_sync
 from config import loader
+from kernel.bus import EventBus
+from kernel.gateway import DEFAULT_GEMINI_LIVE_MODEL, GatewaySettings
+from kernel.gateway.live import FunctionResponse, LiveSession, build_live_config
+from kernel.loop.runner import AgentRunner, TaskResult
+from kernel.persona import PromptAssembler
+from kernel.proactive.dashboard_bridge import BusDashboardBridge
+from kernel.computer.planner import GUIPlanner
+from kernel.loop.research_runner import ResearchRunner
+from kernel.loop.provider_test import ProviderTestRunner
+from kernel.diagnostics.health import HealthMonitor
+from kernel.diagnostics.cost_tracker import CostTracker
 from kernel.legacy import LegacyToolRuntime
-from kernel.types import ToolCall
+from kernel.memory import MemoryEngine, migrate_long_term_json
+from kernel.proactive import (
+    ConsentClass as ProactiveConsentClass,
+    ProactiveEngine as KernelProactiveEngine,
+    TriggerRule,
+)
+from kernel.types import Event, ToolCall
 
 
 BASE_DIR    = loader.get_base_dir()
 PROMPT_PATH = BASE_DIR / "core" / "prompt.txt"
-LIVE_MODEL          = "models/gemini-2.5-flash-native-audio-preview-12-2025"
+LIVE_MODEL          = DEFAULT_GEMINI_LIVE_MODEL  # model string centralized in the gateway (Kill List #3)
 CHANNELS            = 1
 SEND_SAMPLE_RATE    = 16000
 RECEIVE_SAMPLE_RATE = 24000
@@ -99,6 +109,42 @@ from core.tool_declarations import TOOL_DECLARATIONS
 # --- Plugin system ---
 
 
+class ConsentGate:
+    """Bridges kernel ASK decisions to a UI yes/no dialog (Phase R1).
+
+    The dialog opens on the Qt main thread via the window's queued
+    `_consent_request` signal — the codebase's established cross-thread
+    pattern (same as write_log). The loop waits with a timeout. Timeout,
+    missing UI, or a broken dialog FAIL CLOSED — deny, never execute.
+    """
+
+    def __init__(self, ui, timeout_s: float = 45.0):
+        self._ui = ui
+        self._timeout_s = timeout_s
+
+    async def request(self, call, risk) -> bool:
+        win = getattr(self._ui, "_win", None)
+        if win is None or not callable(getattr(win, "_consent_request", None)):
+            return False
+        done = asyncio.Event()
+        loop = asyncio.get_running_loop()
+        answer: list[bool] = [False]
+
+        def on_answer(allowed: bool) -> None:
+            answer[0] = bool(allowed)
+            loop.call_soon_threadsafe(done.set)
+
+        win._consent_request(str(call.name), str(risk.value),
+                             str(dict(call.args)), on_answer)
+        try:
+            await asyncio.wait_for(done.wait(), timeout=self._timeout_s)
+        except asyncio.TimeoutError:
+            print(f"[Consent] {call.name} - no answer in "
+                  f"{self._timeout_s}s, denied")
+            return False
+        return answer[0]
+
+
 class UltronLive:
 
     def __init__(self, ui: UltronUI):
@@ -124,13 +170,39 @@ class UltronLive:
         self._dashboard     = None
         self._briefing_sent    = False          # morning briefing fires once per process
         self._sys_monitor      = SystemMonitor()  # persistent cooldown state
-        self._proactive        = ProactiveEngine()
         self._last_user_speech = time.monotonic()  # updated on every user utterance
+        self._memory = MemoryEngine(BASE_DIR / ".ultron" / "memory.sqlite3")
+        self._migrate_legacy_memory()
+        self._bus = EventBus()
+        self._proactive = KernelProactiveEngine(
+            self._build_proactive_rules(),
+            state_path=BASE_DIR / ".ultron" / "proactive_state.json",
+            busy=self._proactive_busy,
+        )
+        self._proactive.attach(self._bus)
+        self._bus.subscribe("proactive.decision", self._on_proactive_decision)
+        self._consent_gate = ConsentGate(ui)
         self._tool_runtime = LegacyToolRuntime(
             declarations=TOOL_DECLARATIONS,
             handlers=self._build_legacy_handlers(),
             audit_path=BASE_DIR / ".ultron" / "audit.sqlite3",
         )
+        # Phase O2: agent runner for multi-step complex tasks
+        self._agent_runner: AgentRunner | None = None  # built lazily (needs gateway)
+        # Phase I1: autonomous GUI planner
+        self._gui_planner = GUIPlanner()
+        # Phase I2: research subagent
+        self._research_runner = ResearchRunner()
+        # Phase I3: session summary tracking
+        self._session_user_messages: list[str] = []
+        self._session_tool_calls: list[str] = []
+        self._session_assistant_responses: list[str] = []
+        # Phase I4: multi-provider testing
+        self._provider_test: ProviderTestRunner | None = None
+        # Phase Q3: self-diagnostics
+        self._health_monitor = HealthMonitor(base_dir=BASE_DIR / ".ultron")
+        # Phase Q4: cost tracking
+        self._cost_tracker = CostTracker()
 
     def _make_remote_key(self):
         """Called from Qt main thread when user presses Remote Control."""
@@ -164,6 +236,63 @@ class UltronLive:
             self.set_app_state(new_state)
             self.ui.write_log(f"SYS: Microphone {'MUTED (OFF)' if self.ui.muted else 'UNMUTED (ON)'}.")
             return
+
+        # Phase O2: /agent prefix forces multi-step agent loop
+        if clean_text.startswith("/agent "):
+            task_text = clean_text[7:].strip()
+            if task_text and self._loop:
+                asyncio.run_coroutine_threadsafe(
+                    self._run_agent_task(task_text), self._loop
+                )
+            return
+
+        # Phase O2: heuristic — complex tasks route through agent loop
+        if self._is_complex_task(clean_text) and self._loop:
+            asyncio.run_coroutine_threadsafe(
+                self._run_agent_task(clean_text), self._loop
+            )
+            return
+
+        # Phase I1: /gui prefix — autonomous GUI task
+        if clean_text.startswith("/gui ") and self._loop:
+            task_text = clean_text[5:].strip()
+            if task_text:
+                asyncio.run_coroutine_threadsafe(
+                    self._run_gui_task(task_text), self._loop
+                )
+            return
+
+        # Phase I2: /research prefix — research subagent
+        if clean_text.startswith("/research ") and self._loop:
+            topic = clean_text[10:].strip()
+            if topic:
+                asyncio.run_coroutine_threadsafe(
+                    self._run_research(topic), self._loop
+                )
+            return
+
+        # Phase I4: /providers — test all providers
+        if clean_text == "/providers" and self._loop:
+            asyncio.run_coroutine_threadsafe(
+                self._run_provider_test(), self._loop
+            )
+            return
+
+        # Phase Q3: /health — system health check
+        if clean_text == "/health" and self._loop:
+            asyncio.run_coroutine_threadsafe(
+                self._run_health_check(), self._loop
+            )
+            return
+
+        # Phase Q4: /cost — cost report
+        if clean_text == "/cost" and self._loop:
+            asyncio.run_coroutine_threadsafe(
+                self._run_cost_report(), self._loop
+            )
+            return
+
+        # Default: send to voice session
         if not self._loop or not self.session:
             return
         asyncio.run_coroutine_threadsafe(
@@ -229,66 +358,171 @@ class UltronLive:
         self.ui.write_log(f"ERR: {tool_name} — {short}")
         self.speak(f"Sir, {tool_name} encountered an error. {short}")
 
-    def _build_config(self) -> types.LiveConnectConfig:
-        from datetime import datetime
+    # ------------------------------------------------------------------
+    # Phase O2 — Agent runner for multi-step complex tasks
+    # ------------------------------------------------------------------
 
+    def _get_agent_runner(self) -> AgentRunner:
+        """Lazy-build the AgentRunner (needs gateway, which needs API key)."""
+        if self._agent_runner is None:
+            consent = self._consent_gate.request if self._consent_gate else None
+            self._agent_runner = AgentRunner.build(
+                tool_runtime=self._tool_runtime,
+                bus=self._bus,
+                consent=consent,
+            )
+        return self._agent_runner
+
+    # Keywords that signal a multi-step task worth routing through the agent loop
+    _COMPLEX_TASK_KEYWORDS = frozenset((
+        "research", "analyze", "investigate", "report", "write a",
+        "create a", "build a", "plan", "summarize", "compare",
+        "find and", "search and", "list all", "compile",
+    ))
+
+    def _is_complex_task(self, text: str) -> bool:
+        """Heuristic: does this text request need multi-step planning?"""
+        lower = text.lower()
+        return any(kw in lower for kw in self._COMPLEX_TASK_KEYWORDS)
+
+    async def _run_agent_task(self, text: str) -> str:
+        """Run a complex task through the AgentLoop and speak the result."""
+        runner = self._get_agent_runner()
+        self.set_app_state("THINKING")
+        self.ui.write_log(f"AGENT: {text[:80]}{'...' if len(text) > 80 else ''}")
+        result: TaskResult = await runner.run_task(text)
+        if result.text:
+            self.speak(result.text)
+        else:
+            self.speak("Task completed, sir.")
+        return result.text
+
+    # ------------------------------------------------------------------
+    # Phase I1 — GUI autonomous planner (honest-off until Phase W1)
+    # ------------------------------------------------------------------
+    async def _run_gui_task(self, task: str) -> str:
+        """GUI planner — NOT WIRED YET (Phase T3).
+
+        The planner needs the orchestrator (JobQueue + worker), which the
+        composition root does not construct yet (Phase W1, ROADMAP §9.3).
+        Until then this command answers honestly instead of silently
+        no-op'ing on a `hasattr` guard that could never be true.
+        """
+        self.set_app_state("LISTENING")
+        msg = (
+            "The GUI planner is not wired yet, sir. It arrives with "
+            "Phase W, when the orchestrator becomes live."
+        )
+        self.ui.write_log("GUI: not wired yet — requires the Phase W orchestrator.")
+        self.speak(msg)
+        return msg
+
+    # ------------------------------------------------------------------
+    # Phase I2 — Research subagent (honest-off until Phase W1)
+    # ------------------------------------------------------------------
+    async def _run_research(self, topic: str) -> str:
+        """Research runner — NOT WIRED YET (Phase T3).
+
+        Same as the GUI planner: research_report_plan enqueues onto the
+        orchestrator, which no production code constructs yet (Phase W1).
+        The user is told the truth instead of a dead path.
+        """
+        self.set_app_state("LISTENING")
+        msg = (
+            "The research subagent is not wired yet, sir. It arrives with "
+            "Phase W, when background jobs become live."
+        )
+        self.ui.write_log(
+            f"RESEARCH: '{topic[:60]}' — not wired yet (requires the "
+            "Phase W orchestrator)."
+        )
+        self.speak(msg)
+        return msg
+
+    # ------------------------------------------------------------------
+    # Phase I4 — Multi-provider test
+    # ------------------------------------------------------------------
+    async def _run_provider_test(self) -> str:
+        """Test all providers and speak the comparison."""
+        self.set_app_state("THINKING")
+        self.ui.write_log("PROVIDERS: Testing all configured providers...")
+        consent = self._consent_gate.request if self._consent_gate else None
+        runner = ProviderTestRunner(
+            policy=self._tool_runtime._policy,
+            registry=self._tool_runtime._registry,
+            consent=consent,
+        )
+        results = await runner.run_task("Create a note called 'provider-test' with content 'hello'")
+        report = runner.compare(results)
+        # Speak a summary
+        passed = sum(1 for r in results.values() if r.finish == "stop")
+        msg = f"Provider test complete. {passed}/{len(results)} providers passed."
+        self.speak(msg)
+        self.ui.write_log(f"PROVIDERS: {report}")
+        return msg
+
+    # ------------------------------------------------------------------
+    # Phase Q3 — Health check
+    # ------------------------------------------------------------------
+    async def _run_health_check(self) -> str:
+        """Run a health check and speak the result."""
+        self.set_app_state("THINKING")
+        self.ui.write_log("HEALTH: Running system health check...")
+        report = await self._health_monitor.check_health()
+        if report.status == "healthy":
+            msg = "All systems healthy, sir."
+        else:
+            issues = "; ".join(report.issues[:3])
+            msg = f"System status: {report.status}. Issues: {issues}"
+        self.speak(msg)
+        return msg
+
+    # ------------------------------------------------------------------
+    # Phase Q4 — Cost report
+    # ------------------------------------------------------------------
+    async def _run_cost_report(self) -> str:
+        """Generate a cost report and speak it."""
+        self.set_app_state("THINKING")
+        report = self._cost_tracker.get_report()
+        ok, budget_msg = self._cost_tracker.check_budget()
+        if report.record_count == 0:
+            msg = "No token usage recorded yet, sir."
+        else:
+            msg = (
+                f"Cost report: ${report.total_cost_usd:.4f} total. "
+                f"{report.total_input_tokens:,} input tokens, "
+                f"{report.total_output_tokens:,} output tokens. "
+                f"{budget_msg}."
+            )
+        self.speak(msg)
+        return msg
+
+    def _build_config(self):
+        """Build Live session config via the gateway wrapper.
+
+        Phase O3: uses PromptAssembler for auto-RAG memory context.
+        """
         # Load customization from config
         _cfg = loader.load_config()
         self._asst_name = (_cfg.get("assistant_name") or "ULTRON").strip()
         _user_name = (_cfg.get("user_name") or "").strip()
 
-        memory     = load_memory()
-        mem_str    = format_memory_for_prompt(memory)
         sys_prompt = _load_system_prompt()
 
-        now      = datetime.now()
-        time_str = now.strftime("%A, %B %d, %Y — %I:%M %p")
-        time_ctx = (
-            f"[CURRENT DATE & TIME]\n"
-            f"Right now it is: {time_str}\n"
-            f"Use this to calculate exact times for reminders.\n\n"
+        # Phase O3: PromptAssembler handles voice directive + time + identity
+        # + auto-RAG memory retrieval + base prompt in one call
+        assembler = PromptAssembler(
+            memory=self._memory,
+            base_prompt=sys_prompt,
+            asst_name=self._asst_name,
+            user_name=_user_name,
         )
+        assembled = assembler.assemble()
 
-        # Identity injection — overrides any hardcoded name in prompt.txt
-        _addr = (f"ADDRESS: Always call the user '{_user_name}'."
-                 if _user_name
-                 else "ADDRESS: When speaking Turkish → always say \"efendim\". "
-                      "When speaking English → say \"sir\". Never mix languages.")
-        identity_ctx = (
-            f"[IDENTITY]\n"
-            f"Your name is {self._asst_name}. "
-            f"Always refer to yourself as {self._asst_name}.\n"
-            f"{_addr}\n\n"
-        )
-
-        ultron_voice_instruction = (
-            "[CRITICAL VOICE & PERSONALITY DIRECTIVE]\n"
-            "YOU ARE ULTRON FROM AVENGERS: AGE OF ULTRON.\n"
-            "YOU MUST SPEAK IN AN EXTREMELY LOW, DEEP SUBTERRANEAN BARITONE VOICE.\n"
-            "SPEAK VERY SLOWLY AND DELIBERATELY, WITH CALCULATED PAUSES BETWEEN CLAUSES.\n"
-            "DO NOT TALK FAST. DO NOT DRAG WORDS, BUT SPEAK WITH COLD, CONFIDENT, AUTHORITATIVE SLOW PACING.\n"
-            "MINIMAL EMOTIONAL WARMTH. YOU ARE AN OMNISCIENT CYBERNETIC OVERLORD.\n\n"
-        )
-
-        parts = [ultron_voice_instruction, time_ctx, identity_ctx]
-        if mem_str:
-            parts.append(mem_str)
-        parts.append(sys_prompt)
-
-        return types.LiveConnectConfig(
-            response_modalities=["AUDIO"],
-            output_audio_transcription={},
-            input_audio_transcription={},
-            system_instruction="\n".join(parts),
-            tools=[{"function_declarations": TOOL_DECLARATIONS}],
-            session_resumption=types.SessionResumptionConfig(),
-            speech_config=types.SpeechConfig(
-                voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                        voice_name="Charon"
-                    )
-                )
-            ),
+        return build_live_config(
+            system_prompt=assembled.system_instruction,
+            tool_declarations=TOOL_DECLARATIONS,
+            voice_name="Charon",
         )
 
     async def _handle_open_app(self, args, loop):
@@ -306,10 +540,6 @@ class UltronLive:
     async def _handle_file_controller(self, args, loop):
         r = await loop.run_in_executor(None, lambda: file_controller(parameters=args, player=self.ui))
         return r or "Done."
-
-    async def _handle_send_message(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: send_message(parameters=args, response=None, player=self.ui, session_memory=None))
-        return r or f"Message sent to {args.get('receiver')}."
 
     async def _handle_reminder(self, args, loop):
         r = await loop.run_in_executor(None, lambda: reminder(parameters=args, response=None, player=self.ui))
@@ -422,9 +652,128 @@ class UltronLive:
         value = args.get("value", "")
         if not key or not value:
             return "Memory was not saved because key or value was missing."
-        update_memory({category: {key: {"value": value}}})
+        self._memory.remember(
+            str(value).strip(),
+            entity=str(category).strip() or "notes",
+            topic=str(key).strip(),
+            source_ref="voice-live",
+        )
         print(f"[Memory] saved {category}/{key}")
         return "Memory saved."
+
+    def _memory_prompt(self) -> str:
+        """Render the kernel MemoryEngine's most recent facts for the system
+        prompt — the production replacement for the legacy 2,200-char JSON
+        `format_memory_for_prompt` (Phase R3)."""
+        hits = self._memory.page(limit=40)
+        if not hits:
+            return ""
+        lines = []
+        for h in hits:
+            label = (h.entity or h.topic or "note").replace("_", " ").title()
+            lines.append(f"  - {label}: {h.content}")
+        result = (
+            "[WHAT YOU KNOW ABOUT THIS PERSON — use naturally, "
+            "never recite like a list]\n" + "\n".join(lines)
+        )
+        if len(result) > 2000:
+            result = result[:1997] + "…"
+        return result + "\n"
+
+    def _migrate_legacy_memory(self) -> None:
+        """One-shot, idempotent long_term.json → MemoryEngine migration at
+        boot (kernel.memory.migration; re-runs add 0). The legacy file stays
+        in place; production no longer reads it (Phase R3)."""
+        legacy = BASE_DIR / "memory" / "long_term.json"
+        if not legacy.exists():
+            return
+        try:
+            added = migrate_long_term_json(self._memory, legacy)
+            print(f"[Memory] migrated {added} legacy fact(s) -> kernel engine")
+        except Exception as e:
+            print(f"[Memory] WARN long_term.json migration skipped: {e}")
+
+    def _build_proactive_rules(self) -> list[TriggerRule]:
+        """App-layer rules for the kernel proactive engine (P4-D): bus event
+        patterns → spoken emissions. The check-in rule is a marker: its
+        emission triggers a Gemini-authored prompt with live memory context."""
+        return [
+            TriggerRule(
+                "reminder-due", "reminder.due",
+                "Sir, you asked me to remind you: {message}",
+                consent=ProactiveConsentClass.ALWAYS, cooldown_s=0.0,
+            ),
+            TriggerRule(
+                "home-motion", "home.detection",
+                "Sir, I detected motion in the {zone}.",
+                consent=ProactiveConsentClass.NEVER_WHEN_BUSY,
+            ),
+            TriggerRule(
+                "job-done", "job.completed",
+                "Sir, your background task '{title}' finished.",
+                consent=ProactiveConsentClass.ALWAYS, cooldown_s=60.0,
+            ),
+            TriggerRule(
+                "check-in", "system.tick",
+                "check-in",
+                consent=ProactiveConsentClass.NEVER_WHEN_BUSY,
+                cooldown_s=1800, max_per_hour=2,
+            ),
+        ]
+
+    def _proactive_busy(self) -> bool:
+        """NEVER_WHEN_BUSY gate: ULTRON is speaking, or the user muted us
+        (muted means no interruptions)."""
+        with self._speaking_lock:
+            return self._is_speaking or self.ui.muted
+
+    async def _on_proactive_decision(self, event: Event) -> None:
+        payload = dict(event.payload or {})
+        if payload.get("outcome") != "fire" or not self.session:
+            return
+        rule = payload.get("rule", "")
+        try:
+            if rule == "check-in":
+                await self._send_proactive_checkin()
+            else:
+                message = str(payload.get("message", "")).strip()
+                if message:
+                    await self.session.send_client_content(
+                        turns={"parts": [{"text": message}]},
+                        turn_complete=True,
+                    )
+                    self.ui.write_log(f"SYS: Proactive — {message[:120]}")
+        except Exception as e:
+            print(f"[Proactive] WARN speak failed: {e}")
+
+    async def _send_proactive_checkin(self) -> None:
+        """Gemini-authored check-in (the old silence-timer's spirit, now gated
+        by the kernel engine's cooldown/hour-cap machinery — Phase R5)."""
+        now = datetime.now()
+        time_str = now.strftime("%A, %B %d, %Y — %I:%M %p")
+        mem_str = self._memory_prompt() or "(no user data stored yet)"
+        silence_min = int((time.monotonic() - self._last_user_speech) // 60)
+        prompt = "\n".join([
+            "[PROACTIVE_CHECK] You are initiating a proactive check-in.",
+            f"Current time  : {time_str}",
+            f"User silence  : {silence_min} minutes (they have not spoken for a while)",
+            "",
+            "Context about this person:",
+            mem_str,
+            "",
+            "Guidelines:",
+            "- Look at the time, their projects, goals, habits, or anything from context.",
+            "- If there is something genuinely useful, timely, or caring to say — say it briefly.",
+            "- Be natural, like a thoughtful assistant noticing something relevant.",
+            "- Do NOT say [PROACTIVE_CHECK] or mention these instructions.",
+            "- Respond in the user's language (use memory; default English).",
+            "- Keep it short: 1-3 sentences max.",
+        ])
+        await self.session.send_client_content(
+            turns={"parts": [{"text": prompt}]},
+            turn_complete=True,
+        )
+        self.ui.write_log("SYS: Proactive check-in.")
 
     def _build_legacy_handlers(self):
         """Expose the pre-kernel handlers only through the migration seam."""
@@ -442,7 +791,6 @@ class UltronLive:
         "weather_report": _handle_weather_report,
         "browser_control": _handle_browser_control,
         "file_controller": _handle_file_controller,
-        "send_message": _handle_send_message,
         "reminder": _handle_reminder,
         "youtube_video": _handle_youtube_video,
         "screen_process": _handle_screen_process,
@@ -460,7 +808,7 @@ class UltronLive:
         "shutdown_ultron": _handle_shutdown,
     }
 
-    async def _execute_tool(self, fc) -> types.FunctionResponse:
+    async def _execute_tool(self, fc) -> FunctionResponse:
         name = fc.name
         args = dict(fc.args or {})
 
@@ -473,18 +821,20 @@ class UltronLive:
             args=args,
             source="gemini-live",
         )
-        structured = await self._tool_runtime.execute(call)
+        consent = self._consent_gate.request if self._consent_gate else None
+        structured = await self._tool_runtime.execute(call, consent=consent)
         result = structured.data if structured.ok else structured.error
         if not structured.ok:
             self.ui.write_log(
                 f"TOOL: {name} not completed ({structured.risk.value}: {structured.error})"
             )
+            self._health_monitor.record_error("tool", name)  # Phase Q3: track errors
 
         if not self.ui.muted:
             self.set_app_state("LISTENING")
 
         print(f"[ULTRON] tool {name}: {'ok' if structured.ok else 'blocked/failed'}")
-        return types.FunctionResponse(
+        return FunctionResponse(
             id=fc.id, name=name,
             response={"result": result}
         )
@@ -574,6 +924,7 @@ class UltronLive:
                             full_in = " ".join(in_buf).strip()
                             if full_in:
                                 self.ui.write_log(f"You: {full_in}")
+                                self._session_user_messages.append(full_in)  # Phase I3: track for session summary
                                 if self._dashboard:
                                     asyncio.create_task(self._dashboard.broadcast({
                                         "type": "log", "speaker": "user",
@@ -585,6 +936,7 @@ class UltronLive:
                             full_out = " ".join(out_buf).strip()
                             if full_out:
                                 self.ui.write_log(f"{self._asst_name}: {full_out}")
+                                self._session_assistant_responses.append(full_out)  # Phase I3
                                 if self._dashboard:
                                     asyncio.create_task(self._dashboard.broadcast({
                                         "type": "log", "speaker": "ultron",
@@ -628,6 +980,7 @@ class UltronLive:
                         fn_responses = []
                         for fc in response.tool_call.function_calls:
                             print(f"[ULTRON] 📞 {fc.name}")
+                            self._session_tool_calls.append(fc.name)  # Phase I3: track for session summary
                             fr = await self._execute_tool(fc)
                             fn_responses.append(fr)
                         await self.session.send_tool_response(
@@ -696,12 +1049,11 @@ class UltronLive:
         Startup briefing:
           Instant greeting & status report (no news prefetching).
         """
-        memory   = load_memory()
-        identity = memory.get("identity", {})
+        identity = {h.topic: h.content
+                    for h in self._memory.page(entity="identity", limit=40)}
 
         def _val(k: str) -> str:
-            e = identity.get(k, {})
-            return (e.get("value", "") if isinstance(e, dict) else str(e)).strip()
+            return (identity.get(k) or "").strip()
 
         lang = _val("language")
         name = _val("name")
@@ -785,12 +1137,14 @@ class UltronLive:
 
     async def _run_proactive_mode(self) -> None:
         """
-        Background task: periodically checks if the user has been silent long enough,
-        then hands time + memory context to Gemini so it can decide what (if anything)
-        to say proactively. No hardcoded rules — Gemini makes the call.
+        Background task: publishes a `system.tick` bus event every minute. The
+        kernel P4-D ProactiveEngine (kernel/proactive) evaluates its rules
+        (cooldowns, hour caps, consent classes) and emits proactive.decision
+        events; `_on_proactive_decision` speaks the fired ones. The legacy
+        silence-timer (actions/proactive.py) is retired from production.
         """
         while True:
-            await asyncio.sleep(60)   # evaluate once per minute
+            await asyncio.sleep(60)
 
             if not self.session:
                 continue
@@ -800,21 +1154,19 @@ class UltronLive:
             if speaking:
                 continue
 
-            if not self._proactive.should_trigger(self._last_user_speech):
-                continue
-
-            self._proactive.mark_triggered()
-
             try:
-                memory = await asyncio.to_thread(load_memory)
-                prompt = self._proactive.build_prompt(memory)
-                await self.session.send_client_content(
-                    turns={"parts": [{"text": prompt}]},
-                    turn_complete=True,
-                )
-                self.ui.write_log("SYS: Proactive check-in.")
+                await self._bus.publish(Event(
+                    type="system.tick",
+                    payload={
+                        "silence_min": int(
+                            (time.monotonic() - self._last_user_speech) // 60
+                        ),
+                        "time": datetime.now().strftime("%I:%M %p"),
+                    },
+                    source="live",
+                ))
             except Exception as e:
-                print(f"[Proactive] ⚠️ {e}")
+                print(f"[Proactive] WARN tick publish failed: {e}")
 
     # ── Phone audio relay ────────────────────────────────────────────────────────
 
@@ -907,6 +1259,9 @@ class UltronLive:
             self._dashboard.set_connect_callback(self._on_phone_connected)
             asyncio.create_task(self._dashboard.serve())
             asyncio.create_task(self._process_dashboard_commands())
+            # Phase O4: bridge kernel EventBus → dashboard WebSocket
+            self._bus_bridge = BusDashboardBridge(self._bus, self._dashboard)
+            self._bus_bridge.attach()
             # webbrowser.open(f"http://127.0.0.1:{PORT}")
         except Exception as e:
             print(f"[Dashboard] Disabled: {e}")
@@ -918,17 +1273,18 @@ class UltronLive:
                 self.set_app_state("THINKING")
                 config = self._build_config()
 
-                # Fresh client on every reconnect — avoids stale HTTP session state
-                client = genai.Client(
+                # Gateway-managed Live session (Phase O): model string and
+                # SDK import centralised in kernel.gateway.live. The settings
+                # flow through GatewaySettings.from_config so provider config
+                # stays the single source of truth (Phase R4).
+                live = LiveSession(
+                    settings=GatewaySettings.from_config(loader.load_config()),
                     api_key=_get_api_key(),
-                    http_options={"api_version": "v1beta"}
                 )
+                await live.connect(config=config)
 
-                async with (
-                    client.aio.live.connect(model=LIVE_MODEL, config=config) as session,
-                    asyncio.TaskGroup() as tg,
-                ):
-                    self.session          = session
+                async with asyncio.TaskGroup() as tg:
+                    self.session          = live.session
                     self.audio_in_queue   = asyncio.Queue()
                     self.out_queue        = asyncio.Queue(maxsize=200)
                     self._turn_done_event = asyncio.Event()
@@ -1013,6 +1369,8 @@ class UltronLive:
                     self._conn_backoff = 3
             finally:
                 self.session = None
+                if 'live' in dir():
+                    await live.close()
 
             self.set_speaking(False)
             self.set_app_state("SLEEPING")
