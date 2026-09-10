@@ -90,9 +90,10 @@ class GUIPlanner:
                 error="Could not generate a plan for that task",
             )
 
-        # Enqueue as an orchestrator job
+        # Enqueue as an orchestrator job (Phase W1: Orchestrator.enqueue is
+        # the plan-level sync helper — no await)
         try:
-            job_id = await self._orchestrator.enqueue(
+            job_id = self._orchestrator.enqueue(
                 title=f"gui: {task}",
                 steps=steps,
                 registry=self._registry,

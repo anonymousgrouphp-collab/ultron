@@ -45,6 +45,7 @@ from kernel.diagnostics.health import HealthMonitor
 from kernel.diagnostics.cost_tracker import CostTracker
 from kernel.legacy import LegacyToolRuntime
 from kernel.memory import MemoryEngine
+from kernel.orchestrator import JobQueue, Orchestrator
 from kernel.proactive import (
     ConsentClass as ProactiveConsentClass,
     ProactiveEngine as KernelProactiveEngine,
@@ -174,10 +175,29 @@ class UltronLive(
         )
         # Phase O2: agent runner for multi-step complex tasks
         self._agent_runner: AgentRunner | None = None  # built lazily (needs gateway)
-        # Phase I1: autonomous GUI planner
-        self._gui_planner = GUIPlanner()
-        # Phase I2: research subagent
-        self._research_runner = ResearchRunner()
+        # Phase W1: the orchestrator goes LIVE — durable queue + worker over
+        # the SAME policy/registry/audit choke point the live session uses.
+        # No new kernel code: JobQueue + Orchestrator exist (P2-C); this is
+        # the composition the audit found missing (zero production callers).
+        self._job_queue = JobQueue(BASE_DIR / ".ultron" / "jobs.sqlite3")
+        self._orchestrator = Orchestrator(
+            self._job_queue,
+            self._tool_runtime.registry,
+            self._tool_runtime.policy,
+            bus=self._bus,
+            consent=self._consent_gate.request if self._consent_gate else None,
+            source="live",
+        )
+        # Phase I1: autonomous GUI planner (W1: real orchestrator injected)
+        self._gui_planner = GUIPlanner(
+            orchestrator=self._orchestrator,
+            registry=self._tool_runtime.registry,
+        )
+        # Phase I2: research subagent (W1: real orchestrator injected)
+        self._research_runner = ResearchRunner(
+            orchestrator=self._orchestrator,
+            registry=self._tool_runtime.registry,
+        )
         # Phase I3: session summary tracking
         self._session_user_messages: list[str] = []
         self._session_tool_calls: list[str] = []
@@ -386,19 +406,30 @@ class UltronLive(
     # Phase I1 — GUI autonomous planner (honest-off until Phase W1)
     # ------------------------------------------------------------------
     async def _run_gui_task(self, task: str) -> str:
-        """GUI planner — NOT WIRED YET (Phase T3).
+        """GUI planner — LIVE (Phase W1).
 
-        The planner needs the orchestrator (JobQueue + worker), which the
-        composition root does not construct yet (Phase W1, ROADMAP §9.3).
-        Until then this command answers honestly instead of silently
-        no-op'ing on a `hasattr` guard that could never be true.
+        The orchestrator is now constructed in the composition root, so the
+        planner's observe→plan→enqueue path actually executes: the plan's
+        tool steps run on the durable worker behind the same policy/consent
+        choke point as every other tool call.
         """
+        self.set_app_state("THINKING")
+        self.ui.write_log(f"GUI: planning '{task[:80]}'")
+        try:
+            result = await self._gui_planner.plan_and_execute(task)
+        except Exception as exc:
+            self.set_app_state("LISTENING")
+            msg = f"GUI task failed to start: {exc}"
+            self.ui.write_log(f"GUI: {msg}")
+            self.speak(msg)
+            return msg
         self.set_app_state("LISTENING")
-        msg = (
-            "The GUI planner is not wired yet, sir. It arrives with "
-            "Phase W, when the orchestrator becomes live."
-        )
-        self.ui.write_log("GUI: not wired yet — requires the Phase W orchestrator.")
+        if result.success:
+            msg = f"{result.summary} I will report when it completes."
+            self.ui.write_log(f"GUI: {msg}")
+        else:
+            msg = result.error or "The GUI plan could not be built."
+            self.ui.write_log(f"GUI: {msg}")
         self.speak(msg)
         return msg
 
@@ -406,21 +437,19 @@ class UltronLive(
     # Phase I2 — Research subagent (honest-off until Phase W1)
     # ------------------------------------------------------------------
     async def _run_research(self, topic: str) -> str:
-        """Research runner — NOT WIRED YET (Phase T3).
+        """Research subagent — LIVE (Phase W1).
 
-        Same as the GUI planner: research_report_plan enqueues onto the
-        orchestrator, which no production code constructs yet (Phase W1).
-        The user is told the truth instead of a dead path.
+        research_report_plan → orchestrator.enqueue → durable worker executes
+        search → web_read → report steps in the background.
         """
+        self.set_app_state("THINKING")
+        self.ui.write_log(f"RESEARCH: '{topic[:80]}'")
+        try:
+            msg = await self._research_runner.run_research(topic)
+        except Exception as exc:
+            msg = f"Research task failed to start: {exc}"
+            self.ui.write_log(f"RESEARCH: {msg}")
         self.set_app_state("LISTENING")
-        msg = (
-            "The research subagent is not wired yet, sir. It arrives with "
-            "Phase W, when background jobs become live."
-        )
-        self.ui.write_log(
-            f"RESEARCH: '{topic[:60]}' — not wired yet (requires the "
-            "Phase W orchestrator)."
-        )
         self.speak(msg)
         return msg
 
@@ -694,6 +723,9 @@ class UltronLive(
                     tg.create_task(self._play_audio())
                     tg.create_task(self._run_system_monitor())
                     tg.create_task(self._run_proactive_mode())
+                    # Phase W1: the durable orchestrator worker goes live —
+                    # background jobs (research/GUI plans) now actually run.
+                    tg.create_task(self._orchestrator.run_worker(max_jobs=None))
                     if self._dashboard:
                         tg.create_task(self._relay_phone_audio())
 
