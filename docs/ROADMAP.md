@@ -9,8 +9,8 @@ The goal stated by the founder: "build something close to an AGI harness."*
 
 **Phases 0–5 are complete. The kernel is built. Now we build the ocean: integration.
 
-What exists today (30k LOC Python, 392+ tests, 50-task benchmark at 100% scripted /
-86% live):
+What exists today (30k LOC Python, 503+ tests, 50-task benchmark at 100% scripted /
+100% live):
 - **Kernel (8k LOC):** event bus, tool registry, model gateway (Gemini + Ollama +
   OpenAI), agent loop, memory engine (SQLite + FTS5 + vector + procedural skills),
   policy/consent/audit, MCP server + client, orchestrator (durable queue + subagents),
@@ -23,7 +23,7 @@ What exists today (30k LOC Python, 392+ tests, 50-task benchmark at 100% scripte
 - **App layer (2k LOC):** main.py (1,220 lines — still a god module), ui.py (735),
   wake_service.py (224). The voice session now uses the gateway wrapper (Phase O).
 
-**The honest assessment: ~25% complete.** The kernel is real. The app-layer integration
+**The honest assessment: ~35% complete.** The kernel is real. The app-layer integration
 is ~20% done. What's missing:
 - main.py is still a 1,220-line god module (audio I/O + dispatch + session + proactive)
 - The voice session uses the gateway wrapper but the agent loop isn't wired in
