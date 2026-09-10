@@ -1,6 +1,6 @@
 # PROGRESS.md — ULTRON Live Task Board
 
-*Last updated: 2026-09-10 (main-owner — **PHASE T MERGED to main @ 75a21a5**: boot fixed + CI smoke gate first + honest-off + truth purge + CI-timeout fix; branch CI ALL-GREEN @ 2df9518 in 3m39s; post-merge main suite 565/3. The board's honest state as of this merge: kernel Phases 0–5 genuinely closed; Phase R delivered; Phase T code-complete + merged — the LIVE boot gate (real key, spoken-hello artifact) remains, hardware-gated. Next: Phase W — Wiring the Ocean, ROADMAP §9.3. Historical context preserved below: the e59be6b-era overstatements were corrected by the 2026-09-10 audit — real live scores 86%/84%, 50/50 = scripted.)*
+*Last updated: 2026-09-11 (main-owner — **PHASE W IN PROGRESS on `pR-wire`**: W0 ✅ main.py diet 1,416→800; W1 ✅ orchestrator LIVE (durable worker in the session TaskGroup, /gui+/research re-enabled for real, enqueue↔steps_from_payload payload-contract bug caught+fixed pre-commit with a real round-trip regression test; suite 567/3). Phase T fully CLOSED incl. the live boot gate @ 20f287c ('ULTRON Connected', real-key Gemini round-trip, artifact docs/evidence/phase_T_live_boot_2026-09-10.txt). Next: W2 kernel tools → live registry. Historical context preserved below: the e59be6b-era overstatements were corrected by the 2026-09-10 audit — real live scores 86%/84%, 50/50 = scripted.)*
 Read `AGENTS.md` first. Append-only except your own rows.*
 
 ## How to use (STRICT — every agent, every chat)
