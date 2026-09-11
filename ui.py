@@ -474,6 +474,7 @@ class UltronWebWindow(QMainWindow):
     _content_sig = pyqtSignal(str, str)
     _reconfig_sig = pyqtSignal()
     _camera_sig = pyqtSignal(bytes)
+    _phone_sig = pyqtSignal()   # cross-thread: dashboard login → toast on the Qt thread
     _consent_sig = pyqtSignal(str, str, str)   # Phase R1: (tool, risk, args) -> dialog on the Qt thread
 
     def __init__(self, face_path: str = "face.png"):
@@ -509,13 +510,13 @@ class UltronWebWindow(QMainWindow):
             settings.setAttribute(QWebEngineSettings.WebAttribute.Accelerated2dCanvasEnabled, True)
             settings.setAttribute(QWebEngineSettings.WebAttribute.WebGLEnabled, True)
             settings.setAttribute(QWebEngineSettings.WebAttribute.ScrollAnimatorEnabled, True)
-            
+
             # --- FIX: Allowing CORS and Local Files for HTML WebGL ---
             settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
             settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
 
             self.setCentralWidget(self._web)
-            
+
             # --- Pointing to current directory app.html ---
             target_path = BASE_DIR / "dashboard" / "static" / "app.html"
 
@@ -533,6 +534,7 @@ class UltronWebWindow(QMainWindow):
         self._content_sig.connect(self._on_content)
         self._reconfig_sig.connect(self._on_reconfig)
         self._consent_sig.connect(self._on_consent_request)
+        self._phone_sig.connect(self._on_phone_toast)
         self._consent_callback = None
 
         # Keyboard shortcuts for settings
@@ -631,9 +633,15 @@ class UltronWebWindow(QMainWindow):
     def _toggle_mute(self):
         self._muted = not self._muted
         state = "MUTED" if self._muted else "LISTENING"
-        self._on_state(state)
+        self._state_sig.emit(state)
 
     def notify_phone_connected(self):
+        # The dashboard's asyncio thread fires this on every successful
+        # login — touching QWebEngine here aborted the whole process
+        # (runJavaScript off the Qt thread). Route through a queued signal.
+        self._phone_sig.emit()
+
+    def _on_phone_toast(self):
         self._eval_js("if (typeof showToast === 'function') showToast('PHONE CONNECTED', 'Remote device paired');")
 
     def start_camera_stream(self):

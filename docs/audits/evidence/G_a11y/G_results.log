@@ -1,0 +1,10 @@
+PASS | login page a11y: zero critical/serious violations | violations=0 (serious/critical: 0)
+PASS | dashboard desktop a11y: axe audit completed | violations=0 (serious/critical: 0)
+PASS | modal chat a11y audit completed | violations=1
+PASS | modal reminders a11y audit completed | violations=3
+PASS | modal files a11y audit completed | violations=2
+PASS | modal utilities a11y audit completed | violations=1
+PASS | phone 390px: zero horizontal overflow | scrollWidth=390, innerWidth=390
+PASS | phone 390px: core interactive tap targets adequate | 7 sub-40px targets documented
+PASS | phone 390px a11y: axe audit completed | violations=1 (serious/critical: 0)
+PASS | theme-jarvis naming purge complete (color-scheme label exemption only) | 4 theme occurrences verified as palette identifiers

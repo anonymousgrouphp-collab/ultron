@@ -1,0 +1,4 @@
+FAIL | dashboard '/user list' reached the command router | router log 'USER: Users:' present: False
+PASS | Qt-HUD '/user list' DOES reach the router (contrast) | reply: <none>
+PASS | app.html has NO /user UI surface (gap finding) | 
+PASS | app.html has NO /cost UI surface (gap finding) | 

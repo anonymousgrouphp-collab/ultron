@@ -1,0 +1,15 @@
+>>> RESPONSES
+200 GET https://127.0.0.1:8000/auto-login?key=UQSZH7
+200 GET https://127.0.0.1:8000/
+200 GET https://127.0.0.1:8000/static/crypto.js
+200 GET https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/postprocessing/EffectComposer.js
+200 GET https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/postprocessing/RenderPass.js
+200 GET https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/postprocessing/UnrealBloomPass.js
+200 GET https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/postprocessing/MaskPass.js
+200 GET https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/shaders/CopyShader.js
+200 GET https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/postprocessing/ShaderPass.js
+200 GET https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/postprocessing/Pass.js
+200 GET https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/shaders/LuminosityHighPassShader.js
+200 GET https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js
+>>> FAILED REQUESTS
+<none>

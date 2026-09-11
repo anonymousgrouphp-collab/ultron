@@ -1,0 +1,24 @@
+PASS | GET / no token -> 200 shell, __TOKEN__ placeholder (no mint) | status=200
+PASS | GET /login -> 200 login page | 
+PASS | POST /api/command unauth -> 401 | status=401
+PASS | POST /api/command forged token -> 401 | status=401
+PASS | POST /api/command authed PLAINTEXT -> 400 | status=400 body={"error":"Encrypted payload required"}
+PASS | POST /api/command garbage ciphertext -> 400 | status=400
+PASS | POST /api/command AES-256-CBC encrypted -> 200 ok | status=200 body={"ok":true}
+PASS | GET /api/files unauth -> 401 | 
+PASS | POST /api/upload unauth -> 401 | 
+PASS | GET /uploads/... unauth -> 401 | 
+PASS | POST /api/device-login bogus device token -> 401 | 
+PASS | POST /api/revoke-devices unauth -> 401 | 
+PASS | POST /login wrong PIN -> 401 | status=401
+PASS | GET /auto-login expired key -> Link Expired page | 
+PASS | GET /static/crypto.js -> 200 vendored asset | bytes=60819
+PASS | token cap 64 enforced (70 mints -> oldest pruned, newest valid) | oldest=401 newest=200
+PASS | TLS 8001 serves /login (self-signed accept path) | 
+PASS | TLS 8000 serves /login | 
+PASS | WS /ws unauth -> close 4001 | code=4001
+PASS | WS /ws authed token -> open | result=open
+PASS | WS authed connect receives history replay | replayed=1
+PASS | no secrets in static JS/HTML | hits=[]
+PASS | no 0.0.0.0 binding in dashboard/main | clean
+PASS | live listeners 8000/8001 bound 127.0.0.1 only | TCP    127.0.0.1:8000         0.0.0.0:0              LISTENI; TCP    127.0.0.1:8001         0.0.0.0:0              LISTENI

@@ -136,12 +136,13 @@ class MonitorTasksMixin:
                 )
                 if not item:
                     continue
-                for _ in range(80):
+
+                if isinstance(item, dict) and item.get("type") == "image":
+                    for _ in range(40):
+                        if self.session:
+                            break
+                        await asyncio.sleep(0.05)
                     if self.session:
-                        break
-                    await asyncio.sleep(0.05)
-                if self.session:
-                    if isinstance(item, dict) and item.get("type") == "image":
                         b64_str = item.get("data", "")
                         mime = item.get("mime", "image/jpeg")
                         img_bytes = base64.b64decode(b64_str)
@@ -152,26 +153,25 @@ class MonitorTasksMixin:
                             turn_complete=True,
                         )
                     else:
-                        text = str(item).strip()
-                        if text:
-                            if text in ("/toggle_mic", "toggle_mic", "mute", "unmute"):
-                                if text == "mute":
-                                    self.ui.muted = True
-                                elif text == "unmute":
-                                    self.ui.muted = False
-                                else:
-                                    self.ui.muted = not self.ui.muted
-                                new_state = "MUTED" if self.ui.muted else "LISTENING"
-                                self.set_app_state(new_state)
-                                self.ui.write_log(f"SYS: Microphone {'MUTED (OFF)' if self.ui.muted else 'UNMUTED (ON)'}.")
-                                continue
-                            await self.session.send_client_content(
-                                turns={"parts": [{"text": text}]},
-                                turn_complete=True,
-                            )
-                            self.ui.write_log(f"[Web]: {text}")
+                        print("[Dashboard] Dropped image item (no session)")
                 else:
-                    print("[Dashboard] Dropped item (no session)")
+                    text = str(item).strip()
+                    if text:
+                        # Slash/system commands execute immediately without session.
+                        # Conversational chat waits briefly for session to settle.
+                        is_sys_cmd = (
+                            text.startswith("/")
+                            or text in ("toggle_mic", "mute", "unmute")
+                        )
+                        if not is_sys_cmd and not self.session:
+                            for _ in range(20):
+                                if self.session:
+                                    break
+                                await asyncio.sleep(0.05)
+
+                        self.ui.write_log(f"[Web]: {text}")
+                        if hasattr(self, "_on_text_command"):
+                            self._on_text_command(text)
             except asyncio.TimeoutError:
                 pass
             except Exception as e:

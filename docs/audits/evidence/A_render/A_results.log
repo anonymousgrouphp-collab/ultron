@@ -1,0 +1,13 @@
+PASS | boot overlay lifts (~2.6s script) | t=3.4s incl. navigation
+PASS | render: brand ULTRON visible | 
+PASS | render: status badge visible | 
+PASS | render: voice bar visible | 
+PASS | render: core activity feed visible | 
+PASS | render: reactor overlay visible | 
+PASS | three.js reactor canvas mounted | 
+FAIL | HUD mirror: dashboard /toggle_mic -> app muted=true | muted=False
+FAIL | HUD mirror: state broadcast back to dashboard view | badge 'CORE ONLINE' -> 'THINKING', ui_state=THINKING
+PASS | no console errors on load | 
+PASS | no 4xx/5xx asset responses | 
+PASS | three.js CDN modules loaded (reactor) | 9 CDN responses
+PASS | no-token view redirected to /login | https://127.0.0.1:8000/login

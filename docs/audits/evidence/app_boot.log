@@ -1,0 +1,12 @@
+[pUI-audit] helper on http://127.0.0.1:39153
+[Memory] migrated 0 legacy fact(s) -> kernel engine
+[ULTRON] Connecting...
+[Dashboard] https://127.0.0.1:8000
+[Dashboard] Bound to 127.0.0.1 — this computer only.
+[Dashboard] LAN and phone remote control are not supported in this release.
+[Dashboard] Manual entry:  127.0.0.1:8001  (type in browser, accept cert once)
+[ULTRON] Connected.
+[ULTRON] 🎤 Mic started
+[ULTRON] 🎤 Mic stream open
+[ULTRON] 👂 Recv started
+[ULTRON] 🔊 Play started

@@ -18,6 +18,7 @@ import asyncio
 import base64
 from collections import deque
 import hashlib
+import json
 import os
 import re
 import secrets
@@ -117,7 +118,7 @@ def _ensure_crypto_js() -> None:
         print("[Dashboard] CryptoJS cached — will serve locally from now on.")
     except Exception as e:
         print(f"[Dashboard] Local CryptoJS asset check failed: {e}")
-        print(f"[Dashboard] Encryption will fall back to CDN load on client.")
+        print("[Dashboard] Encryption will fall back to CDN load on client.")
 
 
 _ensure_crypto_js()
@@ -301,6 +302,7 @@ class DashboardServer:
 
         # Serve only the reviewed, vendored browser dependency.
         @app.get("/static/crypto.js")
+        @app.get("/static/crypto-js.min.js")
         async def serve_crypto():
             if _CRYPTOJS_FILE.exists():
                 return FileResponse(str(_CRYPTOJS_FILE),
@@ -489,9 +491,11 @@ class DashboardServer:
 
         if _UPLOAD_OK:
             @app.post("/api/upload")
-            async def upload_file(req: Request, file: UploadFile = FastAPIFile(...)):
+            async def upload_file(req: Request, file: UploadFile | None = FastAPIFile(None)):
                 if not _auth(req):
                     return JSONResponse({"error": "Unauthorized"}, status_code=401)
+                if not file or not getattr(file, "filename", None):
+                    return JSONResponse({"error": "File required"}, status_code=400)
 
                 safe = _safe_filename(file.filename or "upload")
                 dest = self._uploads_dir / safe
@@ -574,7 +578,8 @@ class DashboardServer:
             # holds no valid session gets closed with 4001 and re-logs-in.
             tok = token.strip()
             if not self._valid_token(tok):
-                await websocket.close(code=4001)
+                await websocket.accept()
+                await websocket.close(code=4001, reason="Unauthorized")
                 return
             await websocket.accept()
             self._clients.add(websocket)
@@ -586,8 +591,14 @@ class DashboardServer:
                     break
             try:
                 while True:
-                    data = await websocket.receive_json()
-                    if data.get("type") == "command":
+                    try:
+                        data = await websocket.receive_json()
+                    except (json.JSONDecodeError, ValueError):
+                        # Malformed or non-JSON frame: ignore and stay open
+                        continue
+                    if not isinstance(data, dict):
+                        continue
+                    if data.get("type") in ("command", "cmd"):
                         enc = data.get("enc", "")
                         if not enc:
                             # P0-B4: encryption is mandatory; ignore plaintext
