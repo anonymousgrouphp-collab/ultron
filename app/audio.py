@@ -166,6 +166,21 @@ class AudioTasksMixin:
                                     }))
                             out_buf = []
 
+                            # Phase W4: per-turn episode capture — the memory
+                            # moat accumulates by itself (the audit's
+                            # "accumulates nothing in production" finding).
+                            # Runs after BOTH transcript buffers are consumed,
+                            # so the episode carries the full exchange. Never
+                            # breaks the audio path.
+                            if full_in or full_out:
+                                try:
+                                    self._memory.record_episode(
+                                        f"You: {full_in}\n{self._asst_name}: {full_out}",
+                                        source_ref="voice-live",
+                                    )
+                                except Exception as ep_err:
+                                    print(f"[Memory] episode capture failed: {ep_err}")
+
                             # Vision injection: model finished tool-response turn → now send the image
                             if self._pending_vision and self.session:
                                 img_b, mime_t, question, angle = self._pending_vision

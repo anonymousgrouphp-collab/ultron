@@ -85,7 +85,11 @@ def generate_session_summary(
         try:
             memory.remember(
                 content=summary_text,
-                category="session_summary",
+                # Phase W4 fix: the real MemoryEngine.remember takes
+                # `entity=`, not `category=` — the mismatch raised TypeError
+                # that the except-swallow hid, so summaries never persisted
+                # (the audit's "collected but never consumed" finding).
+                entity="session_summary",
                 source_ref=f"session:{timestamp}",
                 importance=0.5,
             )

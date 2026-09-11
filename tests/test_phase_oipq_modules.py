@@ -364,7 +364,7 @@ class TestSessionSummary:
             memory=mem,
         )
         assert len(mem.stored) == 1
-        assert mem.stored[0]["category"] == "session_summary"
+        assert mem.stored[0]["entity"] == "session_summary"
 
     def test_memory_failure_doesnt_break(self):
         from kernel.memory.session_summary import generate_session_summary

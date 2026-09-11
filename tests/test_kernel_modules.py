@@ -689,7 +689,7 @@ class TestSessionSummary:
             memory=mem,
         )
         assert len(mem.calls) == 1
-        assert mem.calls[0]["category"] == "session_summary"
+        assert mem.calls[0]["entity"] == "session_summary"
         assert len(mem.calls) == 1 and len(mem.calls[0]) > 0
 
     def test_memory_failure_doesnt_break(self):

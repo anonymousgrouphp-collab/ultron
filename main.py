@@ -439,6 +439,56 @@ class UltronLive(
         return True
 
     # ------------------------------------------------------------------
+    # Phase W4 — automatic memory formation
+    # ------------------------------------------------------------------
+    def _persist_session_summary(self) -> None:
+        """Session ended: consume the I3 tracking lists into a
+        session_summary fact (the audit's 'collected but never consumed').
+        Sync + exception-safe — called from the reconnect handler."""
+        if not self._session_user_messages:
+            return
+        try:
+            from kernel.memory.session_summary import generate_session_summary
+            generate_session_summary(
+                user_messages=list(self._session_user_messages),
+                tool_calls=list(self._session_tool_calls),
+                assistant_responses=list(self._session_assistant_responses),
+                memory=self._memory,
+            )
+            print(f"[Memory] session summary persisted "
+                  f"({len(self._session_user_messages)} user turns)")
+        except Exception as e:
+            print(f"[Memory] WARN session summary skipped: {e}")
+        finally:
+            self._session_user_messages.clear()
+            self._session_tool_calls.clear()
+            self._session_assistant_responses.clear()
+
+    async def _run_memory_formation(self) -> None:
+        """Phase W4 background task: idle-time consolidation. Every 10 min,
+        when the user has been quiet ≥10 min, run the P3-A Consolidator
+        (extraction → decay → reflection) through the kernel gateway. No key
+        → the task exits quietly (consolidation is a judge-driven job)."""
+        while True:
+            await asyncio.sleep(600)
+            if time.monotonic() - self._last_user_speech < 600:
+                continue  # user active — never burn tokens mid-conversation
+            try:
+                runner = self._get_agent_runner()
+                from kernel.memory.consolidation import Consolidator
+                consolidator = Consolidator(
+                    self._memory, runner.gateway, bus=self._bus,
+                )
+                report = await consolidator.consolidate()
+                self.ui.write_log(
+                    f"SYS: Memory consolidation — {report}"
+                )
+            except ApiKeyMissing:
+                return  # no gateway available in this environment
+            except Exception as e:
+                print(f"[Memory] consolidation cycle skipped: {e}")
+
+    # ------------------------------------------------------------------
     # Phase I1 — GUI autonomous planner (honest-off until Phase W1)
     # ------------------------------------------------------------------
     async def _run_gui_task(self, task: str) -> str:
@@ -560,14 +610,17 @@ class UltronLive(
         sys_prompt = _load_system_prompt()
 
         # Phase O3: PromptAssembler handles voice directive + time + identity
-        # + auto-RAG memory retrieval + base prompt in one call
+        # + auto-RAG memory retrieval + base prompt in one call. Phase W4:
+        # the RAG query is now the recent conversation topics instead of the
+        # audit-flagged static "user preferences and history" string.
+        recent_topics = " ".join(self._session_user_messages[-5:])
         assembler = PromptAssembler(
             memory=self._memory,
             base_prompt=sys_prompt,
             asst_name=self._asst_name,
             user_name=_user_name,
         )
-        assembled = assembler.assemble()
+        assembled = assembler.assemble(conversation_summary=recent_topics)
 
         return build_live_config(
             system_prompt=assembled.system_instruction,
@@ -766,6 +819,8 @@ class UltronLive(
                     # Phase W1: the durable orchestrator worker goes live —
                     # background jobs (research/GUI plans) now actually run.
                     tg.create_task(self._orchestrator.run_worker(max_jobs=None))
+                    # Phase W4: idle-time memory formation (consolidation).
+                    tg.create_task(self._run_memory_formation())
                     if self._dashboard:
                         tg.create_task(self._relay_phone_audio())
 
@@ -793,6 +848,11 @@ class UltronLive(
                 err_str = str(e)
                 print(f"[ULTRON] Error ({type(e).__name__}): {e}")
                 traceback.print_exc()
+
+                # Phase W4: the session ended — persist what happened before
+                # the reconnect. generate_session_summary consumes the I3
+                # tracking lists and writes a session_summary fact.
+                self._persist_session_summary()
 
                 # Invalid / missing / broken API key — stop hammering the API, prompt re-configuration
                 if (
