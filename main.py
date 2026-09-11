@@ -27,20 +27,25 @@ from ui import UltronUI
 # UltronLive inherits them so callers and characterization pins are unchanged.
 from app.audio import AudioTasksMixin
 from app.briefing import BriefingMixin
+from app.commands import CommandMixin
+from app.consent import ConsentGate
 from app.handlers import LegacyHandlersMixin
+from app.memory_formation import MemoryFormationMixin
 from app.monitors import MonitorTasksMixin
+from app.observability import ApiKeyMissing, _UsageTrackingGateway
+from app.research_gate import ResearchGateMixin
+from app.voice_stack import VoiceStackMixin
 
 from actions.system_monitor    import SystemMonitor
 from config import loader
 from kernel.bus import EventBus
 from kernel.gateway import DEFAULT_GEMINI_LIVE_MODEL, GatewaySettings
 from kernel.gateway.live import FunctionResponse, LiveSession, build_live_config
-from kernel.loop.runner import AgentRunner, TaskResult
+from kernel.loop.runner import AgentRunner
 from kernel.persona import PromptAssembler
 from kernel.proactive.dashboard_bridge import BusDashboardBridge
 from kernel.computer.planner import GUIPlanner
 from kernel.loop.research_runner import ResearchRunner
-from kernel.loop.provider_test import ProviderTestRunner
 from kernel.diagnostics.health import HealthMonitor
 from kernel.diagnostics.cost_tracker import CostTracker
 from kernel.legacy import LegacyToolRuntime
@@ -65,39 +70,6 @@ SEND_SAMPLE_RATE    = 16000
 RECEIVE_SAMPLE_RATE = 24000
 CHUNK_SIZE          = 512
 
-class ApiKeyMissing(Exception):
-    """Raised when config/api_keys.json is missing, broken, or has no real key."""
-
-
-class _UsageTrackingGateway:
-    """Phase W5: transparent wrapper that feeds every completion's token
-    usage into the CostTracker (the audit's '/cost never records' finding).
-    Sits at the ONE seam all agent-loop/orchestrator traffic crosses."""
-
-    def __init__(self, inner, cost_tracker):
-        self._inner = inner
-        self._cost = cost_tracker
-
-    def __getattr__(self, name):
-        return getattr(self._inner, name)
-
-    async def complete(self, messages, tools=(), response_schema=None):
-        response = await self._inner.complete(messages, tools=tools,
-                                              response_schema=response_schema)
-        try:
-            usage = dict(response.usage or {})
-            if usage:
-                self._cost.record_usage(
-                    provider=response.provider or "unknown",
-                    model=response.model or "",
-                    input_tokens=int(usage.get("input", 0)),
-                    output_tokens=int(usage.get("output", 0)),
-                )
-        except Exception:
-            pass  # observability must never break the model path
-        return response
-
-
 def _get_api_key() -> str:
     key = loader.get_api_key()   # None when missing, empty, or placeholder
     if key is None:
@@ -117,45 +89,8 @@ def _load_system_prompt() -> str:
             "Never simulate or guess results — always call the appropriate tool."
         )
 
+
 from core.tool_declarations import TOOL_DECLARATIONS
-
-# --- Plugin system ---
-
-
-class ConsentGate:
-    """Bridges kernel ASK decisions to a UI yes/no dialog (Phase R1).
-
-    The dialog opens on the Qt main thread via the window's queued
-    `_consent_request` signal — the codebase's established cross-thread
-    pattern (same as write_log). The loop waits with a timeout. Timeout,
-    missing UI, or a broken dialog FAIL CLOSED — deny, never execute.
-    """
-
-    def __init__(self, ui, timeout_s: float = 45.0):
-        self._ui = ui
-        self._timeout_s = timeout_s
-
-    async def request(self, call, risk) -> bool:
-        win = getattr(self._ui, "_win", None)
-        if win is None or not callable(getattr(win, "_consent_request", None)):
-            return False
-        done = asyncio.Event()
-        loop = asyncio.get_running_loop()
-        answer: list[bool] = [False]
-
-        def on_answer(allowed: bool) -> None:
-            answer[0] = bool(allowed)
-            loop.call_soon_threadsafe(done.set)
-
-        win._consent_request(str(call.name), str(risk.value),
-                             str(dict(call.args)), on_answer)
-        try:
-            await asyncio.wait_for(done.wait(), timeout=self._timeout_s)
-        except asyncio.TimeoutError:
-            print(f"[Consent] {call.name} - no answer in "
-                  f"{self._timeout_s}s, denied")
-            return False
-        return answer[0]
 
 
 class UltronLive(
@@ -163,6 +98,10 @@ class UltronLive(
     AudioTasksMixin,        # mic/recv/play audio pumps (Phase W0)
     BriefingMixin,          # startup greeting + proactive check-in (Phase W0)
     MonitorTasksMixin,      # system monitor + proactive tick + relays (Phase W0)
+    CommandMixin,           # command dispatch + agent tier (Phase P3)
+    MemoryFormationMixin,   # session summaries + consolidation timer (Phase P3)
+    ResearchGateMixin,      # web_search_url + fs_write_report (Phase P3)
+    VoiceStackMixin,        # EchoGate + speaker ID behind flags (Phase P1)
 ):
 
     def __init__(self, ui: UltronUI):
@@ -190,6 +129,16 @@ class UltronLive(
         self._sys_monitor      = SystemMonitor()  # persistent cooldown state
         self._last_user_speech = time.monotonic()  # updated on every user utterance
         self._memory = MemoryEngine(BASE_DIR / ".ultron" / "memory.sqlite3")
+        # Phase P2: multi-user goes LIVE (kernel/users was an orphan since
+        # Phase S). A default profile is bootstrapped from config so the
+        # single-user experience is unchanged until a second user exists.
+        from kernel.users import UserManager
+        self._users = UserManager(data_dir=BASE_DIR / ".ultron" / "users")
+        if self._users.get_current_user() is None:
+            _cfg0 = loader.load_config()
+            _default_name = (_cfg0.get("user_name") or "Sir").strip() or "Sir"
+            self._users.create_user("default", _default_name, role="owner")
+            self._users.set_current_user("default")
         self._migrate_legacy_memory()
         self._bus = EventBus()
         self._proactive = KernelProactiveEngine(
@@ -266,107 +215,9 @@ class UltronLive(
         self._health_monitor = HealthMonitor(base_dir=BASE_DIR / ".ultron")
         # Phase Q4: cost tracking
         self._cost_tracker = CostTracker()
-
-    def _register_research_gate_tools(self) -> None:
-        """Phase W: live-research plan support (the P2-D plan's contract).
-
-        `web_search_url` returns structured results with `first_url` (the
-        orchestrator plan template `{search.first_url}` needs it; the legacy
-        `web_search` speaks prose). `fs_write_report` persists the finished
-        report under .ultron/reports/. Both register on the live registry so
-        the durable worker executes them behind policy/consent like any tool.
-        """
-        registry = self._tool_runtime.registry
-
-        @registry.tool(
-            name="web_search_url",
-            description="Web search returning structured results "
-                        "(title/snippet/url) for pipeline use. Read-only.",
-            parameters={"type": "object", "properties": {
-                "query": {"type": "string",
-                          "description": "the search query"},
-            }, "required": ["query"]},
-            risk=RiskClass.READ,
-        )
-        def web_search_url(call: ToolCall) -> dict:
-            import re as _url_re
-            from actions.web_search import _ddg_search
-            query = str(call.args.get("query", "")).strip()
-            # Tier 1: the DuckDuckGo HTML endpoint — the ddgs API
-            # package is flaky post-rename (rate-limits return junk or
-            # nothing), this one is stable and on-topic.
-            results: list[dict] = []
-            first = ""
-            if query:
-                try:
-                    import requests as _req
-                    resp = _req.post(
-                        "https://html.duckduckgo.com/html/",
-                        data={"q": query},
-                        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
-                        timeout=15,
-                    )
-                    anchors = _url_re.findall(
-                        r'class="result__a"[^>]*href="([^"]+)"', resp.text)
-                    urls = [u for u in anchors if u.startswith("http")][:5]
-                    results = [{"title": "", "snippet": "", "url": u}
-                               for u in urls]
-                    first = urls[0] if urls else ""
-                except Exception:
-                    pass  # fall through to the next tier
-            # Tier 2: the ddgs API package (kept as fallback).
-            if not first and query:
-                try:
-                    from actions.web_search import _ddg_search
-                    results = _ddg_search(query, max_results=5)
-                    first = next((r["url"] for r in results
-                                  if r.get("url", "").startswith("http")), "")
-                except Exception:
-                    pass
-            if not first and query:
-                # tier 3: the Gemini grounded-search seam — pull real URLs
-                # out of the grounded prose (quota-gated, last resort).
-                try:
-                    from actions._llm import complete_grounded_search
-                    text = complete_grounded_search(
-                        f"Search the web for: {query}. "
-                        "Include the source page URLs.")
-                    urls = [m for m in _url_re.findall(
-                        r"https?://[^\s)\]>'\"]+", text)
-                            if "google." not in m][:5]
-                    results = [{"title": "", "snippet": "", "url": u}
-                               for u in urls]
-                    first = urls[0] if urls else ""
-                except Exception:
-                    pass  # clean empty result — the plan reports honestly
-            return {"results": results[:5], "first_url": first}
-
-        reports_dir = BASE_DIR / ".ultron" / "reports"
-
-        @registry.tool(
-            name="fs_write_report",
-            description="Save a finished research report (name + text) under "
-                        "the assistant's reports folder. Writes files only "
-                        "inside that folder.",
-            parameters={"type": "object", "properties": {
-                "name": {"type": "string", "description": "file name"},
-                "text": {"type": "string", "description": "report body"},
-            }, "required": ["name", "text"]},
-            risk=RiskClass.WRITE,
-        )
-        def fs_write_report(call: ToolCall) -> dict:
-            import re as _re
-            reports_dir.mkdir(parents=True, exist_ok=True)
-            safe = _re.sub(r"[^\w.\- ]", "_",
-                           str(call.args.get("name", "report.txt"))).strip()
-            if not safe:
-                safe = "report.txt"
-            path = reports_dir / safe
-            if path.parent != reports_dir:
-                return {"ok": False, "error": "name escapes the reports folder"}
-            text = str(call.args.get("text", ""))
-            path.write_text(text, encoding="utf-8")
-            return {"ok": True, "path": str(path), "bytes": len(text)}
+        # Phase P1: the kernel voice engines arm here (flag-gated, default
+        # off — the proven audio path is untouched until live-mic A/B).
+        self._setup_voice_stack()
 
     def _make_remote_key(self):
         """Called from Qt main thread when user presses Remote Control."""
@@ -384,85 +235,6 @@ class UltronLive(
         key = self._dashboard.new_key()
         manual = self._dashboard.get_manual_url()
         return url, key, f"{url}/auto-login?key={key}", manual
-
-    def _on_text_command(self, text: str):
-        if not text:
-            return
-        clean_text = str(text).strip()
-        if clean_text in ("/toggle_mic", "toggle_mic", "mute", "unmute"):
-            if clean_text == "mute":
-                self.ui.muted = True
-            elif clean_text == "unmute":
-                self.ui.muted = False
-            else:
-                self.ui.muted = not self.ui.muted
-            new_state = "MUTED" if self.ui.muted else "LISTENING"
-            self.set_app_state(new_state)
-            self.ui.write_log(f"SYS: Microphone {'MUTED (OFF)' if self.ui.muted else 'UNMUTED (ON)'}.")
-            return
-
-        # Phase O2: /agent prefix forces multi-step agent loop
-        if clean_text.startswith("/agent "):
-            task_text = clean_text[7:].strip()
-            if task_text and self._loop:
-                asyncio.run_coroutine_threadsafe(
-                    self._run_agent_task(task_text), self._loop
-                )
-            return
-
-        # Phase W3: complex typed commands → AgentLoop (shared router)
-        if self._maybe_route_agent(clean_text, source="typed"):
-            return
-
-        # Phase I1: /gui prefix — autonomous GUI task
-        if clean_text.startswith("/gui ") and self._loop:
-            task_text = clean_text[5:].strip()
-            if task_text:
-                asyncio.run_coroutine_threadsafe(
-                    self._run_gui_task(task_text), self._loop
-                )
-            return
-
-        # Phase I2: /research prefix — research subagent
-        if clean_text.startswith("/research ") and self._loop:
-            topic = clean_text[10:].strip()
-            if topic:
-                asyncio.run_coroutine_threadsafe(
-                    self._run_research(topic), self._loop
-                )
-            return
-
-        # Phase I4: /providers — test all providers
-        if clean_text == "/providers" and self._loop:
-            asyncio.run_coroutine_threadsafe(
-                self._run_provider_test(), self._loop
-            )
-            return
-
-        # Phase Q3: /health — system health check
-        if clean_text == "/health" and self._loop:
-            asyncio.run_coroutine_threadsafe(
-                self._run_health_check(), self._loop
-            )
-            return
-
-        # Phase Q4: /cost — cost report
-        if clean_text == "/cost" and self._loop:
-            asyncio.run_coroutine_threadsafe(
-                self._run_cost_report(), self._loop
-            )
-            return
-
-        # Default: send to voice session
-        if not self._loop or not self.session:
-            return
-        asyncio.run_coroutine_threadsafe(
-            self.session.send_client_content(
-                turns={"parts": [{"text": clean_text}]},
-                turn_complete=True
-            ),
-            self._loop
-        )
 
     def set_app_state(self, state: str):
         self.ui.set_state(state)
@@ -523,230 +295,19 @@ class UltronLive(
     # Phase O2 — Agent runner for multi-step complex tasks
     # ------------------------------------------------------------------
 
-    def _get_agent_runner(self) -> AgentRunner:
-        """Lazy-build the AgentRunner (needs gateway, which needs API key).
-        Phase W5: the runner's gateway is wrapped so EVERY completion's token
-        usage lands in the CostTracker — /cost finally shows real numbers."""
-        if self._agent_runner is None:
-            consent = self._consent_gate.request if self._consent_gate else None
-            self._agent_runner = AgentRunner.build(
-                tool_runtime=self._tool_runtime,
-                bus=self._bus,
-                consent=consent,
-            )
-            self._agent_runner.gateway = _UsageTrackingGateway(
-                self._agent_runner.gateway, self._cost_tracker,
-            )
-        return self._agent_runner
-
-    # Keywords that signal a multi-step task worth routing through the agent loop
-    _COMPLEX_TASK_KEYWORDS = frozenset((
-        "research", "analyze", "investigate", "report", "write a",
-        "create a", "build a", "plan", "summarize", "compare",
-        "find and", "search and", "list all", "compile",
-    ))
-
-    def _is_complex_task(self, text: str) -> bool:
-        """Heuristic: does this text request need multi-step planning?"""
-        lower = text.lower()
-        return any(kw in lower for kw in self._COMPLEX_TASK_KEYWORDS)
-
-    async def _run_agent_task(self, text: str) -> str:
-        """Run a complex task through the AgentLoop and speak the result."""
-        runner = self._get_agent_runner()
-        self.set_app_state("THINKING")
-        self.ui.write_log(f"AGENT: {text[:80]}{'...' if len(text) > 80 else ''}")
-        result: TaskResult = await runner.run_task(text)
-        if result.text:
-            self.speak(result.text)
-        else:
-            self.speak("Task completed, sir.")
-        return result.text
-
-    def _maybe_route_agent(self, text: str, *, source: str) -> bool:
-        """Phase W3: the ONE router both input tiers use (two brains, one
-        decision). Complex utterances — typed OR spoken — go to the
-        AgentLoop; reflexes stay with the LiveSession's native function
-        calling. Returns True when routed (caller must not echo the text into
-        the session). Consent + abort: the runner carries the consent gate;
-        the session's interrupt breaks the turn — the loop observes both."""
-        clean = str(text or "").strip()
-        if not clean or not self._is_complex_task(clean) or not self._loop:
-            return False
-        self.ui.write_log(f"SYS: routing {source} task to the agent loop.")
-        asyncio.run_coroutine_threadsafe(
-            self._run_agent_task(clean), self._loop
-        )
-        return True
-
-    # ------------------------------------------------------------------
-    # Phase W4 — automatic memory formation
-    # ------------------------------------------------------------------
-    def _persist_session_summary(self) -> None:
-        """Session ended: consume the I3 tracking lists into a
-        session_summary fact (the audit's 'collected but never consumed').
-        Sync + exception-safe — called from the reconnect handler."""
-        if not self._session_user_messages:
-            return
-        try:
-            from kernel.memory.session_summary import generate_session_summary
-            generate_session_summary(
-                user_messages=list(self._session_user_messages),
-                tool_calls=list(self._session_tool_calls),
-                assistant_responses=list(self._session_assistant_responses),
-                memory=self._memory,
-            )
-            print(f"[Memory] session summary persisted "
-                  f"({len(self._session_user_messages)} user turns)")
-        except Exception as e:
-            print(f"[Memory] WARN session summary skipped: {e}")
-        finally:
-            self._session_user_messages.clear()
-            self._session_tool_calls.clear()
-            self._session_assistant_responses.clear()
-
-    async def _run_memory_formation(self) -> None:
-        """Phase W4 background task: idle-time consolidation. Every 10 min,
-        when the user has been quiet ≥10 min, run the P3-A Consolidator
-        (extraction → decay → reflection) through the kernel gateway. No key
-        → the task exits quietly (consolidation is a judge-driven job)."""
-        while True:
-            await asyncio.sleep(600)
-            if time.monotonic() - self._last_user_speech < 600:
-                continue  # user active — never burn tokens mid-conversation
-            try:
-                runner = self._get_agent_runner()
-                from kernel.memory.consolidation import Consolidator
-                consolidator = Consolidator(
-                    self._memory, runner.gateway, bus=self._bus,
-                )
-                report = await consolidator.consolidate()
-                self.ui.write_log(
-                    f"SYS: Memory consolidation — {report}"
-                )
-            except ApiKeyMissing:
-                return  # no gateway available in this environment
-            except Exception as e:
-                print(f"[Memory] consolidation cycle skipped: {e}")
-
-    # ------------------------------------------------------------------
-    # Phase I1 — GUI autonomous planner (honest-off until Phase W1)
-    # ------------------------------------------------------------------
-    async def _run_gui_task(self, task: str) -> str:
-        """GUI planner — LIVE (Phase W1).
-
-        The orchestrator is now constructed in the composition root, so the
-        planner's observe→plan→enqueue path actually executes: the plan's
-        tool steps run on the durable worker behind the same policy/consent
-        choke point as every other tool call.
-        """
-        self.set_app_state("THINKING")
-        self.ui.write_log(f"GUI: planning '{task[:80]}'")
-        try:
-            result = await self._gui_planner.plan_and_execute(task)
-        except Exception as exc:
-            self.set_app_state("LISTENING")
-            msg = f"GUI task failed to start: {exc}"
-            self.ui.write_log(f"GUI: {msg}")
-            self.speak(msg)
-            return msg
-        self.set_app_state("LISTENING")
-        if result.success:
-            msg = f"{result.summary} I will report when it completes."
-            self.ui.write_log(f"GUI: {msg}")
-        else:
-            msg = result.error or "The GUI plan could not be built."
-            self.ui.write_log(f"GUI: {msg}")
-        self.speak(msg)
-        return msg
-
-    # ------------------------------------------------------------------
-    # Phase I2 — Research subagent (honest-off until Phase W1)
-    # ------------------------------------------------------------------
-    async def _run_research(self, topic: str) -> str:
-        """Research subagent — LIVE (Phase W1).
-
-        research_report_plan → orchestrator.enqueue → durable worker executes
-        search → web_read → report steps in the background.
-        """
-        self.set_app_state("THINKING")
-        self.ui.write_log(f"RESEARCH: '{topic[:80]}'")
-        try:
-            msg = await self._research_runner.run_research(topic)
-        except Exception as exc:
-            msg = f"Research task failed to start: {exc}"
-            self.ui.write_log(f"RESEARCH: {msg}")
-        self.set_app_state("LISTENING")
-        self.speak(msg)
-        return msg
-
-    # ------------------------------------------------------------------
-    # Phase I4 — Multi-provider test
-    # ------------------------------------------------------------------
-    async def _run_provider_test(self) -> str:
-        """Test all providers and speak the comparison."""
-        self.set_app_state("THINKING")
-        self.ui.write_log("PROVIDERS: Testing all configured providers...")
-        consent = self._consent_gate.request if self._consent_gate else None
-        runner = ProviderTestRunner(
-            policy=self._tool_runtime._policy,
-            registry=self._tool_runtime._registry,
-            consent=consent,
-        )
-        results = await runner.run_task("Create a note called 'provider-test' with content 'hello'")
-        report = runner.compare(results)
-        # Speak a summary
-        passed = sum(1 for r in results.values() if r.finish == "stop")
-        msg = f"Provider test complete. {passed}/{len(results)} providers passed."
-        self.speak(msg)
-        self.ui.write_log(f"PROVIDERS: {report}")
-        return msg
-
-    # ------------------------------------------------------------------
-    # Phase Q3 — Health check
-    # ------------------------------------------------------------------
-    async def _run_health_check(self) -> str:
-        """Run a health check and speak the result."""
-        self.set_app_state("THINKING")
-        self.ui.write_log("HEALTH: Running system health check...")
-        report = await self._health_monitor.check_health()
-        if report.status == "healthy":
-            msg = "All systems healthy, sir."
-        else:
-            issues = "; ".join(report.issues[:3])
-            msg = f"System status: {report.status}. Issues: {issues}"
-        self.speak(msg)
-        return msg
-
-    # ------------------------------------------------------------------
-    # Phase Q4 — Cost report
-    # ------------------------------------------------------------------
-    async def _run_cost_report(self) -> str:
-        """Generate a cost report and speak it."""
-        self.set_app_state("THINKING")
-        report = self._cost_tracker.get_report()
-        ok, budget_msg = self._cost_tracker.check_budget()
-        if report.record_count == 0:
-            msg = "No token usage recorded yet, sir."
-        else:
-            msg = (
-                f"Cost report: ${report.total_cost_usd:.4f} total. "
-                f"{report.total_input_tokens:,} input tokens, "
-                f"{report.total_output_tokens:,} output tokens. "
-                f"{budget_msg}."
-            )
-        self.speak(msg)
-        return msg
-
     def _build_config(self):
         """Build Live session config via the gateway wrapper.
 
         Phase O3: uses PromptAssembler for auto-RAG memory context.
         """
-        # Load customization from config
+        # Load customization from config; the active user profile (P2)
+        # personalizes the identity when one exists.
         _cfg = loader.load_config()
         self._asst_name = (_cfg.get("assistant_name") or "ULTRON").strip()
         _user_name = (_cfg.get("user_name") or "").strip()
+        _active = self._users.get_current_user() if self._users else None
+        if _active is not None and _active.display_name:
+            _user_name = _active.display_name
 
         sys_prompt = _load_system_prompt()
 
@@ -905,6 +466,12 @@ class UltronLive(
             id=fc.id, name=name,
             response={"result": result}
         )
+
+    def _active_user_id(self) -> str:
+        """Phase P2: the current user's id for memory tagging (defaults to
+        'default' so single-user installs keep one namespace)."""
+        active = self._users.get_current_user() if self._users else None
+        return active.user_id if active is not None else "default"
 
     async def run(self):
         self._loop = asyncio.get_event_loop()

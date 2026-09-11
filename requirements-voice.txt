@@ -1,0 +1,14 @@
+# ULTRON optional voice-stack extras (Phase P1) — NOT installed by default.
+# The kernel voice engines load these lazily and name the missing package
+# (EngineUnavailable) when absent; the app degrades gracefully without them.
+# Install with:  py -3.14 -m pip install -r requirements-voice.txt
+#
+# openwakeword  — in-process wake word (retires the wake_service.py stack)
+openwakeword==0.6.0
+# silero-vad    — voice activity detection
+silero-vad==5.1.2
+# speechbrain   — ECAPA-TDNN speaker ID (multi-user voice switching, P2)
+speechbrain==1.0.2
+# torch (CPU)   — required by speechbrain/openwakeword backends
+torch==2.9.1
+torchaudio==2.9.1
