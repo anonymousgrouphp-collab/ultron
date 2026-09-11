@@ -44,8 +44,11 @@ from kernel.loop.provider_test import ProviderTestRunner
 from kernel.diagnostics.health import HealthMonitor
 from kernel.diagnostics.cost_tracker import CostTracker
 from kernel.legacy import LegacyToolRuntime
-from kernel.memory import MemoryEngine
+from kernel.memory import MemoryEngine, register_memory_tools
 from kernel.orchestrator import JobQueue, Orchestrator
+from kernel.computer import InputGateway, build_computer_tools
+from kernel.coding import build_coding_tools
+from kernel.research import build_research_tools
 from kernel.proactive import (
     ConsentClass as ProactiveConsentClass,
     ProactiveEngine as KernelProactiveEngine,
@@ -172,6 +175,26 @@ class UltronLive(
             declarations=TOOL_DECLARATIONS,
             handlers=self._build_legacy_handlers(),
             audit_path=BASE_DIR / ".ultron" / "audit.sqlite3",
+        )
+        # Phase W2: the kernel tool families go LIVE — the same registry the
+        # voice session and orchestrator already execute through gains the
+        # built kernel tools (memory_search / computer control / coding
+        # workspace / web_read). The agent can finally search its own memory
+        # and drive the desktop. No new kernel code: registration is the fix
+        # (the audit's "zero production callers" finding, closed).
+        register_memory_tools(self._tool_runtime.registry, self._memory)
+        self._input_gateway = InputGateway()
+        build_computer_tools(
+            self._tool_runtime.registry, self._input_gateway,
+            spawn_allowed=True,
+        )
+        build_coding_tools(
+            self._tool_runtime.registry,
+            BASE_DIR / ".ultron" / "coding_workspace",
+        )
+        build_research_tools(
+            self._tool_runtime.registry,
+            consent=lambda: bool(loader.load_config().get("web_research_enabled", False)),
         )
         # Phase O2: agent runner for multi-step complex tasks
         self._agent_runner: AgentRunner | None = None  # built lazily (needs gateway)
@@ -535,7 +558,11 @@ class UltronLive(
 
         return build_live_config(
             system_prompt=assembled.system_instruction,
-            tool_declarations=TOOL_DECLARATIONS,
+            # Phase W2: the LIVE session now declares the full registry —
+            # legacy actions AND the kernel tool families (memory_search,
+            # computer control, coding, web_read). Declarations come from
+            # the registry (single source), not the static legacy list.
+            tool_declarations=self._tool_runtime.registry.declarations(),
             voice_name="Charon",
         )
     def _build_proactive_rules(self) -> list[TriggerRule]:
