@@ -54,7 +54,7 @@ from kernel.proactive import (
     ProactiveEngine as KernelProactiveEngine,
     TriggerRule,
 )
-from kernel.types import Event, ToolCall
+from kernel.types import Event, RiskClass, ToolCall
 
 
 BASE_DIR    = loader.get_base_dir()
@@ -225,6 +225,12 @@ class UltronLive(
             self._tool_runtime.registry,
             consent=lambda: bool(loader.load_config().get("web_research_enabled", False)),
         )
+        # Phase W gate: the two live-research pieces the P2-D plan expects —
+        # a URL-returning search (the legacy web_search speaks prose; the
+        # orchestrator plan needs `first_url`) and the report writer. Both go
+        # through the SAME registry/policy choke point.
+        self._register_research_gate_tools()
+
         # Phase O2: agent runner for multi-step complex tasks
         self._agent_runner: AgentRunner | None = None  # built lazily (needs gateway)
         # Phase W1: the orchestrator goes LIVE — durable queue + worker over
@@ -260,6 +266,62 @@ class UltronLive(
         self._health_monitor = HealthMonitor(base_dir=BASE_DIR / ".ultron")
         # Phase Q4: cost tracking
         self._cost_tracker = CostTracker()
+
+    def _register_research_gate_tools(self) -> None:
+        """Phase W: live-research plan support (the P2-D plan's contract).
+
+        `web_search_url` returns structured results with `first_url` (the
+        orchestrator plan template `{search.first_url}` needs it; the legacy
+        `web_search` speaks prose). `fs_write_report` persists the finished
+        report under .ultron/reports/. Both register on the live registry so
+        the durable worker executes them behind policy/consent like any tool.
+        """
+        registry = self._tool_runtime.registry
+
+        @registry.tool(
+            name="web_search_url",
+            description="Web search returning structured results "
+                        "(title/snippet/url) for pipeline use. Read-only.",
+            parameters={"type": "object", "properties": {
+                "query": {"type": "string",
+                          "description": "the search query"},
+            }, "required": ["query"]},
+            risk=RiskClass.READ,
+        )
+        def web_search_url(call: ToolCall) -> dict:
+            from actions.web_search import _ddg_search
+            query = str(call.args.get("query", "")).strip()
+            results = _ddg_search(query, max_results=5) if query else []
+            first = next((r["url"] for r in results
+                          if r.get("url", "").startswith("http")), "")
+            return {"results": results[:5], "first_url": first}
+
+        reports_dir = BASE_DIR / ".ultron" / "reports"
+
+        @registry.tool(
+            name="fs_write_report",
+            description="Save a finished research report (name + text) under "
+                        "the assistant's reports folder. Writes files only "
+                        "inside that folder.",
+            parameters={"type": "object", "properties": {
+                "name": {"type": "string", "description": "file name"},
+                "text": {"type": "string", "description": "report body"},
+            }, "required": ["name", "text"]},
+            risk=RiskClass.WRITE,
+        )
+        def fs_write_report(call: ToolCall) -> dict:
+            import re as _re
+            reports_dir.mkdir(parents=True, exist_ok=True)
+            safe = _re.sub(r"[^\w.\- ]", "_",
+                           str(call.args.get("name", "report.txt"))).strip()
+            if not safe:
+                safe = "report.txt"
+            path = reports_dir / safe
+            if path.parent != reports_dir:
+                return {"ok": False, "error": "name escapes the reports folder"}
+            text = str(call.args.get("text", ""))
+            path.write_text(text, encoding="utf-8")
+            return {"ok": True, "path": str(path), "bytes": len(text)}
 
     def _make_remote_key(self):
         """Called from Qt main thread when user presses Remote Control."""

@@ -56,7 +56,10 @@ class ResearchRunner:
         from kernel.research import research_report_plan
 
         try:
-            plan = research_report_plan(topic)
+            # Phase W gate: use the live registry's URL-returning search
+            # (the legacy web_search speaks prose; the plan's
+            # {search.first_url} template needs a structured result).
+            plan = research_report_plan(topic, search_tool="web_search_url")
         except Exception as exc:
             return f"Could not build research plan: {exc}"
 
