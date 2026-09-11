@@ -52,6 +52,7 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 | ~~`pR-config`~~ | R4 (Phase R) | ✅ **cancelled — folded into `pR-live`** by buffy 2026-09-10 (ui.py was already warm from R1's consent signal; doing it in-stream removes the parallel-chat conflict over that file) | 15f65e3+ | R4 delivered in pR-live's second commit; the consent signal was preserved by construction |
 | ~~`pR-live-bench`~~ | R6 (Phase R, parallel chat) | ✅ **cancelled — folded into `pR-live`** by buffy 2026-09-10 (user order: no parallel chats exist) |  | R6 delivered in-stream (NEW files only, as the row specified); see the R6 row + Verification Log |
 | `pA-agent` | **Phase A — A4+A5+A6 non-overlapping slice (zcode-pA, worktree `../ultron-phaseA`)** | ✅ **merged (merge by main chat per protocol; branch RETAINED in pA's worktree for the A1–A3 continuation — do not dissolve)** | see merge commit | Branch CI SUCCESS @ 8ded992 (run 34627226303, REST-verified by both pA and main chat); post-merge main verification: suite **610 passed/4 skipped in 24.9s** (0 failures = their 614-collected claim), benchmark PASS, killlist PASS, mypy Success 85 files, ruff clean, **A6 voice-product eval 11/11 = 1.000 on merged main** |
+| `pUI-audit` | **UI + Frontend audit (zcode-pUI) — Playwright-driven full dashboard/JS audit, checklists A–G; owns `dashboard/**`, `ui.py`, `tests/test_dashboard_ui.py`, `docs/audits/**`** | 🔶 in-progress (claimed 2026-09-11, branch cut from origin/main @ b2aedc1) |  | Evidence under `docs/audits/evidence/`; fixes only in owned files; findings against foreign files go to Findings for the main chat |
 
 ---
 
@@ -282,6 +283,22 @@ live hook in the model path, and the W6-deferred comparison.py DELETE (Findings
 | P4 | **Live-HA run**: MqttBridge + HA mount against a real box | DEP: P1 | 🚫 | main-owner | BLOCKED on hardware — no HA box in this environment; kernel side complete since P4-C |
 
 **Gate (LIVE):** two speakers with personalized responses (needs speaker-ID install + 2 real voices); proactive suggestions firing from real events (proactive engine live since W/R5 — real-event evidence accrues with use); 30-day uptime ≥99.9% (runtime property — starts accruing from this release). Code-side sign-off = everything wireable without new hardware is wired, probed, and CI-green.
+
+---
+
+## UI + Frontend Audit — **in-progress (zcode-pUI, branch `pUI-audit`, claimed 2026-09-11)**
+*Playwright-driven audit of `dashboard/**` + `ui.py` against the live product (`py -3.14 -u main.py`, dashboard 127.0.0.1:8000). Checklists A–G per the audit brief; evidence in `docs/audits/evidence/<scenario>/`; report `docs/audits/ui_audit_2026-09-11.md`. Read-only on `main.py`/`app/`/`kernel/` — foreign-file findings go to Findings.*
+
+| ID | Task | DEP | Status | Owner | Sign-off |
+|---|---|---|---|---|---|
+| UI-A | Load & render (first paint, console, assets, HUD mirror) | 🔓 | 🔶 | zcode-pUI 2026-09-11 |  |
+| UI-B | Auth & security regression (P0-B4 contract: 400/401/4001, encryption, token cap, TLS 8001, no 0.0.0.0) | 🔓 | 🔶 | zcode-pUI 2026-09-11 |  |
+| UI-C | Kernel events live-rendering (W1/W4/W5/R5 segments → HudFeed cards; WS-frame proof) | 🔓 | 🔶 | zcode-pUI 2026-09-11 |  |
+| UI-D | Remote control flows (mute/unmute, text→session, image upload, phone mic relay, reconnect) | 🔓 | 🔶 | zcode-pUI 2026-09-11 |  |
+| UI-E | New-feature visibility (dashboard command-routing / /user UI surface / /cost surface) | 🔓 | 🔶 | zcode-pUI 2026-09-11 |  |
+| UI-F | Robustness (WS drop/reconnect, 30-min soak, malformed WS, UTF-8) | 🔓 | 🔶 | zcode-pUI 2026-09-11 |  |
+| UI-G | A11y + responsive 390px + theme naming (axe-core, tap targets, theme-jarvis label) | 🔓 | 🔶 | zcode-pUI 2026-09-11 |  |
+| UI-R | Report + board closeout (`docs/audits/ui_audit_2026-09-11.md`, Findings, Verification Log, Merge Queue 🟢) | DEP: UI-A…UI-G | 🔶 | zcode-pUI 2026-09-11 |  |
 
 ---
 
