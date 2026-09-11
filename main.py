@@ -128,7 +128,15 @@ class UltronLive(
         self._briefing_sent    = False          # morning briefing fires once per process
         self._sys_monitor      = SystemMonitor()  # persistent cooldown state
         self._last_user_speech = time.monotonic()  # updated on every user utterance
-        self._memory = MemoryEngine(BASE_DIR / ".ultron" / "memory.sqlite3")
+        # Phase A4 wiring: the embedder comes from config (memory_embedder:
+        # "" = hermetic HashingEmbedder default; "bge-m3" = real semantic
+        # vectors when fastembed is installed — EmbedderUnavailable surfaces
+        # loudly rather than silently degrading recall).
+        from kernel.memory import embedder_from_config
+        self._memory = MemoryEngine(
+            BASE_DIR / ".ultron" / "memory.sqlite3",
+            embedder=embedder_from_config(loader.load_config()),
+        )
         # Phase P2: multi-user goes LIVE (kernel/users was an orphan since
         # Phase S). A default profile is bootstrapped from config so the
         # single-user experience is unchanged until a second user exists.
