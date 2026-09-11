@@ -249,6 +249,20 @@ is a config change. Every task integrates existing kernel components — no new 
 
 ---
 
+## Phase P — Personalization & Scale (ROADMAP §9.5) — **CLAIMED 2026-09-11 by main-owner on `pP-polish` (branch from post-W main)**
+*Goal: delight on a foundation that now actually works. Hardware-gated gate halves (two real speakers, live HA box, 30-day uptime) are documented residuals; the code-side wiring lands here.*
+
+| ID | Task (owns) | DEP | Status | Owner | Sign-off |
+|---|---|---|---|---|---|
+| P3 | **main.py diet to <600** (the W0 continuation): extract command dispatch, agent tier, consent gate, session-config build, research gate tools, memory formation, usage gateway into app/ modules | 🔓 START NOW | 🔶 | main-owner 2026-09-11 | |
+| P2 | **Multi-user wired**: UserManager (kernel/users, orphan since Phase S) constructed in the composition root; /user switch command; active-user identity drives the persona prompt + episode tagging | DEP: P3 | ⬜ | main-owner | |
+| P1 | **Voice stack (code side)**: requirements-voice.txt extras; kernel voice engines (EchoGate / speaker-ID / wake) wired into the composition behind config flags (default off until live-mic A/B); cloud wake_service.py retirement decision | DEP: P3 | ⬜ | main-owner | |
+| P4 | **Live-HA run**: MqttBridge + HA mount against a real box | DEP: P1 | 🚫 | main-owner | BLOCKED on hardware — no HA box in this environment; kernel side complete since P4-C |
+
+**Gate (LIVE):** two speakers with personalized responses (needs speaker-ID install + 2 real voices); proactive suggestions firing from real events (proactive engine live since W/R5 — real-event evidence accrues with use); 30-day uptime ≥99.9% (runtime property — starts accruing from this release). Code-side sign-off = everything wireable without new hardware is wired, probed, and CI-green.
+
+---
+
 ## Verification Log (phase-gate deliverables — evidence or it didn't happen)
 | Date | Deliverable | Verified by | Checks run + evidence | Result |
 |---|---|---|---|---|
