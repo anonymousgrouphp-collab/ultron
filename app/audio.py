@@ -176,7 +176,7 @@ class AudioTasksMixin:
                                 try:
                                     self._memory.record_episode(
                                         f"You: {full_in}\n{self._asst_name}: {full_out}",
-                                        source_ref="voice-live",
+                                        source_ref=f"voice-live:{self._active_user_id()}",  # P2: per-user tagging
                                     )
                                 except Exception as ep_err:
                                     print(f"[Memory] episode capture failed: {ep_err}")

@@ -1,4 +1,9 @@
 """
+[DEPRECATED Phase P1 2026-09-11 — retained until the in-process
+openwakeword stack (requirements-voice.txt + kernel/voice) is installed
+and live-A/B'd. Then this file + Start_ULTRON_Wake_Word.bat are deleted
+(Kill List: one wake stack).]
+
 Wake Word Service for ULTRON AI Engine
 ==========================================
 A lightweight background listener that waits for the phrase "wake up ultron"
