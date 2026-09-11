@@ -144,7 +144,8 @@ class SpeakerManager:
                 self._save_profiles()
                 return self._profiles[name]
             return None
-        except Exception:
+        except Exception as exc:
+            log.warning("Speaker identification error: %s", exc)
             return None
 
     def get_profile(self, name: str) -> SpeakerProfile | None:

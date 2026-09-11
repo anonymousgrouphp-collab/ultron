@@ -185,6 +185,7 @@ class MemoryEngine:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(path), check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute("PRAGMA synchronous=NORMAL")
         self._conn.execute("PRAGMA foreign_keys=ON")
         self._conn.executescript(_SCHEMA)
         self._ensure_columns()
@@ -200,6 +201,9 @@ class MemoryEngine:
         )
         self._conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_facts_importance ON semantic_facts(importance DESC, known_at DESC)"
+        )
+        self._conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_episodes_started ON episodes(started_at DESC)"
         )
         self._conn.commit()
 

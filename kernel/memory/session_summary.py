@@ -95,8 +95,11 @@ def generate_session_summary(
                 source_ref=f"session:{timestamp}",
                 importance=0.5,
             )
-        except Exception:
-            pass  # Memory storage failure must not break the session
+        except Exception as exc:
+            import logging
+            logging.getLogger("ultron.memory").warning(
+                "Failed to store session summary in memory: %s", exc
+            )
 
     return summary
 

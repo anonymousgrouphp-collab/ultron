@@ -41,6 +41,7 @@ class AuditLog:
         self._conn = sqlite3.connect(target, check_same_thread=False)
         try:
             self._conn.execute("PRAGMA journal_mode=WAL")
+            self._conn.execute("PRAGMA synchronous=NORMAL")
         except sqlite3.DatabaseError:
             pass  # :memory: has no WAL — harmless
         self._conn.execute(_SCHEMA)

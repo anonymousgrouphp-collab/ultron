@@ -49,18 +49,17 @@ class AudioTasksMixin:
         print("[ULTRON] 🎤 Mic started")
         loop = asyncio.get_event_loop()
 
+        def _safe_put(item):
+            try:
+                self.out_queue.put_nowait(item)
+            except asyncio.QueueFull:
+                pass
+
         def callback(indata, frames, time_info, status):
             with self._speaking_lock:
                 ultron_speaking = self._is_speaking
             if not ultron_speaking and not self.ui.muted and not self._phone_active:
                 data = indata.tobytes()
-
-                def _safe_put(item):
-                    try:
-                        self.out_queue.put_nowait(item)
-                    except asyncio.QueueFull:
-                        pass
-
                 loop.call_soon_threadsafe(
                     _safe_put,
                     {"data": data, "mime_type": "audio/pcm"}
@@ -154,9 +153,13 @@ class AudioTasksMixin:
                                         "I'm running it through the full agent "
                                         "loop now — I'll report back."
                                     )
+                                    ack_msg = (
+                                        "[SYSTEM] Do not answer the last user message; it has been routed to the "
+                                        "background agent loop. Reply with exactly this acknowledgment and "
+                                        f"nothing else: {handoff}"
+                                    )
                                     await self.session.send_client_content(
-                                        turns={"parts": [{"text":
-                                            f"[SYSTEM] Do not answer the last user message; it has been routed to the background agent loop. Reply with exactly this acknowledgment and nothing else: {handoff}"}]},
+                                        turns={"parts": [{"text": ack_msg}]},
                                         turn_complete=True,
                                     )
                             in_buf = []

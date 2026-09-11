@@ -124,6 +124,7 @@ class JobQueue:
         self._conn.row_factory = sqlite3.Row
         try:
             self._conn.execute("PRAGMA journal_mode=WAL")
+            self._conn.execute("PRAGMA synchronous=NORMAL")
         except sqlite3.DatabaseError:
             pass  # :memory: has no WAL — harmless
         self._conn.execute(_SCHEMA)

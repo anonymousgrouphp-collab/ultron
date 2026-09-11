@@ -16,9 +16,10 @@ if _platform.system() == "Windows":
 # ─────────────────────────────────────────────────────────────────────────────
 
 import asyncio
+import socket
+import sys
 import threading
 import time
-import sys
 import traceback
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -37,15 +38,17 @@ from app.consent import ConsentGate
 from app.handlers import LegacyHandlersMixin
 from app.memory_formation import MemoryFormationMixin
 from app.monitors import MonitorTasksMixin
-from app.observability import ApiKeyMissing, _UsageTrackingGateway
+from app.observability import ApiKeyMissing
 from app.research_gate import ResearchGateMixin
 from app.voice_stack import VoiceStackMixin
 
 from actions.system_monitor    import SystemMonitor
 from config import loader
+from core.tool_declarations import TOOL_DECLARATIONS
 from kernel.bus import EventBus
 from kernel.gateway import DEFAULT_GEMINI_LIVE_MODEL, GatewaySettings
 from kernel.gateway.live import FunctionResponse, LiveSession, build_live_config
+from kernel.loop.provider_test import ProviderTestRunner
 from kernel.loop.runner import AgentRunner
 from kernel.persona import PromptAssembler
 from kernel.proactive.dashboard_bridge import BusDashboardBridge
@@ -64,7 +67,7 @@ from kernel.proactive import (
     ProactiveEngine as KernelProactiveEngine,
     TriggerRule,
 )
-from kernel.types import Event, RiskClass, ToolCall
+from kernel.types import Event, ToolCall
 
 
 BASE_DIR    = loader.get_base_dir()
@@ -93,10 +96,6 @@ def _load_system_prompt() -> str:
             "Be concise, direct, and always use the provided tools to complete tasks. "
             "Never simulate or guess results — always call the appropriate tool."
         )
-
-
-from core.tool_declarations import TOOL_DECLARATIONS
-
 
 class UltronLive(
     LegacyHandlersMixin,    # the 20 _handle_* legacy bridges (Phase W0)
@@ -629,9 +628,8 @@ class UltronLive(
             await asyncio.sleep(delay)
 
 
-import socket
-
 _single_instance_sock = None
+
 
 def _ensure_single_instance():
     global _single_instance_sock
@@ -640,7 +638,11 @@ def _ensure_single_instance():
         sock.bind(("127.0.0.1", 39152))
         _single_instance_sock = sock
     except OSError:
-        print("[ULTRON] ⚠️ ULTRON is already running in another process! Exiting duplicate instance to prevent window flickering.", file=sys.stderr)
+        print(
+            "[ULTRON] ⚠️ ULTRON is already running in another process! "
+            "Exiting duplicate instance to prevent window flickering.",
+            file=sys.stderr,
+        )
         sys.exit(0)
 
 def main():
