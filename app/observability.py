@@ -40,28 +40,5 @@ class _UsageTrackingGateway:
             pass  # observability must never break the model path
         return response
 
-
-def _get_api_key() -> str:
-    key = loader.get_api_key()   # None when missing, empty, or placeholder
-    if key is None:
-        raise ApiKeyMissing(
-            "config/api_keys.json is missing, invalid, or has no real Gemini key"
-        )
-    return key
-
-
-def _load_system_prompt() -> str:
-    try:
-        return PROMPT_PATH.read_text(encoding="utf-8")
-    except Exception:
-        return (
-            "You are ULTRON, a highly intelligent AI assistant. "
-            "Be concise, direct, and always use the provided tools to complete tasks. "
-            "Never simulate or guess results — always call the appropriate tool."
-        )
-
-from core.tool_declarations import TOOL_DECLARATIONS
-
-# --- Plugin system ---
-
+__all__ = ["ApiKeyMissing", "_UsageTrackingGateway"]
 

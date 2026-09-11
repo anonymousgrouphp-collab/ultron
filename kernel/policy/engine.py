@@ -83,12 +83,21 @@ class PolicyEngine:
 
         # Outbound data exfiltration defense (REV-02): web_read carrying query
         # parameters or credentials acts as potential outbound data egress (GET exfiltration).
+        # Internal loopback / intranet host targets are also elevated to protect against SSRF.
         # Elevate to WRITE so it requires consent and cannot silently exfiltrate private data.
         if call.name == "web_read" and risk is RiskClass.READ:
             url = str(call.args.get("url", ""))
             from urllib.parse import urlparse
             parsed = urlparse(url)
-            if parsed.query or parsed.username or parsed.password:
+            host = (parsed.hostname or "").lower()
+            is_internal = (
+                host in ("localhost", "127.0.0.1", "::1", "0.0.0.0")
+                or host.startswith("192.168.")
+                or host.startswith("10.")
+                or host.startswith("169.254.")
+                or (host.startswith("172.") and any(host.startswith(f"172.{i}.") for i in range(16, 32)))
+            )
+            if parsed.query or parsed.username or parsed.password or is_internal:
                 risk = RiskClass.WRITE
 
         decision = self.decide(risk)

@@ -36,11 +36,17 @@ class MonitorTasksMixin:
             if is_90 and not emergency_active:
                 emergency_active = True
                 self.ui.set_state("EMERGENCY")
-                self.ui.write_log(f"SYS_ALERT: EMERGENCY SYSTEM OVERLOAD DETECTED (CPU: {cpu}%, RAM: {ram}%)! Red alert active.")
+                self.ui.write_log(
+                    f"SYS_ALERT: EMERGENCY SYSTEM OVERLOAD DETECTED (CPU: {cpu}%, RAM: {ram}%)! Red alert active."
+                )
                 if self.session:
                     try:
+                        alert_msg = (
+                            f"[SYSTEM_ALERT] Emergency system overload! CPU/RAM at {max(cpu, ram)}%. "
+                            "State that red alert emergency siren is active."
+                        )
                         await self.session.send_client_content(
-                            turns={"parts": [{"text": f"[SYSTEM_ALERT] Emergency system overload! CPU/RAM at {max(cpu, ram)}%. State that red alert emergency siren is active."}]},
+                            turns={"parts": [{"text": alert_msg}]},
                             turn_complete=True,
                         )
                     except Exception:
@@ -55,8 +61,13 @@ class MonitorTasksMixin:
                 app_names = ", ".join(suggested_apps).replace(".exe", "")
                 self.ui.write_log(f"SYS_ALERT: 95%+ OVERLOAD - consider closing: {app_names}.")
                 try:
+                    overload_msg = (
+                        "[SYSTEM_ALERT] Critical system overload (>95%). "
+                        f"Suggest the user manually close heavy applications ({app_names}); "
+                        "do not claim any application was closed."
+                    )
                     await self.session.send_client_content(
-                        turns={"parts": [{"text": f"[SYSTEM_ALERT] Critical system overload (>95%). Suggest the user manually close heavy applications ({app_names}); do not claim any application was closed."}]},
+                        turns={"parts": [{"text": overload_msg}]},
                         turn_complete=True,
                     )
                 except Exception:
@@ -148,8 +159,12 @@ class MonitorTasksMixin:
                         img_bytes = base64.b64decode(b64_str)
                         self.ui.write_log("SYS: Image received. ULTRON analyzing image...")
                         await self.session.send_realtime_input(media={"data": img_bytes, "mime_type": mime})
+                        img_prompt = (
+                            "Please analyze this attached image in full detail, "
+                            "describe every visual element, and explain what it represents."
+                        )
                         await self.session.send_client_content(
-                            turns={"parts": [{"text": "Please analyze this attached image in full detail, describe every visual element, and explain what it represents."}]},
+                            turns={"parts": [{"text": img_prompt}]},
                             turn_complete=True,
                         )
                     else:

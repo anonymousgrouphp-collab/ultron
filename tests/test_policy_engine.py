@@ -210,3 +210,11 @@ def test_16_web_read_with_query_params_elevates_to_write_and_requires_consent():
     assert res_cred.ok is False
     assert "requires consent" in (res_cred.error or "")
     assert res_cred.risk is RiskClass.WRITE
+
+    # URL targeting loopback/internal hosts elevates to WRITE -> ASK (SSRF defense)
+    c_ssrf = ToolCall(id="c-ssrf", name="web_read", args={"url": "http://127.0.0.1:8000/api/status"})
+    res_ssrf = asyncio.run(eng.run(c_ssrf, reg))
+    assert res_ssrf.ok is False
+    assert "requires consent" in (res_ssrf.error or "")
+    assert res_ssrf.risk is RiskClass.WRITE
+
