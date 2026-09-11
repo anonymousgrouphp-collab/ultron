@@ -983,9 +983,11 @@ def build_suite() -> list[Task]:
 # --------------------------------------------------------------- runner ----
 
 
-def make_registry(bench: Bench) -> ToolRegistry:
+def make_registry(bench: Bench, *, web_enabled: bool = True) -> ToolRegistry:
     """One registry for all loop tasks: notes, memory, web, coding — the
-    model-facing surface of four subsystems, one policy choke point."""
+    model-facing surface of four subsystems, one policy choke point.
+    web_enabled=False (A6 voice-product eval's gate-off variant) registers
+    the research tools with the consent gate closed, so they refuse."""
     from kernel.coding import build_coding_tools
     from kernel.research import build_research_tools
 
@@ -1039,7 +1041,7 @@ def make_registry(bench: Bench) -> ToolRegistry:
         return "deleted"
 
     register_memory_tools(reg, bench.engine)
-    build_research_tools(reg, fetch=bench.fetch, enabled=True)
+    build_research_tools(reg, fetch=bench.fetch, enabled=web_enabled)
 
     @reg.tool(
         name="web_search",
