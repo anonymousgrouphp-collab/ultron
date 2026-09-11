@@ -289,11 +289,56 @@ class UltronLive(
             risk=RiskClass.READ,
         )
         def web_search_url(call: ToolCall) -> dict:
+            import re as _url_re
             from actions.web_search import _ddg_search
             query = str(call.args.get("query", "")).strip()
-            results = _ddg_search(query, max_results=5) if query else []
-            first = next((r["url"] for r in results
-                          if r.get("url", "").startswith("http")), "")
+            # Tier 1: the DuckDuckGo HTML endpoint — the ddgs API
+            # package is flaky post-rename (rate-limits return junk or
+            # nothing), this one is stable and on-topic.
+            results: list[dict] = []
+            first = ""
+            if query:
+                try:
+                    import requests as _req
+                    resp = _req.post(
+                        "https://html.duckduckgo.com/html/",
+                        data={"q": query},
+                        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+                        timeout=15,
+                    )
+                    anchors = _url_re.findall(
+                        r'class="result__a"[^>]*href="([^"]+)"', resp.text)
+                    urls = [u for u in anchors if u.startswith("http")][:5]
+                    results = [{"title": "", "snippet": "", "url": u}
+                               for u in urls]
+                    first = urls[0] if urls else ""
+                except Exception:
+                    pass  # fall through to the next tier
+            # Tier 2: the ddgs API package (kept as fallback).
+            if not first and query:
+                try:
+                    from actions.web_search import _ddg_search
+                    results = _ddg_search(query, max_results=5)
+                    first = next((r["url"] for r in results
+                                  if r.get("url", "").startswith("http")), "")
+                except Exception:
+                    pass
+            if not first and query:
+                # tier 3: the Gemini grounded-search seam — pull real URLs
+                # out of the grounded prose (quota-gated, last resort).
+                try:
+                    from actions._llm import complete_grounded_search
+                    text = complete_grounded_search(
+                        f"Search the web for: {query}. "
+                        "Include the source page URLs.")
+                    urls = [m for m in _url_re.findall(
+                        r"https?://[^\s)\]>'\"]+", text)
+                            if "google." not in m][:5]
+                    results = [{"title": "", "snippet": "", "url": u}
+                               for u in urls]
+                    first = urls[0] if urls else ""
+                except Exception:
+                    pass  # clean empty result — the plan reports honestly
             return {"results": results[:5], "first_url": first}
 
         reports_dir = BASE_DIR / ".ultron" / "reports"

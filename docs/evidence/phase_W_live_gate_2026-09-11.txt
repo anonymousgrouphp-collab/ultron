@@ -1,0 +1,24 @@
+PHASE W LIVE GATE — 2026-09-11 (main-owner)
+Gate: research -> summary file, end-to-end through the real composition
+(real config, real Gemini key, real network, real durable orchestrator).
+
+Run: py -3.14 (system Python; the 3.13 runtime was removed from the
+machine per user order) — UltronLive composed with the full W wiring:
+- JobQueue(.ultron/jobs.sqlite3) + Orchestrator over the live
+  registry/policy/consent choke point (W1)
+- registry 21->31 tools incl. web_search_url + fs_write_report (W2 + gate)
+- ResearchRunner.run_research("Model Context Protocol") — the exact path
+  the /research voice command takes
+
+Result:
+[1] job job-012db0c5992a enqueued
+[2] worker: status=done in 2.4s
+[3] tool steps completed: ['search', 'read', 'report']  (>=3 required)
+[4] report: .ultron/reports/research_report.txt (3,236 bytes)
+[5] content head: "What is the Model Context Protocol (MCP)? ..."
+
+Search backend note: 3 tiers (DDG HTML endpoint -> ddgs package -> Gemini
+grounded seam). The ddgs package is flaky post-rename (junk/empty results);
+tier 1 carried the gate. Gemini tier was quota-drained (HTTP 429) today.
+
+The report body is copied verbatim to phase_W_research_report_2026-09-11.txt.
