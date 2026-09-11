@@ -54,6 +54,7 @@ Legend: ⬜ open · 🔶 in-progress · ✅ done+signed · 🚫 blocked (reason 
 | ~~`pR-live-bench`~~ | R6 (Phase R, parallel chat) | ✅ **cancelled — folded into `pR-live`** by buffy 2026-09-10 (user order: no parallel chats exist) |  | R6 delivered in-stream (NEW files only, as the row specified); see the R6 row + Verification Log |
 | `pA-agent` | **Phase A — A4+A5+A6 non-overlapping slice (zcode-pA, worktree `../ultron-phaseA`)** | ✅ **merged (merge by main chat per protocol; branch RETAINED in pA's worktree for the A1–A3 continuation — do not dissolve)** | see merge commit | Branch CI SUCCESS @ 8ded992 (run 34627226303, REST-verified by both pA and main chat); post-merge main verification: suite **610 passed/4 skipped in 24.9s** (0 failures = their 614-collected claim), benchmark PASS, killlist PASS, mypy Success 85 files, ruff clean, **A6 voice-product eval 11/11 = 1.000 on merged main** |
 | `pUI-audit` | **UI + Frontend audit (zcode-pUI) — Playwright-driven full dashboard/JS audit, checklists A–G; owns `dashboard/**`, `ui.py`, `tests/test_dashboard_ui.py`, `docs/audits/**`** | 🟢 merge-ready |  | 27/27 in test_dashboard_ui.py + full suite 637 passed / 4 skipped in 31.5s; Killlist PASS; Playwright audit Checklists A–G executed; all 4 audit findings resolved (monitors command routing, bridge event.type, console UTF-8, phone mic streaming); report in docs/audits/ui_audit_2026-09-11.md |
+| `pReview-audit` | **Full Review Audit — Layers 1–8 (review-audit chat)** | 🔶 in-progress |  | Code-level multi-layer audit report docs/audits/review_audit_2026-09-12.md; read-only on src |
 
 ---
 
@@ -300,6 +301,23 @@ live hook in the model path, and the W6-deferred comparison.py DELETE (Findings
 | UI-F | Robustness (WS drop/reconnect, 30-min soak, malformed WS, UTF-8) | 🔓 | ✅ | zcode-pUI 2026-09-12 | ✍ zcode-pUI 2026-09-12 (Pass 10/10 100%; 2,596 WS frames, zero console errors, stable DOM growth 213→249 nodes; `docs/audits/evidence/F_soak/`) |
 | UI-G | A11y + responsive 390px + theme naming (axe-core, tap targets, theme-jarvis label) | 🔓 | ✅ | zcode-pUI 2026-09-12 | ✍ zcode-pUI 2026-09-12 (Pass 10/10 100%; axe-core 0 violations, WCAG AA buttons, zero overflow, theme identity; `docs/audits/evidence/G_a11y/`) |
 | UI-R | Report + board closeout (`docs/audits/ui_audit_2026-09-11.md`, Findings, Verification Log, Merge Queue 🟢) | DEP: UI-A…UI-G | ✅ | zcode-pUI 2026-09-12 | ✍ zcode-pUI 2026-09-12 (Full report, defect catalog with main-chat remediation patches; full test suite 634 passed / 4 skipped) |
+
+---
+
+## Full Review Audit — Layers 1–8 — **IN PROGRESS (review-audit chat, branch `pReview-audit`, 2026-09-12)**
+*Code-level, evidence-first audit across 8 layers: architecture/wiring (L1), code quality (L2), security/safety (L3), concurrency/reliability (L4), performance/resources (L5), test/eval quality (L6), data/memory integrity (L7), claims truth & process compliance (L8). Read-only on source files; report in `docs/audits/review_audit_2026-09-12.md`.*
+
+| ID | Task | DEP | Status | Owner | Sign-off |
+|---|---|---|---|---|---|
+| REV-L1 | L1 — Architecture & wiring truth (composition root, kernel boundaries, Kill List, orphan detection) | 🔓 START NOW | 🔶 in-progress | review-audit 2026-09-12 |  |
+| REV-L2 | L2 — Code quality (module-by-module, error-handling audit, vulture/radon leads, type coverage) | 🔓 START NOW | 🔶 in-progress | review-audit 2026-09-12 |  |
+| REV-L3 | L3 — Security & safety (policy engine risk, consent gate, subprocess jail, prompt injection, bandit) | 🔓 START NOW | 🔶 in-progress | review-audit 2026-09-12 |  |
+| REV-L4 | L4 — Concurrency & runtime reliability (threading map, Qt/asyncio/sounddevice/ThreadPool, COM deadlock) | 🔓 START NOW | 🔶 in-progress | review-audit 2026-09-12 |  |
+| REV-L5 | L5 — Performance & resources (unbounded growth, SQLite query plans, audio frame allocs, cost tracking) | 🔓 START NOW | 🔶 in-progress | review-audit 2026-09-12 |  |
+| REV-L6 | L6 — Test & eval quality (mock blindness review, pytest-cov coverage map, flaky tests, eval adequacy) | 🔓 START NOW | 🔶 in-progress | review-audit 2026-09-12 |  |
+| REV-L7 | L7 — Data & memory integrity (schema analysis, migrations, bi-temporal fields, decay/consolidation) | 🔓 START NOW | 🔶 in-progress | review-audit 2026-09-12 |  |
+| REV-L8 | L8 — Claims truth & process compliance (Ocean Plan audit, binding rules, claims vs artifacts) | 🔓 START NOW | 🔶 in-progress | review-audit 2026-09-12 |  |
+| REV-REP | Full Review Audit Report + Findings Register (`docs/audits/review_audit_2026-09-12.md`) | DEP: REV-L1…L8 | 🔶 in-progress | review-audit 2026-09-12 |  |
 
 ---
 
