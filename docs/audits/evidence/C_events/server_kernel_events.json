@@ -1,0 +1,4 @@
+{"type": "kernel_event", "event_type": "", "tool": "get_system_status", "ok": true, "risk": "low", "error": null, "duration_ms": 0}
+{"type": "kernel_event", "event_type": "health.error", "component": "tool", "name": "read_file", "error": "file not found"}
+{"type": "kernel_event", "event_type": "", "job_id": "job-audit-001", "status": "running", "step": "init", "error": null}
+{"type": "kernel_event", "event_type": "proactive.decision", "rule": "home-motion", "message": "Sir, I detected motion in the front_door.", "fired": false, "suppressed": false}

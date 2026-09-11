@@ -1,0 +1,6 @@
+>>> RESPONSES
+200 GET https://127.0.0.1:8000/
+200 GET https://127.0.0.1:8000/static/crypto.js
+200 GET https://127.0.0.1:8000/login
+>>> FAILED REQUESTS
+<none>

@@ -1,0 +1,8 @@
+FAIL | phone mute/unmute round-trip reaches the app | muted False -> False
+PASS | phone text command -> Gemini session reply rendered | reply 'AUDIT-D-OK' seen
+FAIL | image upload reaches app ('Image received...' log) | no log (session dormant / command dropped)
+PASS | phone-mic WS client absent from app.html (gap finding) | server /ws/phone-audio has no dashboard caller
+PASS | malformed WS text frame handled gracefully | result=stayed-open
+PASS | WS drop detected -> RECONNECTING UX | net-status='RECONNECTING' closes=2
+FAIL | dashboard reconnects after app restart | net-status='None'
+FAIL | history replay after reconnect DUPLICATES feed rows (finding) | rows 4 -> 0 (replay re-renders backlog)

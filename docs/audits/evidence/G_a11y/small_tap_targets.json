@@ -1,0 +1,58 @@
+[
+  {
+    "tag": "button",
+    "id": "voice-mic-btn",
+    "cls": "btn",
+    "text": "\u25c9",
+    "width": 38,
+    "height": 38
+  },
+  {
+    "tag": "button",
+    "id": "",
+    "cls": "btn",
+    "text": "Image",
+    "width": 64,
+    "height": 32
+  },
+  {
+    "tag": "button",
+    "id": "",
+    "cls": "btn",
+    "text": "Chat",
+    "width": 56,
+    "height": 32
+  },
+  {
+    "tag": "button",
+    "id": "",
+    "cls": "btn",
+    "text": "Camera",
+    "width": 77,
+    "height": 32
+  },
+  {
+    "tag": "button",
+    "id": "reminders-badge",
+    "cls": "btn",
+    "text": "Reminders",
+    "width": 98,
+    "height": 32
+  },
+  {
+    "tag": "button",
+    "id": "",
+    "cls": "btn",
+    "text": "Files",
+    "width": 56,
+    "height": 32
+  },
+  {
+    "tag": "button",
+    "id": "",
+    "cls": "btn",
+    "text": "Reboot Visuals",
+    "width": 132,
+    "height": 32
+  }
+]

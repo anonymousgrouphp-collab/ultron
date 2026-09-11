@@ -1,0 +1,6 @@
+C:\Users\ceoha\AppData\Local\Programs\Python\Python314\Lib\site-packages\pywinauto\__init__.py:80: UserWarning: Revert to STA COM threading mode
+  warnings.warn("Revert to STA COM threading mode", UserWarning)
+qt.qpa.window: SetProcessDpiAwarenessContext() failed: Access is denied.
+Qt's default DPI awareness context is DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2. If you know what you are doing, you can overwrite this default using qt.conf (https://doc.qt.io/qt-6/highdpi.html#configuring-windows).
+js: Uncaught ReferenceError: CryptoJS is not defined
+Warning: there are non-data parts in the response: ['text', 'thought'], returning concatenated data result from data parts, check out the non data parts for full response from model.

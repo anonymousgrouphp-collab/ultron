@@ -1,0 +1,13 @@
+[
+  {
+    "id": "region",
+    "impact": "moderate",
+    "description": "Ensure all page content is contained by landmarks",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/region?application=axeAPI",
+    "targets": [
+      [
+        "#toasts"
+      ]
+    ]
+  }
+]

@@ -1,0 +1,30 @@
+[
+  {
+    "id": "label",
+    "impact": "critical",
+    "description": "Ensure every form element has a label",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/label?application=axeAPI",
+    "targets": [
+      [
+        "#file-upload-input"
+      ]
+    ]
+  },
+  {
+    "id": "region",
+    "impact": "moderate",
+    "description": "Ensure all page content is contained by landmarks",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/region?application=axeAPI",
+    "targets": [
+      [
+        "#files > .card > .head"
+      ],
+      [
+        "#file-upload-input"
+      ],
+      [
+        "#file-grid-container"
+      ]
+    ]
+  }
+]

@@ -1,0 +1,44 @@
+[
+  {
+    "id": "label",
+    "impact": "critical",
+    "description": "Ensure every form element has a label",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/label?application=axeAPI",
+    "targets": [
+      [
+        "#rem-time-input"
+      ]
+    ]
+  },
+  {
+    "id": "region",
+    "impact": "moderate",
+    "description": "Ensure all page content is contained by landmarks",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/region?application=axeAPI",
+    "targets": [
+      [
+        ".head > span"
+      ],
+      [
+        ".card > div:nth-child(2) > span"
+      ],
+      [
+        "#reminders > .card > .row:nth-child(3)"
+      ]
+    ]
+  },
+  {
+    "id": "select-name",
+    "impact": "critical",
+    "description": "Ensure select element has an accessible name",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/select-name?application=axeAPI",
+    "targets": [
+      [
+        "#rem-prio-select"
+      ],
+      [
+        "#rem-cat-select"
+      ]
+    ]
+  }
+]

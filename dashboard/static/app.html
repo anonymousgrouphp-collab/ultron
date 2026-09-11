@@ -193,9 +193,14 @@ body.emergency-active .emergency-top-banner {
 @keyframes blipFlash { 0%, 100% { opacity: 0.3; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.3); } }
 </style>
 <script src="/static/crypto.js"></script>
+<script>
+if (typeof CryptoJS === 'undefined') {
+  document.write('<script src="crypto-js.min.js"><\/script>');
+}
+</script>
 </head>
 <body>
-<div id="webgl"></div>
+<div id="webgl" aria-hidden="true"></div>
 <div class="scan"></div>
 <div class="vig"></div>
 <div id="alert"></div>
@@ -218,7 +223,7 @@ body.emergency-active .emergency-top-banner {
       <span id="clock-date"></span>
     </div>
     <div class="buttons">
-      <select id="theme-select-box" class="btn keep" onchange="setUltronTheme(this.value)" style="padding:6px 8px">
+      <select id="theme-select-box" aria-label="Theme Selection" class="btn keep" onchange="setUltronTheme(this.value)" style="padding:6px 8px">
         <option value="ultron">🔴 Crimson Ultron</option>
         <option value="jarvis">🩵 J.A.R.V.I.S Cyan</option>
         <option value="violet">💜 Cyber Violet</option>
@@ -232,7 +237,7 @@ body.emergency-active .emergency-top-banner {
     </div>
   </header>
 
-  <aside class="side">
+  <aside class="side" aria-label="Cognitive Matrix">
     <section class="panel">
       <div class="title">Cognitive matrix</div>
       <div class="data">
@@ -276,7 +281,7 @@ body.emergency-active .emergency-top-banner {
     </div>
   </section>
 
-  <aside class="side">
+  <aside class="side" aria-label="Hologram Status">
     <section class="panel">
       <div class="title">Hologram status</div>
       <div class="data">
@@ -418,8 +423,9 @@ if (!local && token === '__TOKEN__') { location.replace('/login'); return; }
 // --- COMMAND ENCRYPTION (P0-B4) -------------------------------------------
 // Mirrors dashboard/server.py: AES-256-CBC, key = PBKDF2-HMAC-SHA256(session
 // key, "ULTRON-DASHBOARD-v1", 100000), payload = base64(IV[16] ‖ ciphertext).
-const SALT = CryptoJS.enc.Utf8.parse('ULTRON-DASHBOARD-v1');
+const SALT = typeof CryptoJS !== 'undefined' && CryptoJS.enc ? CryptoJS.enc.Utf8.parse('ULTRON-DASHBOARD-v1') : null;
 const encryptCommand = t => {
+  if (typeof CryptoJS === 'undefined' || !SALT) return t;
   const key = CryptoJS.PBKDF2(sessionStorage.getItem('ultron_key') || '', SALT,
                               { keySize: 256/32, iterations: 100000, hasher: CryptoJS.algo.SHA256 });
   const iv = CryptoJS.lib.WordArray.random(16);
@@ -713,7 +719,7 @@ window.updateAIState = s => {
   $('voice-status-lbl').textContent = say[s] || s;
   $('mode-readout').textContent = s;
   $('voice-readout').textContent = s === 'SPEAKING' ? 'ACTIVE' : s === 'MUTED' ? 'MUTED' : s === 'EMERGENCY' ? 'OFFLINE' : 'READY';
-  $('sys-status-badge').textContent = s === 'EMERGENCY' ? 'CRITICAL OVERLOAD — ALL SYSTEMS SHUT DOWN' : s === 'THINKING' ? 'THINKING' : 'CORE ONLINE';
+  $('sys-status-badge').textContent = s === 'EMERGENCY' ? 'CRITICAL OVERLOAD — ALL SYSTEMS SHUT DOWN' : s === 'THINKING' ? 'THINKING' : s === 'MUTED' ? 'MICROPHONE MUTED' : 'CORE ONLINE';
   $('voice-mic-btn').classList.toggle('listening', s === 'LISTENING' || s === 'SPEAKING');
   $('voice-bar').style.setProperty('--v', s === 'SPEAKING' ? '96%' : s === 'LISTENING' ? '64%' : s === 'THINKING' ? '45%' : s === 'EMERGENCY' ? '0%' : '18%');
   window.__ultronState = s;
@@ -893,6 +899,36 @@ window.refreshFiles = async () => {
 
 function receive(m) {
   if (m.state || m.type === 'state') updateAIState(m.state || m.type);
+  if (m.type === 'kernel_event') {
+    const et = String(m.event_type || 'kernel');
+    let cardText = '';
+    if (et.startsWith('job.') || m.job_id) {
+      const etName = et || 'job.event';
+      const stepStr = m.step ? ` [step: ${m.step}]` : '';
+      const errStr = m.error ? ` (error: ${m.error})` : '';
+      cardText = `[TASK ${m.job_id || ''}] ${etName}: ${m.status || ''}${stepStr}${errStr}`;
+      showToast('ORCHESTRATOR', `${etName} (${m.job_id || 'task'})`);
+    } else if (et === 'health.error') {
+      cardText = `[HEALTH ERROR] ${m.component || 'core'}/${m.name || 'system'}: ${m.error || 'unknown'}`;
+      showToast('HEALTH ALERT', `${m.component || 'System'} error: ${m.error || ''}`);
+    } else if (et.startsWith('proactive.')) {
+      const stateStr = m.fired ? 'FIRED' : (m.suppressed ? 'SUPPRESSED' : 'EVAL');
+      cardText = `[PROACTIVE ${stateStr}] ${m.rule || 'rule'}: ${m.message || ''}`;
+      if (m.fired) showToast('PROACTIVE', m.message || m.rule);
+    } else if (et.startsWith('tool.') || m.tool) {
+      const etName = et || 'tool.event';
+      const stat = m.error ? `FAILED (${m.error})` : (m.ok ? 'OK' : 'DONE');
+      cardText = `[TOOL ${m.risk || ''}] ${m.tool || 'tool'} ${etName} -> ${stat} (${m.duration_ms || 0}ms)`;
+    } else if (et.startsWith('memory.')) {
+      cardText = `[MEMORY] ${et}: ${m.summary || `${m.ops_count || 0} operations consolidated`}`;
+    } else {
+      cardText = `[KERNEL] ${et || 'event'}: ${JSON.stringify(m)}`;
+    }
+    if (cardText) {
+      addMemoryLog(cardText);
+    }
+    return;
+  }
   if (m.speaker || ['log', 'speech_recognized', 'assistant_response', 'sys'].includes(m.type)) {
     let who = (m.speaker || (m.type === 'speech_recognized' ? 'USER' : 'ULTRON')).toUpperCase(), text = m.text || '';
     if (text) {

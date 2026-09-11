@@ -1,0 +1,12 @@
+t_s | ws_ready | feed_rows | chat_rows | dom_nodes | console_msgs | console_errors | ws_frames
+15 | -1 | 3 | 3 | 213 | 4 | 0 | 470 | net=STABLE reconnects=1
+30 | -1 | 4 | 4 | 219 | 4 | 0 | 708 | net=STABLE reconnects=1
+45 | -1 | 5 | 5 | 227 | 4 | 0 | 1049 | net=STABLE reconnects=1
+60 | -1 | 6 | 6 | 233 | 4 | 0 | 1379 | net=STABLE reconnects=1
+75 | -1 | 7 | 7 | 237 | 4 | 0 | 1592 | net=STABLE reconnects=1
+90 | -1 | 7 | 7 | 237 | 4 | 0 | 1891 | net=STABLE reconnects=1
+105 | -1 | 8 | 8 | 243 | 4 | 0 | 2229 | net=STABLE reconnects=1
+121 | -1 | 9 | 9 | 249 | 4 | 0 | 2568 | net=STABLE reconnects=1
+
+console errors total: 0
+ws frames total: 2596

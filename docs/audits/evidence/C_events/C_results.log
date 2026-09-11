@@ -1,0 +1,9 @@
+PASS | server pushed tool.completed kernel_event | {"type": "kernel_event", "event_type": "", "tool": "get_system_status", "ok": true, "risk": "low", "error": null, "duration_ms": 0}
+PASS | server pushed tool.started kernel_event | {"type": "kernel_event", "event_type": "", "tool": "get_system_status", "ok": true, "risk": "low", "error": null, "duration_ms": 0}
+PASS | server pushed health.error kernel_event (forced tool failure) | {"type": "kernel_event", "event_type": "health.error", "component": "tool", "name": "read_file", "error": "file not found"}
+PASS | server pushed job.started kernel_event (orchestrator) | {"type": "kernel_event", "event_type": "", "job_id": "job-audit-001", "status": "running", "step": "init", "error": null}
+PASS | server pushed job.failed/completed kernel_event | {"type": "kernel_event", "event_type": "", "job_id": "job-audit-001", "status": "running", "step": "init", "error": null}
+PASS | server pushed proactive.decision kernel_event | {"type": "kernel_event", "event_type": "proactive.decision", "rule": "home-motion", "message": "Sir, I detected motion in the front_door.", "fired": false, "suppressed": false}
+PASS | memory.consolidated observed (or timer-based residual) | count=0 (idle-timer segment, may need idle)
+PASS | client renders kernel-event cards in DOM feed | feed 2->5 rows; kernel keywords rendered in DOM: ['kernel']
+PASS | server event ledger saved | 4 kernel_events in server history
