@@ -364,7 +364,7 @@ class TestSessionSummary:
             memory=mem,
         )
         assert len(mem.stored) == 1
-        assert mem.stored[0]["category"] == "session_summary"
+        assert mem.stored[0]["entity"] == "session_summary"
 
     def test_memory_failure_doesnt_break(self):
         from kernel.memory.session_summary import generate_session_summary
@@ -399,7 +399,7 @@ class TestBusDashboardBridge:
         dashboard = MagicMock()
         bridge = BusDashboardBridge(bus, dashboard)
         bridge.attach()
-        assert len(bridge._subscriptions) == 4
+        assert len(bridge._subscriptions) == 5  # W5: + health.*
         bridge.detach()
         assert len(bridge._subscriptions) == 0
 

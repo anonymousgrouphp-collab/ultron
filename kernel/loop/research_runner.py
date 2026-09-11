@@ -63,9 +63,10 @@ class ResearchRunner:
         if not plan:
             return "No research plan generated for that topic, sir."
 
-        # Enqueue as an orchestrator job
+        # Enqueue as an orchestrator job (Phase W1: Orchestrator.enqueue is
+        # the plan-level sync helper — no await)
         try:
-            job_id = await self.orchestrator.enqueue(
+            job_id = self.orchestrator.enqueue(
                 title=f"research: {topic}",
                 steps=plan,
                 registry=self.registry,
@@ -83,12 +84,14 @@ class ResearchRunner:
         if self.orchestrator is None:
             return "Research subsystem not available."
         try:
-            job = await self.orchestrator.get_job(job_id)
+            job = self.orchestrator.get_job(job_id)  # W1: sync lookup
             if job is None:
                 return f"Job {job_id} not found."
+            done = len(job.done_steps())
+            total = len((job.payload or {}).get("plan") or [])
             return (
-                f"Research job {job_id}: {job.status.value}. "
-                f"Steps completed: {len(job.completed_steps)}/{len(job.steps)}."
+                f"Research job {job_id}: {job.status}. "
+                f"Steps completed: {done}/{total}."
             )
         except Exception as exc:
             return f"Error checking job status: {exc}"

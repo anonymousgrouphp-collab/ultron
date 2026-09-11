@@ -27,7 +27,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -90,6 +90,58 @@ class Orchestrator:
         self._kinds: dict[str, StepHandler] = {}
         self._kinds["tool"] = self._run_tool_step
         self._kinds["agent"] = self._run_agent_step
+
+    def enqueue(self, steps: "Mapping[str, Any] | Sequence[Mapping[str, Any]]",
+                *, title: str = "", kind: str = "plan",
+                priority: int = 0, max_attempts: int = 3,
+                registry: Any = None) -> str:
+        """Plan-level enqueue (Phase W1): the convenience the app layer needs.
+
+        Wraps `JobQueue.enqueue(kind, payload)` with the exact payload shape
+        `steps_from_payload` parses on the worker side:
+        `{"plan": [{"id", "kind", "spec"}...]}`. Each accepted step is
+        normalized to that canonical form:
+
+        - canonical `{"id", "kind", "spec"}` dicts (as `research_report_plan`
+          builds) pass through untouched;
+        - shorthand `{"kind", "path", "args"}` dicts (as
+          `GUIPlanner._build_plan` builds) gain an auto-assigned `step-N` id
+          and `spec = {"name": path, "args": args}` — the `_run_tool_step`
+          contract;
+        - a mapping with a "plan" key is taken as the step sequence itself.
+
+        `registry` is accepted and IGNORED: the worker always runs against
+        the orchestrator's own registry (the single choke point — callers
+        can't swap in an ungated one)."""
+        if isinstance(steps, Mapping):
+            steps_seq = steps.get("plan")
+        else:
+            steps_seq = steps
+        if not steps_seq:
+            raise ValueError("enqueue needs at least one step")
+        plan: list[dict[str, Any]] = []
+        for i, raw in enumerate(steps_seq, start=1):
+            step = dict(raw)
+            if "id" in step and "kind" in step:
+                step.setdefault("spec", {})
+            elif "kind" in step and step.get("path"):
+                step = {"id": f"step-{i}", "kind": step["kind"],
+                        "spec": {"name": str(step["path"]),
+                                 "args": dict(step.get("args") or {})}}
+            else:
+                raise ValueError(
+                    f"step {i} needs 'id'+'kind' or 'kind'+'path', "
+                    f"got keys {sorted(step)}")
+            plan.append(step)
+        payload = {"plan": plan}
+        return self._queue.enqueue(
+            kind, payload, title=title, priority=priority,
+            max_attempts=max_attempts,
+        )
+
+    def get_job(self, job_id: str) -> Job | None:
+        """Queue lookup passthrough (app layers ask for status by job id)."""
+        return self._queue.get(job_id)
 
     # -- step kinds --------------------------------------------------------
 

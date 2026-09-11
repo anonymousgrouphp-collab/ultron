@@ -473,3 +473,42 @@ def test_20_worker_killed_mid_job_job_survives_and_resumes(tmp_path: Path):
     assert (root / "invocations.txt").read_text(encoding="utf-8") == "x\n"
     assert outs["s2"] == {"go": True}
     assert outs["s3"] == {"word": "done"}
+
+
+# ---------------------------------------------------------------- W1 enqueue
+
+def test_21_w1_enqueue_normalizes_both_step_shapes_end_to_end():
+    """Phase W1: Orchestrator.enqueue is the app-facing convenience — it must
+    emit the payload the frozen worker parses ('plan' key, id/kind/spec).
+    Regression: the first cut wrapped steps under a 'steps' key, which
+    steps_from_payload rejects — every enqueued job failed at claim time."""
+    state: dict = {}
+    q = JobQueue()
+    orch = Orchestrator(q, make_registry(state), PolicyEngine(), lease_s=30)
+
+    jid = orch.enqueue(
+        [
+            {"kind": "tool", "path": "count_up", "args": {}},           # shorthand
+            {"id": "s2", "kind": "tool",
+             "spec": {"name": "count_up", "args": {}}},                 # canonical
+        ],
+        title="w1 shapes",
+    )
+    job = q.get(jid)                     # payload round-trips the frozen parser
+    assert [s.id for s in steps_from_payload(job.payload)] == ["step-1", "s2"]
+
+    run(orch.run_worker(worker="w", max_jobs=1))
+    job = q.get(jid)
+    assert job.status == "done"
+    assert job.result == {"outputs": {"step-1": {"n": 1}, "s2": {"n": 2}}}
+
+
+def test_22_w1_enqueue_rejects_unusable_steps():
+    q = JobQueue()
+    orch = Orchestrator(q, ToolRegistry(), PolicyEngine(), lease_s=30)
+    with pytest.raises(ValueError):
+        orch.enqueue([])                                   # no steps at all
+    with pytest.raises(ValueError):
+        orch.enqueue([{"kind": "tool"}])                   # shorthand needs path
+    with pytest.raises(ValueError):
+        orch.enqueue([{"spec": {"name": "x"}}])            # canonical needs kind

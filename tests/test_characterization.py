@@ -40,7 +40,10 @@ def test_02_declaration_names_unique():
 
 
 def test_03_every_declared_tool_is_dispatchable():
-    """Each declared tool resolves to a legacy handler during the P1-F migration."""
+    """Each declared tool resolves to a legacy handler during the P1-F migration.
+    Phase W0: TOOL_REGISTRY maps name → handler METHOD NAME (handlers live on
+    the app/ LegacyHandlersMixin), so dispatchability = the method exists on
+    UltronLive and is callable when bound."""
     from core.tool_declarations import TOOL_DECLARATIONS
     from main import UltronLive
 
@@ -52,8 +55,9 @@ def test_03_every_declared_tool_is_dispatchable():
             or name in registry
             or hasattr(UltronLive, f"_handle_{name}")
         ), f"declared tool {name!r} has no handler"
-    for name, handler in registry.items():
-        assert callable(handler), f"registry entry {name!r} not callable"
+    for name, method in registry.items():
+        handler = getattr(UltronLive, method, None)
+        assert callable(handler), f"registry entry {name!r} -> {method!r} not callable"
 
 
 def test_03b_registry_names_are_declared():
@@ -80,7 +84,6 @@ def test_05_name_purge_core_modules():
         "ui.py",
         "core/tool_declarations.py",
         "actions/system_monitor.py",
-        "actions/proactive.py",
         "actions/dev_agent.py",
         "actions/desktop.py",
     ]
@@ -95,7 +98,7 @@ def test_06_import_chain_clean():
     """main/ui/dashboard.server import without side effects (no Qt loop, no key needed)."""
     import importlib
 
-    for mod in ("config.loader", "actions.proactive", "actions.system_monitor",
+    for mod in ("config.loader", "actions.system_monitor",
                 "dashboard.server", "ui", "main"):
         assert importlib.import_module(mod) is not None
 
@@ -206,28 +209,6 @@ def test_15_system_monitor_imports_os():
     source = inspect.getsource(sm.find_heavy_background_apps)
     assert ".terminate(" not in source and ".kill(" not in source
 
-
-def test_16_proactive_real_silence_math(monkeypatch):
-    """Proactive trigger uses real user-silence, silence + min_silence inflation is dead (P0-A5).
-
-    Clock is faked (uptime-independent — CI runners have monotonic() ~5min, which made
-    the raw `now - 1000` go negative AND the check_cooldown gap fail). Also pins the
-    two-condition semantics: silence >= min_silence AND gap since last trigger >= cooldown.
-    NOTE (main-owner): with the default `_last_triggered = 0.0`, a freshly booted machine
-    (uptime < check_cooldown) never triggers — latent uptime-dependence, documented not fixed.
-    """
-    from actions import proactive as pro
-
-    fake = {"t": 100_000.0}
-    monkeypatch.setattr(pro.time, "monotonic", lambda: fake["t"])
-    engine = pro.ProactiveEngine(min_silence_secs=900, check_cooldown=600)
-    engine._last_triggered = fake["t"] - 700          # last proactive 700s ago: cooldown passed
-
-    assert engine.should_trigger(fake["t"] - 60) is False    # 1 min silence → no
-    assert engine.should_trigger(fake["t"] - 1000) is True   # ~16.7 min silence → yes
-    engine.mark_triggered()
-    assert engine._last_triggered == fake["t"]               # mark uses the same clock
-    assert engine.should_trigger(fake["t"] - 1000) is False  # cooldown after mark blocks
 
 
 def test_17_screen_processor_single_live_capture():

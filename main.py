@@ -16,34 +16,21 @@ if _platform.system() == "Windows":
 # ─────────────────────────────────────────────────────────────────────────────
 
 import asyncio
-import re
 import threading
 import time
 import sys
 import traceback
-from datetime import datetime
 
-import sounddevice as sd
 from ui import UltronUI
 
-from actions.file_processor import file_processor
-from actions.flight_finder     import flight_finder
-from actions.open_app          import open_app
-from actions.weather_report    import weather_action
-from actions.reminder          import reminder
-from actions.computer_settings import computer_settings
-from actions.screen_processor  import _capture_camera, _capture_screen
-from actions.youtube_video     import youtube_video
-from actions.desktop           import desktop_control
-from actions.browser_control   import browser_control
-from actions.file_controller   import file_controller
-from actions.code_helper       import code_helper
-from actions.dev_agent         import dev_agent
-from actions.web_search        import web_search as web_search_action
-from actions.computer_control  import computer_control
-from actions.game_updater      import game_updater
-from actions.system_monitor    import SystemMonitor, get_system_status
-from actions.web_search        import _news as _fetch_news_sync
+# Phase W0: the god module's task/handler blocks now live in app/ mixins —
+# UltronLive inherits them so callers and characterization pins are unchanged.
+from app.audio import AudioTasksMixin
+from app.briefing import BriefingMixin
+from app.handlers import LegacyHandlersMixin
+from app.monitors import MonitorTasksMixin
+
+from actions.system_monitor    import SystemMonitor
 from config import loader
 from kernel.bus import EventBus
 from kernel.gateway import DEFAULT_GEMINI_LIVE_MODEL, GatewaySettings
@@ -57,7 +44,11 @@ from kernel.loop.provider_test import ProviderTestRunner
 from kernel.diagnostics.health import HealthMonitor
 from kernel.diagnostics.cost_tracker import CostTracker
 from kernel.legacy import LegacyToolRuntime
-from kernel.memory import MemoryEngine, migrate_long_term_json
+from kernel.memory import MemoryEngine, register_memory_tools
+from kernel.orchestrator import JobQueue, Orchestrator
+from kernel.computer import InputGateway, build_computer_tools
+from kernel.coding import build_coding_tools
+from kernel.research import build_research_tools
 from kernel.proactive import (
     ConsentClass as ProactiveConsentClass,
     ProactiveEngine as KernelProactiveEngine,
@@ -78,6 +69,35 @@ class ApiKeyMissing(Exception):
     """Raised when config/api_keys.json is missing, broken, or has no real key."""
 
 
+class _UsageTrackingGateway:
+    """Phase W5: transparent wrapper that feeds every completion's token
+    usage into the CostTracker (the audit's '/cost never records' finding).
+    Sits at the ONE seam all agent-loop/orchestrator traffic crosses."""
+
+    def __init__(self, inner, cost_tracker):
+        self._inner = inner
+        self._cost = cost_tracker
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+    async def complete(self, messages, tools=(), response_schema=None):
+        response = await self._inner.complete(messages, tools=tools,
+                                              response_schema=response_schema)
+        try:
+            usage = dict(response.usage or {})
+            if usage:
+                self._cost.record_usage(
+                    provider=response.provider or "unknown",
+                    model=response.model or "",
+                    input_tokens=int(usage.get("input", 0)),
+                    output_tokens=int(usage.get("output", 0)),
+                )
+        except Exception:
+            pass  # observability must never break the model path
+        return response
+
+
 def _get_api_key() -> str:
     key = loader.get_api_key()   # None when missing, empty, or placeholder
     if key is None:
@@ -96,13 +116,6 @@ def _load_system_prompt() -> str:
             "Be concise, direct, and always use the provided tools to complete tasks. "
             "Never simulate or guess results — always call the appropriate tool."
         )
-
-_CTRL_RE = re.compile(r"<ctrl\d+>", re.IGNORECASE)
-
-def _clean_transcript(text: str) -> str:    
-    text = _CTRL_RE.sub("", text)
-    text = re.sub(r"[\x00-\x08\x0b-\x1f]", "", text)
-    return text.strip()
 
 from core.tool_declarations import TOOL_DECLARATIONS
 
@@ -145,7 +158,12 @@ class ConsentGate:
         return answer[0]
 
 
-class UltronLive:
+class UltronLive(
+    LegacyHandlersMixin,    # the 20 _handle_* legacy bridges (Phase W0)
+    AudioTasksMixin,        # mic/recv/play audio pumps (Phase W0)
+    BriefingMixin,          # startup greeting + proactive check-in (Phase W0)
+    MonitorTasksMixin,      # system monitor + proactive tick + relays (Phase W0)
+):
 
     def __init__(self, ui: UltronUI):
         self.ui             = ui
@@ -187,12 +205,51 @@ class UltronLive:
             handlers=self._build_legacy_handlers(),
             audit_path=BASE_DIR / ".ultron" / "audit.sqlite3",
         )
+        # Phase W2: the kernel tool families go LIVE — the same registry the
+        # voice session and orchestrator already execute through gains the
+        # built kernel tools (memory_search / computer control / coding
+        # workspace / web_read). The agent can finally search its own memory
+        # and drive the desktop. No new kernel code: registration is the fix
+        # (the audit's "zero production callers" finding, closed).
+        register_memory_tools(self._tool_runtime.registry, self._memory)
+        self._input_gateway = InputGateway()
+        build_computer_tools(
+            self._tool_runtime.registry, self._input_gateway,
+            spawn_allowed=True,
+        )
+        build_coding_tools(
+            self._tool_runtime.registry,
+            BASE_DIR / ".ultron" / "coding_workspace",
+        )
+        build_research_tools(
+            self._tool_runtime.registry,
+            consent=lambda: bool(loader.load_config().get("web_research_enabled", False)),
+        )
         # Phase O2: agent runner for multi-step complex tasks
         self._agent_runner: AgentRunner | None = None  # built lazily (needs gateway)
-        # Phase I1: autonomous GUI planner
-        self._gui_planner = GUIPlanner()
-        # Phase I2: research subagent
-        self._research_runner = ResearchRunner()
+        # Phase W1: the orchestrator goes LIVE — durable queue + worker over
+        # the SAME policy/registry/audit choke point the live session uses.
+        # No new kernel code: JobQueue + Orchestrator exist (P2-C); this is
+        # the composition the audit found missing (zero production callers).
+        self._job_queue = JobQueue(BASE_DIR / ".ultron" / "jobs.sqlite3")
+        self._orchestrator = Orchestrator(
+            self._job_queue,
+            self._tool_runtime.registry,
+            self._tool_runtime.policy,
+            bus=self._bus,
+            consent=self._consent_gate.request if self._consent_gate else None,
+            source="live",
+        )
+        # Phase I1: autonomous GUI planner (W1: real orchestrator injected)
+        self._gui_planner = GUIPlanner(
+            orchestrator=self._orchestrator,
+            registry=self._tool_runtime.registry,
+        )
+        # Phase I2: research subagent (W1: real orchestrator injected)
+        self._research_runner = ResearchRunner(
+            orchestrator=self._orchestrator,
+            registry=self._tool_runtime.registry,
+        )
         # Phase I3: session summary tracking
         self._session_user_messages: list[str] = []
         self._session_tool_calls: list[str] = []
@@ -246,11 +303,8 @@ class UltronLive:
                 )
             return
 
-        # Phase O2: heuristic — complex tasks route through agent loop
-        if self._is_complex_task(clean_text) and self._loop:
-            asyncio.run_coroutine_threadsafe(
-                self._run_agent_task(clean_text), self._loop
-            )
+        # Phase W3: complex typed commands → AgentLoop (shared router)
+        if self._maybe_route_agent(clean_text, source="typed"):
             return
 
         # Phase I1: /gui prefix — autonomous GUI task
@@ -363,13 +417,18 @@ class UltronLive:
     # ------------------------------------------------------------------
 
     def _get_agent_runner(self) -> AgentRunner:
-        """Lazy-build the AgentRunner (needs gateway, which needs API key)."""
+        """Lazy-build the AgentRunner (needs gateway, which needs API key).
+        Phase W5: the runner's gateway is wrapped so EVERY completion's token
+        usage lands in the CostTracker — /cost finally shows real numbers."""
         if self._agent_runner is None:
             consent = self._consent_gate.request if self._consent_gate else None
             self._agent_runner = AgentRunner.build(
                 tool_runtime=self._tool_runtime,
                 bus=self._bus,
                 consent=consent,
+            )
+            self._agent_runner.gateway = _UsageTrackingGateway(
+                self._agent_runner.gateway, self._cost_tracker,
             )
         return self._agent_runner
 
@@ -397,23 +456,100 @@ class UltronLive:
             self.speak("Task completed, sir.")
         return result.text
 
+    def _maybe_route_agent(self, text: str, *, source: str) -> bool:
+        """Phase W3: the ONE router both input tiers use (two brains, one
+        decision). Complex utterances — typed OR spoken — go to the
+        AgentLoop; reflexes stay with the LiveSession's native function
+        calling. Returns True when routed (caller must not echo the text into
+        the session). Consent + abort: the runner carries the consent gate;
+        the session's interrupt breaks the turn — the loop observes both."""
+        clean = str(text or "").strip()
+        if not clean or not self._is_complex_task(clean) or not self._loop:
+            return False
+        self.ui.write_log(f"SYS: routing {source} task to the agent loop.")
+        asyncio.run_coroutine_threadsafe(
+            self._run_agent_task(clean), self._loop
+        )
+        return True
+
+    # ------------------------------------------------------------------
+    # Phase W4 — automatic memory formation
+    # ------------------------------------------------------------------
+    def _persist_session_summary(self) -> None:
+        """Session ended: consume the I3 tracking lists into a
+        session_summary fact (the audit's 'collected but never consumed').
+        Sync + exception-safe — called from the reconnect handler."""
+        if not self._session_user_messages:
+            return
+        try:
+            from kernel.memory.session_summary import generate_session_summary
+            generate_session_summary(
+                user_messages=list(self._session_user_messages),
+                tool_calls=list(self._session_tool_calls),
+                assistant_responses=list(self._session_assistant_responses),
+                memory=self._memory,
+            )
+            print(f"[Memory] session summary persisted "
+                  f"({len(self._session_user_messages)} user turns)")
+        except Exception as e:
+            print(f"[Memory] WARN session summary skipped: {e}")
+        finally:
+            self._session_user_messages.clear()
+            self._session_tool_calls.clear()
+            self._session_assistant_responses.clear()
+
+    async def _run_memory_formation(self) -> None:
+        """Phase W4 background task: idle-time consolidation. Every 10 min,
+        when the user has been quiet ≥10 min, run the P3-A Consolidator
+        (extraction → decay → reflection) through the kernel gateway. No key
+        → the task exits quietly (consolidation is a judge-driven job)."""
+        while True:
+            await asyncio.sleep(600)
+            if time.monotonic() - self._last_user_speech < 600:
+                continue  # user active — never burn tokens mid-conversation
+            try:
+                runner = self._get_agent_runner()
+                from kernel.memory.consolidation import Consolidator
+                consolidator = Consolidator(
+                    self._memory, runner.gateway, bus=self._bus,
+                )
+                report = await consolidator.consolidate()
+                self.ui.write_log(
+                    f"SYS: Memory consolidation — {report}"
+                )
+            except ApiKeyMissing:
+                return  # no gateway available in this environment
+            except Exception as e:
+                print(f"[Memory] consolidation cycle skipped: {e}")
+
     # ------------------------------------------------------------------
     # Phase I1 — GUI autonomous planner (honest-off until Phase W1)
     # ------------------------------------------------------------------
     async def _run_gui_task(self, task: str) -> str:
-        """GUI planner — NOT WIRED YET (Phase T3).
+        """GUI planner — LIVE (Phase W1).
 
-        The planner needs the orchestrator (JobQueue + worker), which the
-        composition root does not construct yet (Phase W1, ROADMAP §9.3).
-        Until then this command answers honestly instead of silently
-        no-op'ing on a `hasattr` guard that could never be true.
+        The orchestrator is now constructed in the composition root, so the
+        planner's observe→plan→enqueue path actually executes: the plan's
+        tool steps run on the durable worker behind the same policy/consent
+        choke point as every other tool call.
         """
+        self.set_app_state("THINKING")
+        self.ui.write_log(f"GUI: planning '{task[:80]}'")
+        try:
+            result = await self._gui_planner.plan_and_execute(task)
+        except Exception as exc:
+            self.set_app_state("LISTENING")
+            msg = f"GUI task failed to start: {exc}"
+            self.ui.write_log(f"GUI: {msg}")
+            self.speak(msg)
+            return msg
         self.set_app_state("LISTENING")
-        msg = (
-            "The GUI planner is not wired yet, sir. It arrives with "
-            "Phase W, when the orchestrator becomes live."
-        )
-        self.ui.write_log("GUI: not wired yet — requires the Phase W orchestrator.")
+        if result.success:
+            msg = f"{result.summary} I will report when it completes."
+            self.ui.write_log(f"GUI: {msg}")
+        else:
+            msg = result.error or "The GUI plan could not be built."
+            self.ui.write_log(f"GUI: {msg}")
         self.speak(msg)
         return msg
 
@@ -421,21 +557,19 @@ class UltronLive:
     # Phase I2 — Research subagent (honest-off until Phase W1)
     # ------------------------------------------------------------------
     async def _run_research(self, topic: str) -> str:
-        """Research runner — NOT WIRED YET (Phase T3).
+        """Research subagent — LIVE (Phase W1).
 
-        Same as the GUI planner: research_report_plan enqueues onto the
-        orchestrator, which no production code constructs yet (Phase W1).
-        The user is told the truth instead of a dead path.
+        research_report_plan → orchestrator.enqueue → durable worker executes
+        search → web_read → report steps in the background.
         """
+        self.set_app_state("THINKING")
+        self.ui.write_log(f"RESEARCH: '{topic[:80]}'")
+        try:
+            msg = await self._research_runner.run_research(topic)
+        except Exception as exc:
+            msg = f"Research task failed to start: {exc}"
+            self.ui.write_log(f"RESEARCH: {msg}")
         self.set_app_state("LISTENING")
-        msg = (
-            "The research subagent is not wired yet, sir. It arrives with "
-            "Phase W, when background jobs become live."
-        )
-        self.ui.write_log(
-            f"RESEARCH: '{topic[:60]}' — not wired yet (requires the "
-            "Phase W orchestrator)."
-        )
         self.speak(msg)
         return msg
 
@@ -510,189 +644,27 @@ class UltronLive:
         sys_prompt = _load_system_prompt()
 
         # Phase O3: PromptAssembler handles voice directive + time + identity
-        # + auto-RAG memory retrieval + base prompt in one call
+        # + auto-RAG memory retrieval + base prompt in one call. Phase W4:
+        # the RAG query is now the recent conversation topics instead of the
+        # audit-flagged static "user preferences and history" string.
+        recent_topics = " ".join(self._session_user_messages[-5:])
         assembler = PromptAssembler(
             memory=self._memory,
             base_prompt=sys_prompt,
             asst_name=self._asst_name,
             user_name=_user_name,
         )
-        assembled = assembler.assemble()
+        assembled = assembler.assemble(conversation_summary=recent_topics)
 
         return build_live_config(
             system_prompt=assembled.system_instruction,
-            tool_declarations=TOOL_DECLARATIONS,
+            # Phase W2: the LIVE session now declares the full registry —
+            # legacy actions AND the kernel tool families (memory_search,
+            # computer control, coding, web_read). Declarations come from
+            # the registry (single source), not the static legacy list.
+            tool_declarations=self._tool_runtime.registry.declarations(),
             voice_name="Charon",
         )
-
-    async def _handle_open_app(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: open_app(parameters=args, response=None, player=self.ui))
-        return r or f"Opened {args.get('app_name')}."
-
-    async def _handle_weather_report(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: weather_action(parameters=args, player=self.ui))
-        return r or "Weather delivered."
-
-    async def _handle_browser_control(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: browser_control(parameters=args, player=self.ui))
-        return r or "Done."
-
-    async def _handle_file_controller(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: file_controller(parameters=args, player=self.ui))
-        return r or "Done."
-
-    async def _handle_reminder(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: reminder(parameters=args, response=None, player=self.ui))
-        return r or "Reminder set."
-
-    async def _handle_youtube_video(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: youtube_video(parameters=args, response=None, player=self.ui))
-        return r or "Done."
-
-    async def _handle_screen_process(self, args, loop):
-        import time as _t_mod
-        _now = _t_mod.monotonic()
-        _cooldown = 4.0  # seconds — covers echo window after speaking ends
-        if self._vision_busy or (_now - self._vision_last_time) < _cooldown:
-            _wait = max(0, _cooldown - (_now - self._vision_last_time))
-            print(f"[Vision] ⏳ Cooldown active ({_wait:.1f}s remaining) — ignoring duplicate call")
-            return "Vision is still processing the previous request. I will not call this again."
-        else:
-            self._vision_busy      = True
-            self._vision_last_time = _now
-            angle     = args.get("angle", "screen").lower()
-            user_text = args.get("text", "What do you see?")
-            if angle == "camera":
-                img_b, mime_t = await loop.run_in_executor(None, _capture_camera)
-                self.ui.start_camera_stream()
-                self._vision_cam_active = True
-                print(f"[Vision] 📷 Camera: {len(img_b):,} bytes")
-                _stall = "camera"
-            else:
-                img_b, mime_t = await loop.run_in_executor(None, _capture_screen)
-                print(f"[Vision] 🖥️  Screen: {len(img_b):,} bytes")
-                _stall = "screen"
-            self._pending_vision = (img_b, mime_t, user_text, angle)
-            return (
-                f"[VISION_ACTIVE] {_stall.capitalize()} captured. "
-                f"Immediately say ONE short natural sentence in the user's own language, "
-                f"telling them you are looking at their {_stall} right now. "
-                f"Do NOT describe or guess content — the actual image arrives in the NEXT message."
-            )
-
-    async def _handle_close_camera(self, args, loop):
-        self.ui.stop_camera_stream()
-        return "Camera closed."
-
-    async def _handle_computer_settings(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: computer_settings(parameters=args, response=None, player=self.ui))
-        return r or "Done."
-
-    async def _handle_desktop_control(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: desktop_control(parameters=args, player=self.ui))
-        return r or "Done."
-
-    async def _handle_code_helper(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: code_helper(parameters=args, player=self.ui, speak=self.speak))
-        return r or "Done."
-
-    async def _handle_dev_agent(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: dev_agent(parameters=args, player=self.ui, speak=self.speak))
-        return r or "Done."
-
-    async def _handle_web_search(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: web_search_action(parameters=args, player=self.ui))
-        result = r or "Done."
-        # Mirror results to the on-screen content panel
-        _mode = args.get("mode", "search")
-        if r and not r.startswith("No results") and not r.startswith("Search failed"):
-            _query = args.get("query") or ", ".join(args.get("items", []))
-            _label = f"{_mode.upper()} — {_query[:38]}" if _query else _mode.upper()
-            self.ui.show_content(_label, r)
-        return result
-
-    async def _handle_file_processor(self, args, loop):
-        if not args.get("file_path") and self.ui.current_file:
-            args["file_path"] = self.ui.current_file
-        r = await loop.run_in_executor(
-            None,
-            lambda: file_processor(parameters=args, player=self.ui, speak=self.speak)
-        )
-        return r or "Done."
-
-    async def _handle_computer_control(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: computer_control(parameters=args, player=self.ui))
-        return r or "Done."
-
-    async def _handle_game_updater(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: game_updater(parameters=args, player=self.ui, speak=self.speak))
-        return r or "Done."
-
-    async def _handle_flight_finder(self, args, loop):
-        r = await loop.run_in_executor(None, lambda: flight_finder(parameters=args, player=self.ui))
-        return r or "Done."
-
-    async def _handle_system_status(self, args, loop):
-        r = await loop.run_in_executor(None, get_system_status)
-        return str(r)
-
-    async def _handle_shutdown(self, args, loop):
-        self.ui.write_log("SYS: Shutdown requested.")
-        self.speak("Goodbye, sir.")
-        def _shutdown():
-            import time, os
-            time.sleep(1)
-            os._exit(0)
-        threading.Thread(target=_shutdown, daemon=True).start()
-        return "Done."
-
-    async def _handle_save_memory(self, args, loop):
-        category = args.get("category", "notes")
-        key = args.get("key", "")
-        value = args.get("value", "")
-        if not key or not value:
-            return "Memory was not saved because key or value was missing."
-        self._memory.remember(
-            str(value).strip(),
-            entity=str(category).strip() or "notes",
-            topic=str(key).strip(),
-            source_ref="voice-live",
-        )
-        print(f"[Memory] saved {category}/{key}")
-        return "Memory saved."
-
-    def _memory_prompt(self) -> str:
-        """Render the kernel MemoryEngine's most recent facts for the system
-        prompt — the production replacement for the legacy 2,200-char JSON
-        `format_memory_for_prompt` (Phase R3)."""
-        hits = self._memory.page(limit=40)
-        if not hits:
-            return ""
-        lines = []
-        for h in hits:
-            label = (h.entity or h.topic or "note").replace("_", " ").title()
-            lines.append(f"  - {label}: {h.content}")
-        result = (
-            "[WHAT YOU KNOW ABOUT THIS PERSON — use naturally, "
-            "never recite like a list]\n" + "\n".join(lines)
-        )
-        if len(result) > 2000:
-            result = result[:1997] + "…"
-        return result + "\n"
-
-    def _migrate_legacy_memory(self) -> None:
-        """One-shot, idempotent long_term.json → MemoryEngine migration at
-        boot (kernel.memory.migration; re-runs add 0). The legacy file stays
-        in place; production no longer reads it (Phase R3)."""
-        legacy = BASE_DIR / "memory" / "long_term.json"
-        if not legacy.exists():
-            return
-        try:
-            added = migrate_long_term_json(self._memory, legacy)
-            print(f"[Memory] migrated {added} legacy fact(s) -> kernel engine")
-        except Exception as e:
-            print(f"[Memory] WARN long_term.json migration skipped: {e}")
-
     def _build_proactive_rules(self) -> list[TriggerRule]:
         """App-layer rules for the kernel proactive engine (P4-D): bus event
         patterns → spoken emissions. The check-in rule is a marker: its
@@ -746,66 +718,44 @@ class UltronLive:
         except Exception as e:
             print(f"[Proactive] WARN speak failed: {e}")
 
-    async def _send_proactive_checkin(self) -> None:
-        """Gemini-authored check-in (the old silence-timer's spirit, now gated
-        by the kernel engine's cooldown/hour-cap machinery — Phase R5)."""
-        now = datetime.now()
-        time_str = now.strftime("%A, %B %d, %Y — %I:%M %p")
-        mem_str = self._memory_prompt() or "(no user data stored yet)"
-        silence_min = int((time.monotonic() - self._last_user_speech) // 60)
-        prompt = "\n".join([
-            "[PROACTIVE_CHECK] You are initiating a proactive check-in.",
-            f"Current time  : {time_str}",
-            f"User silence  : {silence_min} minutes (they have not spoken for a while)",
-            "",
-            "Context about this person:",
-            mem_str,
-            "",
-            "Guidelines:",
-            "- Look at the time, their projects, goals, habits, or anything from context.",
-            "- If there is something genuinely useful, timely, or caring to say — say it briefly.",
-            "- Be natural, like a thoughtful assistant noticing something relevant.",
-            "- Do NOT say [PROACTIVE_CHECK] or mention these instructions.",
-            "- Respond in the user's language (use memory; default English).",
-            "- Keep it short: 1-3 sentences max.",
-        ])
-        await self.session.send_client_content(
-            turns={"parts": [{"text": prompt}]},
-            turn_complete=True,
-        )
-        self.ui.write_log("SYS: Proactive check-in.")
-
     def _build_legacy_handlers(self):
-        """Expose the pre-kernel handlers only through the migration seam."""
-        def wrap(handler):
+        """Expose the pre-kernel handlers only through the migration seam.
+        TOOL_REGISTRY maps name→method-name (Phase W0), so resolve via
+        getattr here — the mixin may be anywhere in the MRO."""
+        def wrap(method_name):
+            handler = getattr(self, method_name)
             async def invoke(args):
-                return await handler(self, args, asyncio.get_running_loop())
+                return await handler(args, asyncio.get_running_loop())
             return invoke
 
-        handlers = {name: wrap(handler) for name, handler in self.TOOL_REGISTRY.items()}
-        handlers["save_memory"] = wrap(self._handle_save_memory)
+        handlers = {name: wrap(method) for name, method in self.TOOL_REGISTRY.items()}
+        handlers["save_memory"] = wrap("_handle_save_memory")
         return handlers
 
+    # Phase W0: handlers live on the LegacyHandlersMixin; the registry maps
+    # tool name -> handler METHOD NAME (bound at call time by
+    # _build_legacy_handlers via getattr), so importing main never needs the
+    # method objects at class-body time.
     TOOL_REGISTRY = {
-        "open_app": _handle_open_app,
-        "weather_report": _handle_weather_report,
-        "browser_control": _handle_browser_control,
-        "file_controller": _handle_file_controller,
-        "reminder": _handle_reminder,
-        "youtube_video": _handle_youtube_video,
-        "screen_process": _handle_screen_process,
-        "close_camera": _handle_close_camera,
-        "computer_settings": _handle_computer_settings,
-        "desktop_control": _handle_desktop_control,
-        "code_helper": _handle_code_helper,
-        "dev_agent": _handle_dev_agent,
-        "web_search": _handle_web_search,
-        "file_processor": _handle_file_processor,
-        "computer_control": _handle_computer_control,
-        "game_updater": _handle_game_updater,
-        "flight_finder": _handle_flight_finder,
-        "system_status": _handle_system_status,
-        "shutdown_ultron": _handle_shutdown,
+        "open_app": "_handle_open_app",
+        "weather_report": "_handle_weather_report",
+        "browser_control": "_handle_browser_control",
+        "file_controller": "_handle_file_controller",
+        "reminder": "_handle_reminder",
+        "youtube_video": "_handle_youtube_video",
+        "screen_process": "_handle_screen_process",
+        "close_camera": "_handle_close_camera",
+        "computer_settings": "_handle_computer_settings",
+        "desktop_control": "_handle_desktop_control",
+        "code_helper": "_handle_code_helper",
+        "dev_agent": "_handle_dev_agent",
+        "web_search": "_handle_web_search",
+        "file_processor": "_handle_file_processor",
+        "computer_control": "_handle_computer_control",
+        "game_updater": "_handle_game_updater",
+        "flight_finder": "_handle_flight_finder",
+        "system_status": "_handle_system_status",
+        "shutdown_ultron": "_handle_shutdown",
     }
 
     async def _execute_tool(self, fc) -> FunctionResponse:
@@ -829,6 +779,16 @@ class UltronLive:
                 f"TOOL: {name} not completed ({structured.risk.value}: {structured.error})"
             )
             self._health_monitor.record_error("tool", name)  # Phase Q3: track errors
+            # Phase W5: errors reach the dashboard via the bus bridge.
+            try:
+                await self._bus.publish(Event(
+                    type="health.error",
+                    payload={"component": "tool", "name": name,
+                             "error": str(structured.error)[:200]},
+                    source="live",
+                ))
+            except Exception:
+                pass  # observability must never break the tool path
 
         if not self.ui.muted:
             self.set_app_state("LISTENING")
@@ -839,422 +799,12 @@ class UltronLive:
             response={"result": result}
         )
 
-    async def _send_realtime(self):
-        while True:
-            msg = await self.out_queue.get()
-            await self.session.send_realtime_input(media=msg)
-
-    async def _listen_audio(self):
-        print("[ULTRON] 🎤 Mic started")
-        loop = asyncio.get_event_loop()
-
-        def callback(indata, frames, time_info, status):
-            with self._speaking_lock:
-                ultron_speaking = self._is_speaking
-            if not ultron_speaking and not self.ui.muted and not self._phone_active:
-                data = indata.tobytes()
-                loop.call_soon_threadsafe(
-                    self.out_queue.put_nowait,
-                    {"data": data, "mime_type": "audio/pcm"}
-                )
-
-        try:
-            with sd.InputStream(
-                samplerate=SEND_SAMPLE_RATE,
-                channels=CHANNELS,
-                dtype="int16",
-                blocksize=CHUNK_SIZE,
-                callback=callback,
-            ):
-                print("[ULTRON] 🎤 Mic stream open")
-                while True:
-                    await asyncio.sleep(0.02)
-        except Exception as e:
-            print(f"[ULTRON] ❌ Mic: {e}")
-            raise
-
-    async def _receive_audio(self):
-        print("[ULTRON] 👂 Recv started")
-        out_buf, in_buf = [], []
-
-        try:
-            while True:
-                async for response in self.session.receive():
-
-                    if response.data:
-                        if self._interrupted:
-                            pass  # discard: interrupted
-                        else:
-                            if self._turn_done_event and self._turn_done_event.is_set():
-                                self._turn_done_event.clear()
-                            # Split into ~50 ms chunks so interrupt() stops audio within 50 ms
-                            # (24000 Hz × 2 bytes/sample × 0.05 s = 2400 bytes per slice)
-                            _audio_data = response.data
-                            _SLICE = 2400
-                            for _i in range(0, len(_audio_data), _SLICE):
-                                self.audio_in_queue.put_nowait(_audio_data[_i : _i + _SLICE])
-
-                    if response.server_content:
-                        sc = response.server_content
-
-                        if sc.output_transcription and sc.output_transcription.text:
-                            txt = _clean_transcript(sc.output_transcription.text)
-                            if txt and txt != (out_buf[-1] if out_buf else ""):
-                                out_buf.append(txt)
-
-                        if sc.input_transcription and sc.input_transcription.text:
-                            txt = _clean_transcript(sc.input_transcription.text)
-                            if txt:
-                                in_buf.append(txt)
-                                self._last_user_speech = time.monotonic()
-                                self.set_app_state("THINKING")
-
-                        if sc.turn_complete:
-                            if self._turn_done_event:
-                                self._turn_done_event.set()
-
-                            # If this turn_complete ends an interrupted response, clear the
-                            # flag and skip all further processing for that turn.
-                            if self._interrupted:
-                                self._interrupted = False
-                                in_buf  = []
-                                out_buf = []
-                                continue
-
-                            full_in = " ".join(in_buf).strip()
-                            if full_in:
-                                self.ui.write_log(f"You: {full_in}")
-                                self._session_user_messages.append(full_in)  # Phase I3: track for session summary
-                                if self._dashboard:
-                                    asyncio.create_task(self._dashboard.broadcast({
-                                        "type": "log", "speaker": "user",
-                                        "text": full_in,
-                                        "ts": datetime.now().isoformat(),
-                                    }))
-                            in_buf = []
-
-                            full_out = " ".join(out_buf).strip()
-                            if full_out:
-                                self.ui.write_log(f"{self._asst_name}: {full_out}")
-                                self._session_assistant_responses.append(full_out)  # Phase I3
-                                if self._dashboard:
-                                    asyncio.create_task(self._dashboard.broadcast({
-                                        "type": "log", "speaker": "ultron",
-                                        "text": full_out,
-                                        "ts": datetime.now().isoformat(),
-                                    }))
-                            out_buf = []
-
-                            # Vision injection: model finished tool-response turn → now send the image
-                            if self._pending_vision and self.session:
-                                import base64 as _b64
-                                img_b, mime_t, question, angle = self._pending_vision
-                                self._pending_vision = None
-                                b64 = _b64.b64encode(img_b).decode("ascii")
-                                print(f"[Vision] 📤 {len(img_b):,} bytes (angle={angle}) → main session")
-                                await self.session.send_client_content(
-                                    turns={"parts": [
-                                        {"inline_data": {"mime_type": mime_t, "data": b64}},
-                                        {"text": question},
-                                    ]},
-                                    turn_complete=True,
-                                )
-                                # Mark next turn_complete behaviour depending on angle
-                                if self._vision_cam_active:
-                                    # Camera: keep busy until ULTRON finishes speaking the answer
-                                    self._vision_cam_active    = False
-                                    self._vision_close_pending = True
-                                else:
-                                    # Screen-only: no camera to close; release busy flag now
-                                    self._vision_busy = False
-                            elif self._vision_close_pending:
-                                # This turn_complete IS the vision answer — close camera + release busy flag
-                                self._vision_close_pending = False
-                                self._vision_busy = False
-                                async def _cam_close():
-                                    await asyncio.sleep(2.0)
-                                    self.ui.stop_camera_stream()
-                                asyncio.create_task(_cam_close())
-
-                    if response.tool_call:
-                        fn_responses = []
-                        for fc in response.tool_call.function_calls:
-                            print(f"[ULTRON] 📞 {fc.name}")
-                            self._session_tool_calls.append(fc.name)  # Phase I3: track for session summary
-                            fr = await self._execute_tool(fc)
-                            fn_responses.append(fr)
-                        await self.session.send_tool_response(
-                            function_responses=fn_responses
-                        )
-        except Exception as e:
-            print(f"[ULTRON] ❌ Recv: {e}")
-            traceback.print_exc()
-            raise
-
-    async def _play_audio(self):
-        print("[ULTRON] 🔊 Play started")
-
-        stream = sd.RawOutputStream(
-            samplerate=RECEIVE_SAMPLE_RATE,
-            channels=CHANNELS,
-            dtype="int16",
-            blocksize=CHUNK_SIZE,
-        )
-        stream.start()
-
-        try:
-            while True:
-                try:
-                    chunk = await asyncio.wait_for(
-                        self.audio_in_queue.get(),
-                        timeout=0.02
-                    )
-                except asyncio.TimeoutError:
-                    if (
-                        self._turn_done_event
-                        and self._turn_done_event.is_set()
-                        and self.audio_in_queue.empty()
-                    ):
-                        self.set_speaking(False)
-                        self._turn_done_event.clear()
-                    continue
-                self.set_speaking(True)
-                try:
-                    await asyncio.to_thread(stream.write, chunk)
-                except (RuntimeError, asyncio.CancelledError, Exception) as write_err:
-                    if isinstance(write_err, (RuntimeError, asyncio.CancelledError)):
-                        break   # executor shutting down — exit cleanly
-                    # PortAudio / device write failure during stream pause or interrupt
-                    pass
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            print(f"[ULTRON] ❌ Play: {e}")
-        finally:
-            self.set_speaking(False)
-            try:
-                if stream.active:
-                    stream.stop()
-            except Exception:
-                pass
-            try:
-                stream.close()
-            except Exception:
-                pass
-
-    # ── Morning briefing ────────────────────────────────────────────────────────
-
-    async def _send_startup_briefing(self) -> None:
-        """
-        Startup briefing:
-          Instant greeting & status report (no news prefetching).
-        """
-        identity = {h.topic: h.content
-                    for h in self._memory.page(entity="identity", limit=40)}
-
-        def _val(k: str) -> str:
-            return (identity.get(k) or "").strip()
-
-        lang = _val("language")
-        name = _val("name")
-        time_str = datetime.now().strftime("%H:%M")
-
-        await asyncio.sleep(0.3)
-        if not self.session:
-            return
-
-        # ── Instant greeting & status ─────────────────────────────────────────
-        lang_clause = f" Respond in {lang}." if lang else ""
-        name_clause = f" Address the user as {name}." if name else ""
-        p1 = (
-            f"Greet the user, mention it is {time_str}, state that systems and HUD ULTRON are fully operational, "
-            f"and ask how you can assist today. One or two short sentences only. Do not call any tools.{lang_clause}{name_clause}"
-        )
-
-        # Clear the turn-done event
-        if self._turn_done_event:
-            self._turn_done_event.clear()
-
-        await self.session.send_client_content(
-            turns={"parts": [{"text": p1}]},
-            turn_complete=True,
-        )
-        self.ui.write_log("SYS: Startup briefing greeting sent.")
-
-    # ── System monitor ──────────────────────────────────────────────────────────
-
-    async def _run_system_monitor(self) -> None:
-        """Background task: emergency alerts and non-destructive suggestions."""
-        emergency_active = False
-        while True:
-            await asyncio.sleep(2.0)
-            status = await asyncio.to_thread(self._sys_monitor.check_emergency)
-            is_90 = status.get("is_emergency_90", False)
-            suggested_apps = status.get("suggested_apps", [])
-            cpu = status.get("cpu", 0)
-            ram = status.get("ram", 0)
-
-            if is_90 and not emergency_active:
-                emergency_active = True
-                self.ui.set_state("EMERGENCY")
-                self.ui.write_log(f"SYS_ALERT: EMERGENCY SYSTEM OVERLOAD DETECTED (CPU: {cpu}%, RAM: {ram}%)! Red alert active.")
-                if self.session:
-                    try:
-                        await self.session.send_client_content(
-                            turns={"parts": [{"text": f"[SYSTEM_ALERT] Emergency system overload! CPU/RAM at {max(cpu, ram)}%. State that red alert emergency siren is active."}]},
-                            turn_complete=True,
-                        )
-                    except Exception:
-                        pass
-
-            elif not is_90 and emergency_active:
-                emergency_active = False
-                self.ui.set_state("LISTENING" if not self.ui.muted else "MUTED")
-                self.ui.write_log("SYS: System usage normalized (<85%). Emergency alert deactivated.")
-
-            if suggested_apps and self.session:
-                app_names = ", ".join(suggested_apps).replace(".exe", "")
-                self.ui.write_log(f"SYS_ALERT: 95%+ OVERLOAD - consider closing: {app_names}.")
-                try:
-                    await self.session.send_client_content(
-                        turns={"parts": [{"text": f"[SYSTEM_ALERT] Critical system overload (>95%). Suggest the user manually close heavy applications ({app_names}); do not claim any application was closed."}]},
-                        turn_complete=True,
-                    )
-                except Exception:
-                    pass
-
-            alert = await asyncio.to_thread(self._sys_monitor.check)
-            if alert and self.session and not is_90:
-                try:
-                    await self.session.send_client_content(
-                        turns={"parts": [{"text": alert}]},
-                        turn_complete=True,
-                    )
-                except Exception as e:
-                    print(f"[Monitor] ⚠️ Could not send alert: {e}")
-
-    # ── Proactive mode ──────────────────────────────────────────────────────────
-
-    async def _run_proactive_mode(self) -> None:
-        """
-        Background task: publishes a `system.tick` bus event every minute. The
-        kernel P4-D ProactiveEngine (kernel/proactive) evaluates its rules
-        (cooldowns, hour caps, consent classes) and emits proactive.decision
-        events; `_on_proactive_decision` speaks the fired ones. The legacy
-        silence-timer (actions/proactive.py) is retired from production.
-        """
-        while True:
-            await asyncio.sleep(60)
-
-            if not self.session:
-                continue
-
-            with self._speaking_lock:
-                speaking = self._is_speaking
-            if speaking:
-                continue
-
-            try:
-                await self._bus.publish(Event(
-                    type="system.tick",
-                    payload={
-                        "silence_min": int(
-                            (time.monotonic() - self._last_user_speech) // 60
-                        ),
-                        "time": datetime.now().strftime("%I:%M %p"),
-                    },
-                    source="live",
-                ))
-            except Exception as e:
-                print(f"[Proactive] WARN tick publish failed: {e}")
-
-    # ── Phone audio relay ────────────────────────────────────────────────────────
-
-    async def _relay_phone_audio(self) -> None:
-        """Forward phone mic PCM chunks from dashboard queue into the Gemini Live session."""
-        q = self._dashboard._phone_audio_queue
-        while True:
-            try:
-                chunk = await asyncio.wait_for(q.get(), timeout=1.0)
-            except asyncio.TimeoutError:
-                # No audio for 1 s → phone mic inactive, give PC mic back
-                self._phone_active = False
-                continue
-            self._phone_active = True   # phone is streaming — silence PC mic
-            with self._speaking_lock:
-                speaking = self._is_speaking
-            if not speaking and not self.ui.muted:
-                try:
-                    self.out_queue.put_nowait(chunk)
-                except asyncio.QueueFull:
-                    pass
-
-    def _on_phone_connected(self) -> None:
-        self.ui.write_log("SYS: Phone connected via Remote Dashboard.")
-        self.ui.notify_phone_connected()
-
-    # ── dashboard command relay ─────────────────────────────────────────────
-
-    async def _process_dashboard_commands(self) -> None:
-        import base64
-        while True:
-            try:
-                item = await asyncio.wait_for(
-                    self._dashboard._command_queue.get(), timeout=0.02
-                )
-                if not item:
-                    continue
-                for _ in range(80):
-                    if self.session:
-                        break
-                    await asyncio.sleep(0.05)
-                if self.session:
-                    if isinstance(item, dict) and item.get("type") == "image":
-                        b64_str = item.get("data", "")
-                        mime = item.get("mime", "image/jpeg")
-                        img_bytes = base64.b64decode(b64_str)
-                        self.ui.write_log("SYS: Image received. ULTRON analyzing image...")
-                        await self.session.send_realtime_input(media={"data": img_bytes, "mime_type": mime})
-                        await self.session.send_client_content(
-                            turns={"parts": [{"text": "Please analyze this attached image in full detail, describe every visual element, and explain what it represents."}]},
-                            turn_complete=True,
-                        )
-                    else:
-                        text = str(item).strip()
-                        if text:
-                            if text in ("/toggle_mic", "toggle_mic", "mute", "unmute"):
-                                if text == "mute":
-                                    self.ui.muted = True
-                                elif text == "unmute":
-                                    self.ui.muted = False
-                                else:
-                                    self.ui.muted = not self.ui.muted
-                                new_state = "MUTED" if self.ui.muted else "LISTENING"
-                                self.set_app_state(new_state)
-                                self.ui.write_log(f"SYS: Microphone {'MUTED (OFF)' if self.ui.muted else 'UNMUTED (ON)'}.")
-                                continue
-                            await self.session.send_client_content(
-                                turns={"parts": [{"text": text}]},
-                                turn_complete=True,
-                            )
-                            self.ui.write_log(f"[Web]: {text}")
-                else:
-                    print(f"[Dashboard] Dropped item (no session)")
-            except asyncio.TimeoutError:
-                pass
-            except Exception as e:
-                print(f"[Dashboard] Command error: {e}")
-                await asyncio.sleep(0.1)
-
-    # ── main loop ───────────────────────────────────────────────────────────
-
     async def run(self):
         self._loop = asyncio.get_event_loop()
 
         # Start dashboard (optional — needs: pip install fastapi "uvicorn[standard]" cryptography)
         try:
-            from dashboard.server import DashboardServer, PORT
-            import webbrowser
+            from dashboard.server import DashboardServer
             self._dashboard = DashboardServer()
             self._dashboard.set_connect_callback(self._on_phone_connected)
             asyncio.create_task(self._dashboard.serve())
@@ -1291,7 +841,7 @@ class UltronLive:
 
                     # Reset transient state that must not carry over from a previous session
                     self._pending_vision       = None
-                    self._vision_cam_active    = False  
+                    self._vision_cam_active    = False
                     self._vision_close_pending = False
                     self._vision_busy          = False
                     self._vision_last_time     = 0.0
@@ -1310,6 +860,11 @@ class UltronLive:
                     tg.create_task(self._play_audio())
                     tg.create_task(self._run_system_monitor())
                     tg.create_task(self._run_proactive_mode())
+                    # Phase W1: the durable orchestrator worker goes live —
+                    # background jobs (research/GUI plans) now actually run.
+                    tg.create_task(self._orchestrator.run_worker(max_jobs=None))
+                    # Phase W4: idle-time memory formation (consolidation).
+                    tg.create_task(self._run_memory_formation())
                     if self._dashboard:
                         tg.create_task(self._relay_phone_audio())
 
@@ -1337,6 +892,11 @@ class UltronLive:
                 err_str = str(e)
                 print(f"[ULTRON] Error ({type(e).__name__}): {e}")
                 traceback.print_exc()
+
+                # Phase W4: the session ended — persist what happened before
+                # the reconnect. generate_session_summary consumes the I3
+                # tracking lists and writes a session_summary fact.
+                self._persist_session_summary()
 
                 # Invalid / missing / broken API key — stop hammering the API, prompt re-configuration
                 if (

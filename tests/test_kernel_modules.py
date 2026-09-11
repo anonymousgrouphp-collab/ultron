@@ -296,38 +296,41 @@ class TestResearchRunner:
 
     def test_run_research_with_mock_orchestrator(self):
         from kernel.loop.research_runner import ResearchRunner
-        from unittest.mock import AsyncMock, MagicMock
+        from unittest.mock import MagicMock
 
+        # Phase W1: Orchestrator.enqueue is the plan-level SYNC helper
         runner = ResearchRunner()
-        mock_orch = AsyncMock()
-        mock_orch.enqueue = AsyncMock(return_value="job-123")
+        mock_orch = MagicMock()
+        mock_orch.enqueue = MagicMock(return_value="job-123")
         runner.orchestrator = mock_orch
         runner.registry = MagicMock()
         result = asyncio.run(runner.run_research("test topic"))
         # Accepts either env state:
         #   - no orchestrator wired → 'not available'
         #   - orchestrator wired → 'job-123' (mock was set above)
-        assert "not available" in result or "job-123" in result
+        assert "not available" in result or "job-123" in result, result
         if "job-123" in result:
             mock_orch.enqueue.assert_called_once()
 
     def test_get_status_with_mock_orchestrator(self):
         from kernel.loop.research_runner import ResearchRunner
-        from unittest.mock import MagicMock, AsyncMock
+        from unittest.mock import MagicMock
 
+        # Phase W1: get_job is a sync lookup; the job reports status as a
+        # plain string with done-steps via checkpoint. The payload key is
+        # "plan" — the frozen steps_from_payload worker contract.
         runner = ResearchRunner()
         mock_job = MagicMock()
-        mock_job.status = MagicMock()
-        mock_job.status.value = "done"
-        mock_job.completed_steps = [1, 2, 3]
-        mock_job.steps = [1, 2, 3, 4]
-        mock_orch = AsyncMock()
-        mock_orch.get_job = AsyncMock(return_value=mock_job)
+        mock_job.status = "done"
+        mock_job.done_steps = MagicMock(return_value={1, 2, 3})
+        mock_job.payload = {"plan": [1, 2, 3, 4]}
+        mock_orch = MagicMock()
+        mock_orch.get_job = MagicMock(return_value=mock_job)
         runner.orchestrator = mock_orch
 
         result = asyncio.run(runner.get_status("job-1"))
         assert "done" in result
-        assert "3/4" in result
+        assert "3/4" in result, result
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -686,7 +689,7 @@ class TestSessionSummary:
             memory=mem,
         )
         assert len(mem.calls) == 1
-        assert mem.calls[0]["category"] == "session_summary"
+        assert mem.calls[0]["entity"] == "session_summary"
         assert len(mem.calls) == 1 and len(mem.calls[0]) > 0
 
     def test_memory_failure_doesnt_break(self):
@@ -734,7 +737,7 @@ class TestBusDashboardBridge:
         bus = EventBus()
         bridge = BusDashboardBridge(bus, MagicMock())
         bridge.attach()
-        assert len(bridge._subscriptions) == 4
+        assert len(bridge._subscriptions) == 5  # W5: + health.*
 
     def test_detach_clears_subscriptions(self):
         from kernel.proactive.dashboard_bridge import BusDashboardBridge
@@ -821,10 +824,13 @@ class TestTriggers:
 
     def test_time_trigger_should_not_fire_at_wrong_time(self):
         from kernel.proactive.triggers import TimeTrigger
+        from datetime import datetime
+        # Hermetic (fixed timestamp): a trigger for 3 AM must NOT fire at
+        # 14:00. The old version asserted against time.time() — a CI
+        # time-bomb that failed whenever the suite ran 03:00–03:05 local.
+        noon = datetime(2026, 9, 10, 14, 0, 0).timestamp()
         t = TimeTrigger(hour=3, minute=0)  # 3 AM
-        # It's daytime — shouldn't fire
-        result = t.should_fire(time.time())
-        assert result is False
+        assert t.should_fire(noon) is False
 
     def test_time_trigger_cooldown_prevents_repeat(self):
         from kernel.proactive.triggers import TimeTrigger
