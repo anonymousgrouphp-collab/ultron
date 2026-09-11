@@ -132,6 +132,26 @@ class AudioTasksMixin:
                                         "text": full_in,
                                         "ts": datetime.now().isoformat(),
                                     }))
+                                # Phase W3: complex SPOKEN utterances route to
+                                # the AgentLoop too (two brains, one decision).
+                                # The transcript was already spoken TO the Live
+                                # session — the model is about to answer it with
+                                # native FC. If we ALSO run the loop, the user
+                                # gets two answers. So: routed utterances get a
+                                # spoken hand-off instead, and the loop's result
+                                # is spoken when it lands. Reflexes (open app,
+                                # weather, …) keep the snappy native path.
+                                if self._maybe_route_agent(full_in, source="spoken"):
+                                    handoff = (
+                                        "That looks like a multi-step task, sir. "
+                                        "I'm running it through the full agent "
+                                        "loop now — I'll report back."
+                                    )
+                                    await self.session.send_client_content(
+                                        turns={"parts": [{"text":
+                                            f"[SYSTEM] Do not answer the last user message; it has been routed to the background agent loop. Reply with exactly this acknowledgment and nothing else: {handoff}"}]},
+                                        turn_complete=True,
+                                    )
                             in_buf = []
 
                             full_out = " ".join(out_buf).strip()

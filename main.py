@@ -274,11 +274,8 @@ class UltronLive(
                 )
             return
 
-        # Phase O2: heuristic — complex tasks route through agent loop
-        if self._is_complex_task(clean_text) and self._loop:
-            asyncio.run_coroutine_threadsafe(
-                self._run_agent_task(clean_text), self._loop
-            )
+        # Phase W3: complex typed commands → AgentLoop (shared router)
+        if self._maybe_route_agent(clean_text, source="typed"):
             return
 
         # Phase I1: /gui prefix — autonomous GUI task
@@ -424,6 +421,22 @@ class UltronLive(
         else:
             self.speak("Task completed, sir.")
         return result.text
+
+    def _maybe_route_agent(self, text: str, *, source: str) -> bool:
+        """Phase W3: the ONE router both input tiers use (two brains, one
+        decision). Complex utterances — typed OR spoken — go to the
+        AgentLoop; reflexes stay with the LiveSession's native function
+        calling. Returns True when routed (caller must not echo the text into
+        the session). Consent + abort: the runner carries the consent gate;
+        the session's interrupt breaks the turn — the loop observes both."""
+        clean = str(text or "").strip()
+        if not clean or not self._is_complex_task(clean) or not self._loop:
+            return False
+        self.ui.write_log(f"SYS: routing {source} task to the agent loop.")
+        asyncio.run_coroutine_threadsafe(
+            self._run_agent_task(clean), self._loop
+        )
+        return True
 
     # ------------------------------------------------------------------
     # Phase I1 — GUI autonomous planner (honest-off until Phase W1)
