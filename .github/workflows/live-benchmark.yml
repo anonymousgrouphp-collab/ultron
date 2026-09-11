@@ -1,15 +1,18 @@
-name: Live Benchmark (R6)
+name: Live Benchmark (R6 + A5)
 
-# R6 — live-model benchmark trend. Scheduled weekly + manual dispatch. This
-# workflow NEVER gates CI: live-model scores are model variance, so they go
-# to the trend log (evals/results/live_trend.jsonl) and uploaded artifacts,
+# R6 — live-model benchmark trend. A5 turned it into the North-Star Metric
+# cadence: monthly schedule + manual dispatch; the trend JSONL AND the
+# markdown report are uploaded as artifacts; the model-routing policy eval
+# (evals/routing.py, hermetic) runs alongside as a signal.
+# This workflow NEVER gates CI: live-model scores are model variance, so they
+# go to the trend log (evals/results/live_trend.jsonl) and uploaded artifacts,
 # and every step is fail-soft (continue-on-error / non-gating exits).
 # The tracked scripted gate stays `evals/dashboard.py` in the main CI.
 
 on:
   schedule:
-    # Weekly: Sunday 05:00 UTC
-    - cron: "0 5 * * 0"
+    # Monthly: 1st of the month 05:00 UTC
+    - cron: "0 5 1 * *"
   workflow_dispatch:
     inputs:
       provider:
@@ -56,11 +59,19 @@ jobs:
           $cfg = @{ gemini_api_key = $env:GEMINI_API_KEY } | ConvertTo-Json
           Set-Content -Path config/api_keys.json -Value $cfg
 
-      - name: Run live suite + append trend (fail-soft, never gates)
+      - name: Run live suite + append trend + write report (fail-soft, never gates)
         continue-on-error: true
-        run: python evals/trend.py --provider ${{ inputs.provider || 'openai' }} --suite-root .ultron/eval/benchmark/live
+        # A5: --report-out lands the markdown report inside the artifact set
+        # (evals/results/ is uploaded below; the JSONL trend is written there
+        # by trend.py itself).
+        run: |
+          python evals/trend.py --provider ${{ inputs.provider || 'openai' }} --suite-root .ultron/eval/benchmark/live --report-out evals/results/live_report.md
 
-      - name: Upload trend + suite artifacts
+      - name: Routing-policy eval (hermetic, fail-soft signal — never gates)
+        continue-on-error: true
+        run: python evals/routing.py --report-out evals/results/routing_report.md
+
+      - name: Upload trend + reports + suite artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -94,11 +105,12 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install -r requirements-dev.txt
 
-      - name: Run live suite (Ollama) + append trend (fail-soft, never gates)
+      - name: Run live suite (Ollama) + append trend + write report (fail-soft, never gates)
         continue-on-error: true
-        run: python evals/trend.py --provider ollama --suite-root .ultron/eval/benchmark/live
+        run: |
+          python evals/trend.py --provider ollama --suite-root .ultron/eval/benchmark/live --report-out evals/results/live_report_ollama.md
 
-      - name: Upload trend + suite artifacts
+      - name: Upload trend + reports + suite artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:

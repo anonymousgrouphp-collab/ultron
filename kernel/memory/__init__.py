@@ -29,7 +29,9 @@ from kernel.memory.evals import (
 from kernel.memory.embedders import (
     BGEM3Embedder,
     Embedder,
+    EmbedderUnavailable,
     HashingEmbedder,
+    embedder_from_config,
     make_embedder,
 )
 from kernel.memory.improve import (
@@ -126,6 +128,7 @@ __all__ = [
     "ConsolidationReport",
     "Consolidator",
     "Embedder",
+    "EmbedderUnavailable",
     "HashingEmbedder",
     "ImproveOutcome",
     "MemoryEngine",
@@ -142,6 +145,7 @@ __all__ = [
     "build_eval_corpus",
     "capture_from_run",
     "capture_procedure",
+    "embedder_from_config",
     "improve_run",
     "make_embedder",
     "migrate_long_term_json",
