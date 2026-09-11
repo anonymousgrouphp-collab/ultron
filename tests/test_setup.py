@@ -32,11 +32,12 @@ def test_missing_project_files_reports_each_missing_path(tmp_path, monkeypatch):
     assert "core/tts.py" not in missing
 
 
-def test_python_313_is_the_only_supported_bootstrap_runtime():
-    setup.validate_python_version((3, 13))
+def test_python_314_is_the_only_supported_bootstrap_runtime():
+    # User order 2026-09-11: the runtime shifted from 3.13 to 3.14.
+    setup.validate_python_version((3, 14))
 
-    with pytest.raises(RuntimeError, match="Python 3.13"):
-        setup.validate_python_version((3, 14))
+    with pytest.raises(RuntimeError, match="Python 3.14"):
+        setup.validate_python_version((3, 13))
 
 
 def test_setup_config_copies_example_without_overwriting_user_file(tmp_path, monkeypatch):

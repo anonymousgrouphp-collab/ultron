@@ -22,7 +22,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"   # machine finding (PROGRESS.md Findings): 3.13 is the dep-complete line
+          python-version: "3.14"   # USER ORDER 2026-09-11: the 3.13 runtime was removed from the machine; 3.14 is the line now
 
       - name: Install dependencies
         run: |

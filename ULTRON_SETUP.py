@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Sequence
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-SUPPORTED_PYTHON = (3, 13)
+SUPPORTED_PYTHON = (3, 14)
 REQUIRED_PROJECT_FILES = (
     "main.py",
     "ui.py",
@@ -67,7 +67,7 @@ def create_virtualenv() -> Path:
     python = virtualenv_python()
     if python.is_file():
         return python
-    print("[setup] Creating .venv with the current Python 3.13 interpreter...")
+    print("[setup] Creating .venv with the current Python 3.14 interpreter...")
     subprocess.run([sys.executable, "-m", "venv", ".venv"], cwd=SCRIPT_DIR, check=True)
     if not python.is_file():
         raise RuntimeError("Virtual environment creation did not produce .venv/Scripts/python.exe.")
@@ -117,7 +117,7 @@ def setup(*, with_browser: bool = False) -> Path:
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Create ULTRON's local Python 3.13 environment.")
+    parser = argparse.ArgumentParser(description="Create ULTRON's local Python 3.14 environment.")
     parser.add_argument(
         "--with-browser",
         action="store_true",

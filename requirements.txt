@@ -1,4 +1,4 @@
-# ULTRON runtime dependencies for CPython 3.13 on Windows 11.
+# ULTRON runtime dependencies for CPython 3.14 on Windows 11 (user order 2026-09-11: shifted from 3.13).
 # Direct dependencies are pinned; resolve a fully hashed lock before a public release.
 
 # Desktop and audio

@@ -8,14 +8,14 @@ addopts = "-q"
 
 [tool.ruff]
 line-length = 120
-target-version = "py313"
+target-version = "py314"
 extend-exclude = ["dashboard/static", "__pycache__"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W"]  # default-critical set; advisory only for now (legacy codebase)
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.14"
 ignore_missing_imports = true
 check_untyped_defs = false
 # Advisory only (CI continue-on-error) until the kernel rewrite (P1) lands typed modules.
