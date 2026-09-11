@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS semantic_facts (
     source_ref TEXT,
     status TEXT NOT NULL DEFAULT 'active',
     tombstone_reason TEXT,
-    tombstoned_at REAL
+    tombstoned_at REAL,
+    last_decayed_at REAL
 );
 CREATE TABLE IF NOT EXISTS fact_vectors (
     fact_id INTEGER PRIMARY KEY REFERENCES semantic_facts(id) ON DELETE CASCADE,
@@ -58,6 +59,7 @@ CREATE TABLE IF NOT EXISTS episodes (
     summary TEXT NOT NULL DEFAULT '',
     source_ref TEXT
 );
+CREATE INDEX IF NOT EXISTS idx_episodes_started ON episodes(started_at DESC);
 CREATE TABLE IF NOT EXISTS procedures (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
@@ -91,6 +93,7 @@ _P3A_COLUMNS: tuple[tuple[str, str], ...] = (
     ("status", "TEXT NOT NULL DEFAULT 'active'"),
     ("tombstone_reason", "TEXT"),
     ("tombstoned_at", "REAL"),
+    ("last_decayed_at", "REAL"),
 )
 _P3C_PROCEDURE_COLUMNS: tuple[tuple[str, str], ...] = (
     ("summary", "TEXT NOT NULL DEFAULT ''"),
@@ -192,6 +195,12 @@ class MemoryEngine:
         """Add post-P1-D columns to DBs created before P3-A/P3-C (idempotent)."""
         self._add_missing_columns("semantic_facts", _P3A_COLUMNS)
         self._add_missing_columns("procedures", _P3C_PROCEDURE_COLUMNS)
+        self._conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_facts_status_known ON semantic_facts(status, known_at DESC)"
+        )
+        self._conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_facts_importance ON semantic_facts(importance DESC, known_at DESC)"
+        )
         self._conn.commit()
 
     def _add_missing_columns(
@@ -357,16 +366,24 @@ class MemoryEngine:
             self._conn.commit()
         return True
 
-    def set_importance(self, fact_id: int, importance: float) -> bool:
+    def set_importance(self, fact_id: int, importance: float, *,
+                       last_decayed_at: float | None = None) -> bool:
         """Consolidation-time decay writes importance WITHOUT bumping known_at
         (decay must not make a fact look fresh). Clamps to [0.0, 1.0]."""
         clamped = min(1.0, max(0.0, float(importance)))
         with self._lock:
-            cur = self._conn.execute(
-                "UPDATE semantic_facts SET importance = ?"
-                " WHERE id = ? AND status = 'active'",
-                (clamped, fact_id),
-            )
+            if last_decayed_at is not None:
+                cur = self._conn.execute(
+                    "UPDATE semantic_facts SET importance = ?, last_decayed_at = ?"
+                    " WHERE id = ? AND status = 'active'",
+                    (clamped, float(last_decayed_at), fact_id),
+                )
+            else:
+                cur = self._conn.execute(
+                    "UPDATE semantic_facts SET importance = ?"
+                    " WHERE id = ? AND status = 'active'",
+                    (clamped, fact_id),
+                )
             self._conn.commit()
             return cur.rowcount > 0
 
@@ -451,12 +468,12 @@ class MemoryEngine:
         with self._lock:
             rows = self._conn.execute(
                 "SELECT id, entity, topic, content, importance, known_at,"
-                " expires_at, source_ref FROM semantic_facts"
+                " expires_at, source_ref, last_decayed_at FROM semantic_facts"
                 " WHERE status = 'active' ORDER BY known_at DESC, id DESC"
             ).fetchall()
         return [dict(zip(
             ("id", "entity", "topic", "content", "importance", "known_at",
-             "expires_at", "source_ref"), r)) for r in rows]
+             "expires_at", "source_ref", "last_decayed_at"), r)) for r in rows]
 
     def close(self) -> None:
         with self._lock:

@@ -223,15 +223,18 @@ class Consolidator:
                 if self._engine.tombstone(fact_id, "expired"):
                     report.expired.append(fact_id)
                 continue
-            age_days = max(0.0, (current - float(fact["known_at"])) / 86400.0)
+            last_run = fact.get("last_decayed_at") or fact["known_at"]
+            elapsed_days = max(0.0, (current - float(last_run)) / 86400.0)
+            if elapsed_days <= 0.0:
+                continue
             decayed = float(fact["importance"]) * (
-                0.5 ** (age_days / half_life_days))
+                0.5 ** (elapsed_days / half_life_days))
             if decayed < floor:
                 if self._engine.tombstone(fact_id, "decayed below floor"):
                     report.decayed_out.append(fact_id)
             elif float(fact["importance"]) - decayed > 1e-6:
                 # skip sub-epsilon noise so a fresh fact is never "decayed"
-                if self._engine.set_importance(fact_id, decayed):
+                if self._engine.set_importance(fact_id, decayed, last_decayed_at=current):
                     report.decayed.append(fact_id)
 
     # -------------------------------------------------- reflection ----

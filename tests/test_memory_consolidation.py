@@ -120,7 +120,7 @@ def make_consolidator(engine, responses, bus=None):
 def age_fact(engine: MemoryEngine, fact_id: int, days: float) -> None:
     """Test-only: backdate a fact's known_at to exercise decay math."""
     engine._conn.execute(
-        "UPDATE semantic_facts SET known_at = ? WHERE id = ?",
+        "UPDATE semantic_facts SET known_at = ?, last_decayed_at = NULL WHERE id = ?",
         (time.time() - days * 86400.0, fact_id),
     )
     engine._conn.commit()
@@ -435,6 +435,25 @@ def test_decay_half_life_math(engine) -> None:
     fact = engine.get_fact(fid)
     assert fact is not None
     assert fact.importance == pytest.approx(0.4, abs=1e-6)
+
+
+def test_decay_does_not_compound_exponentially_on_repeated_runs(engine) -> None:
+    """REV-01: multiple consolidation passes without elapsed time must NOT decay repeatedly."""
+    fid = engine.remember("stable fact", importance=0.8)
+    age_fact(engine, fid, days=30.0)                      # one half-life
+    consolidator, _ = make_consolidator(engine, [])
+    # Run 1: decays by 1 half-life -> 0.4
+    report1 = asyncio.run(consolidator.consolidate(run_reflect=False))
+    assert report1.decayed == [fid]
+    fact1 = engine.get_fact(fid)
+    assert fact1 is not None and fact1.importance == pytest.approx(0.4, abs=1e-6)
+
+    # Runs 2-10 immediately with no elapsed time: MUST NOT decay further!
+    for _ in range(9):
+        report = asyncio.run(consolidator.consolidate(run_reflect=False))
+        assert report.decayed == []
+    fact_after = engine.get_fact(fid)
+    assert fact_after is not None and fact_after.importance == pytest.approx(0.4, abs=1e-6)
 
 
 def test_decay_floor_tombstones_and_expiry(engine) -> None:

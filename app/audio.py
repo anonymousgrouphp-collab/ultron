@@ -54,8 +54,15 @@ class AudioTasksMixin:
                 ultron_speaking = self._is_speaking
             if not ultron_speaking and not self.ui.muted and not self._phone_active:
                 data = indata.tobytes()
+
+                def _safe_put(item):
+                    try:
+                        self.out_queue.put_nowait(item)
+                    except asyncio.QueueFull:
+                        pass
+
                 loop.call_soon_threadsafe(
-                    self.out_queue.put_nowait,
+                    _safe_put,
                     {"data": data, "mime_type": "audio/pcm"}
                 )
 

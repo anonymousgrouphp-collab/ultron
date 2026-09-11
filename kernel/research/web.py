@@ -46,6 +46,7 @@ def _extract(html: str, cap: int) -> dict[str, Any]:
         "text": text[:cap],
         "truncated": len(text) > cap,
         "chars": len(text),
+        "untrusted": True,
     }
 
 

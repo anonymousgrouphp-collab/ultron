@@ -81,6 +81,19 @@ def _complete(prompt: str, *, system: str | None = None,
     text = (response.text or "").strip()
     if not text:
         raise ValueError("model returned an empty response")
+    try:
+        from kernel.diagnostics.cost_tracker import CostTracker
+        in_tok = max(1, len(prompt) // 4)
+        out_tok = max(1, len(text) // 4)
+        CostTracker().record_usage(
+            provider=settings.provider.value,
+            model=settings.model,
+            input_tokens=in_tok,
+            output_tokens=out_tok,
+            task_id="actions_llm",
+        )
+    except Exception:
+        pass
     return text
 
 

@@ -127,6 +127,12 @@ class JobQueue:
         except sqlite3.DatabaseError:
             pass  # :memory: has no WAL — harmless
         self._conn.execute(_SCHEMA)
+        self._conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_jobs_claim ON jobs(status, priority DESC, created_ts ASC, id)"
+        )
+        self._conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_ts DESC)"
+        )
         self._conn.commit()
         self._lock = threading.RLock()
 

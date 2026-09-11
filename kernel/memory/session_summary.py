@@ -70,6 +70,8 @@ def generate_session_summary(
         summary_parts.append(f"Tools used: {', '.join(tools_used)}")
     if user_messages:
         summary_parts.append(f"User messages: {len(user_messages)}")
+    if assistant_responses:
+        summary_parts.append(f"Assistant responses: {len(assistant_responses)}")
 
     summary_text = ". ".join(summary_parts) if summary_parts else "Empty session"
 

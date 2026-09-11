@@ -167,7 +167,10 @@ def dump_tree(handle: int, title: str, pid: int, *, max_depth: int = 8,
     the context window."""
     try:
         win = _win_wrapper(handle, title, pid)
-        elements = win.descendants()
+        try:
+            elements = win.descendants(depth=max_depth)
+        except TypeError:
+            elements = win.descendants()
     except DesktopError:
         raise
     except Exception as exc:  # noqa: BLE001

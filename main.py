@@ -566,9 +566,8 @@ class UltronLive(
                         elif loader.load_config().get("morning_brief_enabled", True):
                             tg.create_task(self._send_startup_briefing())
 
-            except KeyboardInterrupt:
-                raise
-            except SystemExit:
+            except (KeyboardInterrupt, SystemExit):
+                self._persist_session_summary()
                 raise
             except BaseException as e:
                 # Catches both Exception and BaseExceptionGroup (Python 3.11+

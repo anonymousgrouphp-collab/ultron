@@ -9,10 +9,13 @@ Enables sharing context between devices (phone, desktop, etc.):
 from __future__ import annotations
 
 import json
+import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 __all__ = ["CrossDeviceContext", "DeviceState"]
 
@@ -63,8 +66,8 @@ class CrossDeviceContext:
                         current_task=info.get("current_task", ""),
                         session_id=info.get("session_id"),
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                log.warning("Failed to load cross-device state from disk: %s", exc)
 
     def _save_state(self) -> None:
         """Save sync state to disk."""
@@ -81,8 +84,8 @@ class CrossDeviceContext:
                     "session_id": device.session_id,
                 }
             state_file.write_text(json.dumps(data, indent=2))
-        except Exception:
-            pass
+        except Exception as exc:
+            log.warning("Failed to save cross-device state to disk: %s", exc)
 
     def register_device(self, device_id: str, device_type: str) -> DeviceState:
         """Register a new device."""

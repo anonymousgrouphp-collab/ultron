@@ -75,8 +75,8 @@ class SpeakerManager:
                         last_seen=info.get("last_seen", 0.0),
                         preferences=info.get("preferences", {}),
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                log.warning("Failed to load speaker profiles: %s", exc)
 
     def _save_profiles(self) -> None:
         """Save speaker profiles to disk."""
@@ -93,8 +93,8 @@ class SpeakerManager:
                     "preferences": profile.preferences,
                 }
             profile_file.write_text(json.dumps(data, indent=2))
-        except Exception:
-            pass
+        except Exception as exc:
+            log.warning("Failed to save speaker profiles: %s", exc)
 
     def _ensure_engine(self) -> None:
         """Lazily load the SpeechBrain speaker ID engine."""

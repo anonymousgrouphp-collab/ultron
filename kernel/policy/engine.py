@@ -81,6 +81,15 @@ class PolicyEngine:
                          note=result.error or "")
             return result
 
+        # Outbound data exfiltration defense (REV-02): web_read carrying query
+        # parameters acts as potential outbound data egress (GET exfiltration).
+        # Elevate to WRITE so it requires consent and cannot silently exfiltrate private data.
+        if call.name == "web_read" and risk is RiskClass.READ:
+            url = str(call.args.get("url", ""))
+            from urllib.parse import urlparse
+            if urlparse(url).query:
+                risk = RiskClass.WRITE
+
         decision = self.decide(risk)
 
         if decision is Decision.DENY:

@@ -33,12 +33,19 @@ class BriefingMixin:
         if not self.session:
             return
 
-        # ── Instant greeting & status ─────────────────────────────────────────
+        # ── Instant greeting & status via kernel briefing engine (REV-06) ───
+        from kernel.briefing.briefing import build_briefing, render
+        highlights = [f"{h.topic}: {h.content}" for h in self._memory.page(limit=5)]
+        briefing_obj = build_briefing(memory_highlights=highlights)
+        briefing_text = render(briefing_obj)
+
         lang_clause = f" Respond in {lang}." if lang else ""
         name_clause = f" Address the user as {name}." if name else ""
         p1 = (
-            f"Greet the user, mention it is {time_str}, state that systems and HUD ULTRON are fully operational, "
-            f"and ask how you can assist today. One or two short sentences only. Do not call any tools.{lang_clause}{name_clause}"
+            f"Greet the user, mention it is {time_str}, state that systems and HUD ULTRON are fully operational. "
+            f"System briefing:\n{briefing_text}\n"
+            "Ask how you can assist today. One or two short sentences only. Do not call any tools."
+            f"{lang_clause}{name_clause}"
         )
 
         # Clear the turn-done event

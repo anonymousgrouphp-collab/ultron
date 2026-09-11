@@ -305,12 +305,8 @@ class TestResearchRunner:
         runner.orchestrator = mock_orch
         runner.registry = MagicMock()
         result = asyncio.run(runner.run_research("test topic"))
-        # Accepts either env state:
-        #   - no orchestrator wired → 'not available'
-        #   - orchestrator wired → 'job-123' (mock was set above)
-        assert "not available" in result or "job-123" in result, result
-        if "job-123" in result:
-            mock_orch.enqueue.assert_called_once()
+        assert "job-123" in result, result
+        mock_orch.enqueue.assert_called_once()
 
     def test_get_status_with_mock_orchestrator(self):
         from kernel.loop.research_runner import ResearchRunner

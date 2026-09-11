@@ -115,7 +115,6 @@ def _ensure_crypto_js() -> None:
     try:
         print("[Dashboard] Downloading CryptoJS (one-time setup)…")
         raise RuntimeError("Dashboard's required local CryptoJS asset is missing.")
-        print("[Dashboard] CryptoJS cached — will serve locally from now on.")
     except Exception as e:
         print(f"[Dashboard] Local CryptoJS asset check failed: {e}")
         print("[Dashboard] Encryption will fall back to CDN load on client.")

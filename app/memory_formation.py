@@ -48,6 +48,13 @@ class MemoryFormationMixin:
         → the task exits quietly (consolidation is a judge-driven job)."""
         while True:
             await asyncio.sleep(600)
+            # Periodic persistence during idle periods (REV-04): persist session
+            # summary and clear lists to prevent RAM leak in healthy sessions
+            if getattr(self, "_session_user_messages", None) and (
+                time.monotonic() - self._last_user_speech >= 600 or len(self._session_user_messages) >= 50
+            ):
+                self._persist_session_summary()
+
             if time.monotonic() - self._last_user_speech < 600:
                 continue  # user active — never burn tokens mid-conversation
             try:

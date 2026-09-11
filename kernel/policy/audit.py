@@ -44,6 +44,9 @@ class AuditLog:
         except sqlite3.DatabaseError:
             pass  # :memory: has no WAL — harmless
         self._conn.execute(_SCHEMA)
+        self._conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit(ts DESC)"
+        )
         self._conn.commit()
         self._lock = threading.Lock()
 

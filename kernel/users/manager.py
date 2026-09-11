@@ -11,10 +11,13 @@ Each user gets:
 from __future__ import annotations
 
 import json
+import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 __all__ = ["UserManager", "UserProfile"]
 
@@ -69,8 +72,8 @@ class UserManager:
                         created_at=info.get("created_at", 0),
                         last_seen=info.get("last_seen", 0),
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                log.warning("Failed to load user profiles from disk: %s", exc)
 
     def _save_profiles(self) -> None:
         """Save user profiles to disk."""
@@ -89,8 +92,8 @@ class UserManager:
                     "last_seen": profile.last_seen,
                 }
             profiles_file.write_text(json.dumps(data, indent=2))
-        except Exception:
-            pass
+        except Exception as exc:
+            log.warning("Failed to save user profiles to disk: %s", exc)
 
     def create_user(self, user_id: str, display_name: str, role: str = "user") -> UserProfile:
         """Create a new user profile."""
