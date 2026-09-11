@@ -4,6 +4,12 @@ The engine stores vectors per fact; the embedder is injectable so tests and CI
 run hermetically (HashingEmbedder, stdlib) while the local tier (BGE-M3 via
 fastembed, research/04 §10 / research/06 tier table) is a drop-in upgrade.
 Embeddings are ALWAYS local — they are free and private (research/06 §5).
+
+Phase A4: the embedder is selectable through the `memory_embedder` config key
+("hashing" | "bge-m3", default "hashing"). Config VALUES are passed in here —
+the kernel never reads config files (P2-D gate precedent); the wiring layer
+does `MemoryEngine(path, embedder_name=cfg["memory_embedder"])` or
+`embedder_from_config(cfg)`.
 """
 
 from __future__ import annotations
@@ -11,10 +17,24 @@ from __future__ import annotations
 import hashlib
 import math
 import re
-from typing import Protocol
+from collections.abc import Mapping
+from typing import Any, Protocol
 
 _TOKEN = re.compile(r"[a-z0-9]+")
 _DIM = 256
+
+VALID_EMBEDDER_NAMES = ("hashing", "bge-m3")
+
+
+class EmbedderUnavailable(RuntimeError):
+    """An optional embedder's library is not installed. User-safe: names the
+    pip package, never internals (same contract as kernel.voice.EngineUnavailable)."""
+
+    def __init__(self, engine: str, package: str) -> None:
+        super().__init__(
+            f"{engine} is not installed — `pip install {package}` to enable it")
+        self.engine = engine
+        self.package = package
 
 
 class Embedder(Protocol):
@@ -59,17 +79,15 @@ class BGEM3Embedder:
     """BGE-M3 embeddings via fastembed (optional dependency, local model).
 
     First use downloads/loads the model — constructed lazily by
-    make_embedder("bge-m3") only, never at kernel import time.
+    make_embedder("bge-m3") only, never at kernel import time, and never
+    inside CI/tests (the real-model path is opt-in via env in tests).
     """
 
     def __init__(self) -> None:
         try:
             from fastembed import TextEmbedding
         except ImportError as exc:  # pragma: no cover - env-dependent
-            raise ValueError(
-                "bge-m3 embedder needs the optional 'fastembed' package "
-                "(pip install fastembed); falling back to 'hashing' otherwise"
-            ) from exc
+            raise EmbedderUnavailable("BGE-M3", "fastembed") from exc
         self._model = TextEmbedding(model_name="BAAI/bge-m3")
         self._dim = 0
 
@@ -89,7 +107,33 @@ def make_embedder(name: str = "hashing") -> Embedder:
         return HashingEmbedder()
     if name == "bge-m3":
         return BGEM3Embedder()
-    raise ValueError(f"unknown embedder {name!r} (expected 'hashing' or 'bge-m3')")
+    raise ValueError(
+        f"unknown embedder {name!r} (expected 'hashing' or 'bge-m3')")
 
 
-__all__ = ["BGEM3Embedder", "Embedder", "HashingEmbedder", "make_embedder"]
+def embedder_from_config(
+    config: Mapping[str, Any], *, key: str = "memory_embedder"
+) -> Embedder:
+    """Select the embedder from a loaded config dict (Phase A4 seam).
+
+    Absent/blank value → HashingEmbedder (the hermetic default — nothing
+    breaks). Any other value goes through `make_embedder`, so a typo fails
+    loudly with the valid names rather than silently degrading recall; the
+    'bge-m3' path raises EmbedderUnavailable when fastembed is absent. The
+    wiring layer decides whether to fall back or surface the error.
+    """
+    raw = config.get(key)
+    if raw is None or not str(raw).strip():
+        return HashingEmbedder()
+    return make_embedder(str(raw).strip())
+
+
+__all__ = [
+    "BGEM3Embedder",
+    "Embedder",
+    "EmbedderUnavailable",
+    "HashingEmbedder",
+    "VALID_EMBEDDER_NAMES",
+    "embedder_from_config",
+    "make_embedder",
+]

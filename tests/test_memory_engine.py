@@ -20,7 +20,7 @@ from kernel.memory import (
     migrate_long_term_json,
     register_memory_tools,
 )
-from kernel.memory.embedders import HashingEmbedder
+from kernel.memory.embedders import EmbedderUnavailable, HashingEmbedder
 from kernel.tools import ToolRegistry
 from kernel.types import ToolCall
 
@@ -173,7 +173,9 @@ def test_make_embedder_factory() -> None:
     assert abs(sum(v * v for v in vec) - 1.0) < 1e-9  # L2 normalized
     with pytest.raises(ValueError, match="unknown embedder"):
         make_embedder("word2vec")
-    with pytest.raises(ValueError, match="fastembed"):
+    # A4: the missing optional dep raises the user-safe contract
+    # (EmbedderUnavailable names the pip package — kernel.voice precedent).
+    with pytest.raises(EmbedderUnavailable, match="fastembed"):
         make_embedder("bge-m3")  # optional dep absent in CI
 
 

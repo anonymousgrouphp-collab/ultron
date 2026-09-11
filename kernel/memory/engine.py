@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from kernel.memory.embedders import Embedder, HashingEmbedder
+from kernel.memory.embedders import Embedder, HashingEmbedder, make_embedder
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS semantic_facts (
@@ -165,7 +165,20 @@ class MemoryEngine:
         self,
         path: str | Path,
         embedder: Embedder | None = None,
+        *,
+        embedder_name: str | None = None,
     ) -> None:
+        if embedder is not None and embedder_name is not None:
+            raise ValueError(
+                "pass either embedder= or embedder_name=, not both")
+        if embedder is not None:
+            resolved = embedder
+        elif embedder_name is not None:
+            # Phase A4 config-key seam: "hashing" | "bge-m3" via make_embedder
+            # (bge-m3 raises EmbedderUnavailable when fastembed is absent).
+            resolved = make_embedder(embedder_name)
+        else:
+            resolved = HashingEmbedder()
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(path), check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
@@ -173,7 +186,7 @@ class MemoryEngine:
         self._conn.executescript(_SCHEMA)
         self._ensure_columns()
         self._lock = threading.RLock()
-        self._embedder = embedder if embedder is not None else HashingEmbedder()
+        self._embedder = resolved
 
     def _ensure_columns(self) -> None:
         """Add post-P1-D columns to DBs created before P3-A/P3-C (idempotent)."""
