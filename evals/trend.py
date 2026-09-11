@@ -151,7 +151,8 @@ def render_report(row: dict[str, Any], rows: list[dict[str, Any]]) -> str:
     return "\n".join(lines) + "\n"
 
 
-async def _run_and_record(provider: str, suite_root: Path) -> int:
+async def _run_and_record(provider: str, suite_root: Path,
+                          report_out: Path | None = None) -> int:
     from evals.suite import run_suite
 
     try:
@@ -167,12 +168,23 @@ async def _run_and_record(provider: str, suite_root: Path) -> int:
 
     rows = load_trend()
     row = record(summary)
-    print(render_report(row, rows + [row]))
+    report_text = render_report(row, rows + [row])
+    print(report_text)
+    if report_out is not None:
+        # Phase A5: the markdown report is a workflow artifact alongside the
+        # JSONL trend (write AFTER printing — a bad path must not lose the
+        # printed report, and failures stay fail-soft).
+        try:
+            report_out.parent.mkdir(parents=True, exist_ok=True)
+            report_out.write_text(report_text, encoding="utf-8")
+            print(f"[trend] report written to {report_out}")
+        except OSError as exc:
+            print(f"[trend] ⚠️ could not write report {report_out}: {exc}")
     print(f"[trend] appended to {TREND_PATH}")
     return 0
 
 
-def _record_report_file(path: Path) -> int:
+def _record_report_file(path: Path, report_out: Path | None = None) -> int:
     try:
         summary = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -180,7 +192,14 @@ def _record_report_file(path: Path) -> int:
         return 0
     rows = load_trend()
     row = record(summary)
-    print(render_report(row, rows + [row]))
+    report_text = render_report(row, rows + [row])
+    print(report_text)
+    if report_out is not None:
+        try:
+            report_out.parent.mkdir(parents=True, exist_ok=True)
+            report_out.write_text(report_text, encoding="utf-8")
+        except OSError as exc:
+            print(f"[trend] ⚠️ could not write report {report_out}: {exc}")
     return 0
 
 
@@ -193,14 +212,18 @@ def main() -> None:
     parser.add_argument("--report-file", default=None,
                         help="record an existing summary JSON instead of "
                              "running the suite")
+    parser.add_argument("--report-out", default=None,
+                        help="also write the markdown report to this file "
+                             "(A5: uploaded as a workflow artifact)")
     args = parser.parse_args()
 
+    out = Path(args.report_out) if args.report_out else None
     if args.report_file:
-        raise SystemExit(_record_report_file(Path(args.report_file)))
+        raise SystemExit(_record_report_file(Path(args.report_file), out))
     if not args.provider:
         parser.error("need --provider (or --report-file)")
     raise SystemExit(asyncio.run(_run_and_record(
-        args.provider, Path(args.suite_root))))
+        args.provider, Path(args.suite_root), out)))
 
 
 if __name__ == "__main__":
