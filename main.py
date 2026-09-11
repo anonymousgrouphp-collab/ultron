@@ -69,6 +69,35 @@ class ApiKeyMissing(Exception):
     """Raised when config/api_keys.json is missing, broken, or has no real key."""
 
 
+class _UsageTrackingGateway:
+    """Phase W5: transparent wrapper that feeds every completion's token
+    usage into the CostTracker (the audit's '/cost never records' finding).
+    Sits at the ONE seam all agent-loop/orchestrator traffic crosses."""
+
+    def __init__(self, inner, cost_tracker):
+        self._inner = inner
+        self._cost = cost_tracker
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+    async def complete(self, messages, tools=(), response_schema=None):
+        response = await self._inner.complete(messages, tools=tools,
+                                              response_schema=response_schema)
+        try:
+            usage = dict(response.usage or {})
+            if usage:
+                self._cost.record_usage(
+                    provider=response.provider or "unknown",
+                    model=response.model or "",
+                    input_tokens=int(usage.get("input", 0)),
+                    output_tokens=int(usage.get("output", 0)),
+                )
+        except Exception:
+            pass  # observability must never break the model path
+        return response
+
+
 def _get_api_key() -> str:
     key = loader.get_api_key()   # None when missing, empty, or placeholder
     if key is None:
@@ -388,13 +417,18 @@ class UltronLive(
     # ------------------------------------------------------------------
 
     def _get_agent_runner(self) -> AgentRunner:
-        """Lazy-build the AgentRunner (needs gateway, which needs API key)."""
+        """Lazy-build the AgentRunner (needs gateway, which needs API key).
+        Phase W5: the runner's gateway is wrapped so EVERY completion's token
+        usage lands in the CostTracker — /cost finally shows real numbers."""
         if self._agent_runner is None:
             consent = self._consent_gate.request if self._consent_gate else None
             self._agent_runner = AgentRunner.build(
                 tool_runtime=self._tool_runtime,
                 bus=self._bus,
                 consent=consent,
+            )
+            self._agent_runner.gateway = _UsageTrackingGateway(
+                self._agent_runner.gateway, self._cost_tracker,
             )
         return self._agent_runner
 
@@ -745,6 +779,16 @@ class UltronLive(
                 f"TOOL: {name} not completed ({structured.risk.value}: {structured.error})"
             )
             self._health_monitor.record_error("tool", name)  # Phase Q3: track errors
+            # Phase W5: errors reach the dashboard via the bus bridge.
+            try:
+                await self._bus.publish(Event(
+                    type="health.error",
+                    payload={"component": "tool", "name": name,
+                             "error": str(structured.error)[:200]},
+                    source="live",
+                ))
+            except Exception:
+                pass  # observability must never break the tool path
 
         if not self.ui.muted:
             self.set_app_state("LISTENING")

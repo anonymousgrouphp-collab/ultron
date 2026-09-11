@@ -54,6 +54,10 @@ class BusDashboardBridge:
         self._subscriptions.append(
             self._bus.subscribe("job.*", self._on_job_event)
         )
+        # Health events (Phase W5: tool/gateway failures reach the HUD)
+        self._subscriptions.append(
+            self._bus.subscribe("health.*", self._on_health_event)
+        )
 
     def detach(self) -> None:
         """Unsubscribe from all bus segments."""
@@ -84,7 +88,10 @@ class BusDashboardBridge:
 
     def _on_tool_event(self, event: Any) -> None:
         """Forward tool execution events."""
-        detail = getattr(event, "detail", {}) or {}
+        # Real kernel Events carry .payload; .detail was only ever set by
+        # test fakes — reading it made production forwarding empty.
+        detail = (getattr(event, "payload", None)
+                  or getattr(event, "detail", None) or {})
         segment = getattr(event, "segment", "")
         self._broadcast(segment, {
             "tool": detail.get("name", ""),
@@ -96,7 +103,10 @@ class BusDashboardBridge:
 
     def _on_proactive_event(self, event: Any) -> None:
         """Forward proactive decision events."""
-        detail = getattr(event, "detail", {}) or {}
+        # Real kernel Events carry .payload; .detail was only ever set by
+        # test fakes — reading it made production forwarding empty.
+        detail = (getattr(event, "payload", None)
+                  or getattr(event, "detail", None) or {})
         self._broadcast("proactive.decision", {
             "rule": detail.get("rule", ""),
             "message": detail.get("message", ""),
@@ -106,7 +116,10 @@ class BusDashboardBridge:
 
     def _on_memory_event(self, event: Any) -> None:
         """Forward memory consolidation events."""
-        detail = getattr(event, "detail", {}) or {}
+        # Real kernel Events carry .payload; .detail was only ever set by
+        # test fakes — reading it made production forwarding empty.
+        detail = (getattr(event, "payload", None)
+                  or getattr(event, "detail", None) or {})
         self._broadcast("memory.consolidated", {
             "summary": detail.get("summary", ""),
             "ops_count": detail.get("ops_count", 0),
@@ -114,11 +127,26 @@ class BusDashboardBridge:
 
     def _on_job_event(self, event: Any) -> None:
         """Forward orchestrator job events."""
-        detail = getattr(event, "detail", {}) or {}
+        # Real kernel Events carry .payload; .detail was only ever set by
+        # test fakes — reading it made production forwarding empty.
+        detail = (getattr(event, "payload", None)
+                  or getattr(event, "detail", None) or {})
         segment = getattr(event, "segment", "")
         self._broadcast(segment, {
             "job_id": detail.get("job_id", ""),
             "status": detail.get("status", ""),
             "step": detail.get("step", ""),
+            "error": detail.get("error"),
+        })
+
+    def _on_health_event(self, event: Any) -> None:
+        """Phase W5: forward health errors to the dashboard."""
+        # Real kernel Events carry .payload; .detail was only ever set by
+        # test fakes — reading it made production forwarding empty.
+        detail = (getattr(event, "payload", None)
+                  or getattr(event, "detail", None) or {})
+        self._broadcast("health.error", {
+            "component": detail.get("component", ""),
+            "name": detail.get("name", ""),
             "error": detail.get("error"),
         })

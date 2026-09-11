@@ -399,7 +399,7 @@ class TestBusDashboardBridge:
         dashboard = MagicMock()
         bridge = BusDashboardBridge(bus, dashboard)
         bridge.attach()
-        assert len(bridge._subscriptions) == 4
+        assert len(bridge._subscriptions) == 5  # W5: + health.*
         bridge.detach()
         assert len(bridge._subscriptions) == 0
 

@@ -737,7 +737,7 @@ class TestBusDashboardBridge:
         bus = EventBus()
         bridge = BusDashboardBridge(bus, MagicMock())
         bridge.attach()
-        assert len(bridge._subscriptions) == 4
+        assert len(bridge._subscriptions) == 5  # W5: + health.*
 
     def test_detach_clears_subscriptions(self):
         from kernel.proactive.dashboard_bridge import BusDashboardBridge
