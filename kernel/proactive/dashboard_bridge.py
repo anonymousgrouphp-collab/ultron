@@ -92,7 +92,7 @@ class BusDashboardBridge:
         # test fakes — reading it made production forwarding empty.
         detail = (getattr(event, "payload", None)
                   or getattr(event, "detail", None) or {})
-        segment = getattr(event, "segment", "")
+        segment = getattr(event, "type", getattr(event, "segment", ""))
         self._broadcast(segment, {
             "tool": detail.get("name", ""),
             "ok": detail.get("ok", None),
@@ -131,7 +131,7 @@ class BusDashboardBridge:
         # test fakes — reading it made production forwarding empty.
         detail = (getattr(event, "payload", None)
                   or getattr(event, "detail", None) or {})
-        segment = getattr(event, "segment", "")
+        segment = getattr(event, "type", getattr(event, "segment", ""))
         self._broadcast(segment, {
             "job_id": detail.get("job_id", ""),
             "status": detail.get("status", ""),

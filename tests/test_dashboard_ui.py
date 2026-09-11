@@ -242,3 +242,117 @@ class TestStaticHygiene:
         # Ensure default bind is strictly loopback
         assert 'host="0.0.0.0"' not in server_py
         assert "host = '0.0.0.0'" not in server_py
+
+    def test_dashboard_bridge_event_type_propagation(self):
+        """Verify dashboard bridge sends event.type rather than empty segment."""
+        import asyncio
+        from kernel.bus import EventBus
+        from kernel.types import Event
+        from kernel.proactive.dashboard_bridge import BusDashboardBridge
+
+        broadcasted = []
+
+        class MockDashboard:
+            async def broadcast(self, payload):
+                broadcasted.append(payload)
+
+        bus = EventBus()
+        bridge = BusDashboardBridge(bus, MockDashboard())
+
+        tool_evt = Event(
+            type="tool.completed",
+            payload={"name": "test_search", "ok": True, "risk": "read", "duration_ms": 15.0},
+        )
+        job_evt = Event(type="job.completed", payload={"job_id": "job-101", "status": "success", "step": "done"})
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        async def run_events():
+            bridge._on_tool_event(tool_evt)
+            bridge._on_job_event(job_evt)
+            await asyncio.sleep(0.01)
+
+        try:
+            loop.run_until_complete(run_events())
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+        assert len(broadcasted) == 2
+        assert broadcasted[0]["event_type"] == "tool.completed"
+        assert broadcasted[0]["tool"] == "test_search"
+        assert broadcasted[0]["ok"] is True
+
+        assert broadcasted[1]["event_type"] == "job.completed"
+        assert broadcasted[1]["job_id"] == "job-101"
+        assert broadcasted[1]["status"] == "success"
+
+    def test_process_dashboard_commands_unified_routing(self):
+        """Verify _process_dashboard_commands routes commands through _on_text_command without dropping."""
+        import asyncio
+        from app.monitors import MonitorTasksMixin
+
+        class DummyUI:
+            def __init__(self):
+                self.muted = False
+                self.logs = []
+            def write_log(self, msg):
+                self.logs.append(msg)
+            def notify_phone_connected(self):
+                pass
+
+        class DummyApp(MonitorTasksMixin):
+            def __init__(self):
+                self.ui = DummyUI()
+                self.session = None  # No live voice session
+                self._dashboard = DashboardServer()
+                self.routed_commands = []
+            def _on_text_command(self, text):
+                self.routed_commands.append(text)
+
+        app = DummyApp()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        async def run_test():
+            await app._dashboard._command_queue.put("/toggle_mic")
+            await app._dashboard._command_queue.put("/user list")
+            await app._dashboard._command_queue.put("/cost")
+
+            task = asyncio.create_task(app._process_dashboard_commands())
+            await asyncio.sleep(0.1)
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+        try:
+            loop.run_until_complete(run_test())
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+        assert app.routed_commands == ["/toggle_mic", "/user list", "/cost"]
+
+    def test_phone_audio_websocket_route(self):
+        """Verify /ws/phone-audio accepts binary PCM audio frames and queues them."""
+        server = DashboardServer()
+        client = TestClient(server.app)
+
+        pin = server.new_key(expiry_secs=60)
+        resp = client.post("/login", json={"pin": pin})
+        assert resp.status_code == 200
+        token = resp.json()["token"]
+
+        pcm_data = b"\x00\x10" * 100
+
+        with client.websocket_connect(f"/ws/phone-audio?token={token}") as ws:
+            ws.send_bytes(pcm_data)
+            time.sleep(0.05)
+
+        assert not server._phone_audio_queue.empty()
+        queued = server._phone_audio_queue.get_nowait()
+        assert queued["data"] == pcm_data
+        assert queued["mime_type"] == "audio/pcm"

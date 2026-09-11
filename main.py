@@ -21,6 +21,11 @@ import time
 import sys
 import traceback
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 from ui import UltronUI
 
 # Phase W0: the god module's task/handler blocks now live in app/ mixins —

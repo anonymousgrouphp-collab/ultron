@@ -276,6 +276,7 @@ if (typeof CryptoJS === 'undefined') {
     <div class="voice">
       <button id="voice-mic-btn" class="btn" onclick="toggleVoiceListening()">◉</button>
       <span id="voice-status-lbl" class="state">SAY “WAKE UP ULTRON” OR ACTIVATE THE MICROPHONE</span>
+      <button id="phone-mic-core-btn" class="btn" onclick="togglePhoneMic()" title="Stream live audio from device microphone to ULTRON">Phone Mic</button>
       <button class="btn" onclick="document.getElementById('image-upload-input').click()">Image</button>
       <input id="image-upload-input" hidden type="file" accept="image/*" onchange="handleImageUpload(event)">
     </div>
@@ -400,7 +401,11 @@ if (typeof CryptoJS === 'undefined') {
     <div class="dock">
       <button class="btn" onclick="sendBackendCommand('open chrome')">Open browser</button>
       <button class="btn" onclick="sendBackendCommand('system status')">System status</button>
-      <button class="btn" onclick="toggleVoiceListening()">Toggle microphone</button>
+      <button class="btn" onclick="toggleVoiceListening()">Toggle PC Mic</button>
+      <button id="phone-mic-util-btn" class="btn" onclick="togglePhoneMic()">Phone Microphone</button>
+      <button class="btn" onclick="sendBackendCommand('/user list')">User Profiles</button>
+      <button class="btn" onclick="sendBackendCommand('/cost')">Tokens & Cost</button>
+      <button class="btn" onclick="sendBackendCommand('/health')">System Health</button>
     </div>
   </section>
 </div>
@@ -411,6 +416,7 @@ if (typeof CryptoJS === 'undefined') {
 (()=>{
 'use strict';
 let ws, stream, muted, emergency = false, reminders = [];
+let phoneAudioWs, phoneAudioStream, phoneAudioContext, phoneAudioProcessor;
 const $ = id => document.getElementById(id);
 const local = location.protocol === 'file:';
 const token = sessionStorage.getItem('ultron_token') || '__TOKEN__';
@@ -751,6 +757,144 @@ window.toggleVoiceListening = () => {
   sendBackendCommand('/toggle_mic');
   updateAIState(muted ? 'MUTED' : 'LISTENING');
 };
+
+function downsampleTo16k(inputData, inputSampleRate) {
+  if (inputSampleRate === 16000) {
+    const pcm16 = new Int16Array(inputData.length);
+    for (let i = 0; i < inputData.length; i++) {
+      const s = Math.max(-1, Math.min(1, inputData[i]));
+      pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    return pcm16;
+  }
+  const ratio = inputSampleRate / 16000;
+  const newLength = Math.round(inputData.length / ratio);
+  const pcm16 = new Int16Array(newLength);
+  let offsetResult = 0;
+  let offsetInput = 0;
+  while (offsetResult < newLength) {
+    const nextOffsetInput = Math.round((offsetResult + 1) * ratio);
+    let accum = 0, count = 0;
+    for (let i = offsetInput; i < nextOffsetInput && i < inputData.length; i++) {
+      accum += inputData[i];
+      count++;
+    }
+    const sample = count > 0 ? accum / count : 0;
+    const s = Math.max(-1, Math.min(1, sample));
+    pcm16[offsetResult] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    offsetResult++;
+    offsetInput = nextOffsetInput;
+  }
+  return pcm16;
+}
+
+window.togglePhoneMic = async () => {
+  if (emergency) return showToast('SYSTEM LOCKDOWN', 'Audio capture disabled during emergency shutdown.');
+  const btn = $('phone-mic-core-btn');
+  const utilBtn = $('phone-mic-util-btn');
+
+  if (phoneAudioWs) {
+    stopPhoneMic();
+    return;
+  }
+
+  if (local) {
+    showToast('MIC NOTICE', 'Phone microphone relay requires dashboard server over HTTP/HTTPS.');
+    return;
+  }
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showToast('MIC ERROR', 'Web Audio MediaDevices not supported on this browser.');
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
+
+    phoneAudioStream = stream;
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    phoneAudioContext = new AudioCtx();
+    const actualRate = phoneAudioContext.sampleRate;
+    const source = phoneAudioContext.createMediaStreamSource(stream);
+
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${proto}//${location.host}/ws/phone-audio?token=${encodeURIComponent(token)}`;
+    phoneAudioWs = new WebSocket(wsUrl);
+    phoneAudioWs.binaryType = 'arraybuffer';
+
+    phoneAudioWs.onopen = () => {
+      showToast('PHONE MIC LIVE', 'Streaming microphone audio to ULTRON.');
+      if (btn) {
+        btn.textContent = 'Mic Live 🔴';
+        btn.style.borderColor = 'var(--h)';
+        btn.style.boxShadow = '0 0 10px var(--h)';
+      }
+      if (utilBtn) utilBtn.textContent = 'Stop Phone Mic';
+      updateAIState('LISTENING');
+    };
+
+    phoneAudioWs.onerror = (err) => {
+      console.warn('[PhoneMic] WS error:', err);
+      showToast('MIC ERROR', 'Phone audio stream failed to connect.');
+      stopPhoneMic();
+    };
+
+    phoneAudioWs.onclose = () => {
+      stopPhoneMic();
+    };
+
+    phoneAudioProcessor = phoneAudioContext.createScriptProcessor(2048, 1, 1);
+    phoneAudioProcessor.onaudioprocess = (e) => {
+      if (!phoneAudioWs || phoneAudioWs.readyState !== WebSocket.OPEN) return;
+      const inputData = e.inputBuffer.getChannelData(0);
+      const pcm16 = downsampleTo16k(inputData, actualRate);
+      phoneAudioWs.send(pcm16.buffer);
+    };
+
+    source.connect(phoneAudioProcessor);
+    phoneAudioProcessor.connect(phoneAudioContext.destination);
+
+  } catch (err) {
+    console.error('[PhoneMic] Setup error:', err);
+    showToast('MIC PERMISSION DENIED', 'Microphone access denied or unavailable.');
+    stopPhoneMic();
+  }
+};
+
+function stopPhoneMic() {
+  if (phoneAudioProcessor) {
+    try { phoneAudioProcessor.disconnect(); } catch (e) {}
+    phoneAudioProcessor = null;
+  }
+  if (phoneAudioContext) {
+    try { phoneAudioContext.close(); } catch (e) {}
+    phoneAudioContext = null;
+  }
+  if (phoneAudioStream) {
+    phoneAudioStream.getTracks().forEach(t => t.stop());
+    phoneAudioStream = null;
+  }
+  if (phoneAudioWs) {
+    try { phoneAudioWs.close(); } catch (e) {}
+    phoneAudioWs = null;
+  }
+  const btn = $('phone-mic-core-btn');
+  if (btn) {
+    btn.textContent = 'Phone Mic';
+    btn.style.borderColor = '';
+    btn.style.boxShadow = '';
+  }
+  const utilBtn = $('phone-mic-util-btn');
+  if (utilBtn) utilBtn.textContent = 'Phone Microphone';
+  showToast('PHONE MIC STOPPED', 'Microphone stream ended.');
+}
 
 window.handleImageUpload = e => {
   let f = e.target.files?.[0];
