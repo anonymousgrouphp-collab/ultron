@@ -19,6 +19,7 @@ to `../ROADMAP.md`. Sources in each doc verified Sep 2026.*
 | [09_k9_repo_analysis.md](09_k9_repo_analysis.md) | K9 (parmarth-kumar) repo deep-read | Adopt: Open-Meteo weather, search cascade + TTL cache, recency recall re-scoring, entity/pronoun layer, anti-echo guards, bus backpressure |
 | [10_tts_research.md](10_tts_research.md) | TTS deep-read: piper1-gpl, rhasspy/piper, Kokoro (+space), Cartesia Sonic | ULTRON has NO local TTS — add `TtsEngine` seam + piper-tts 1.8.0 (py-3.14 verified) + kokoro-onnx ack voice; port kokoro.js TextSplitterStream for sentence-streamed speech; pronunciation lexicon; code-level adopt list A1–A8 |
 | [11_stt_research.md](11_stt_research.md) | STT deep-read: RealtimeSTT, AssemblyAI SDK (streaming v3 + dictation), Deepgram SDK (listen v1/v2) | ULTRON has NO local STT and no STT seam — only Gemini Live `input_transcription`. Adopt: `SttEngine` seam + faster-whisper (py-3.14 verified) for the offline voice loop; port RealtimeSTT's zero-dep text stabilizer + numpy boundary detector; speculative finalize + pre-roll trim + VAD cascade patterns; adopt list S1–S10 (both cloud SDKs = protocol reference only, voice_agent/LLM-gateway anti-adopt) |
+| [12_ada_research.md](12_ada_research.md) | ADA deep-read (nazirlouis ada · ada_local · ada_v2 — the YouTube JARVIS build) | Same product, 3 generations: Live tutorials → offline Ollama+FunctionGemma-270M router → flagship (Electron + Live native-audio + 4 agents). ULTRON's 4 real gaps, all adoptable as patterns not packages: Gemini-2.5-Computer-Use web agent over Playwright (D1), per-tool human-confirmation gate (D2), self-healing code-exec loop w/ stderr-feedback retries (D3), VAD-gated single-frame Live vision (D4); plus NON_BLOCKING voice tools (D5), reconnect-with-context (D6), Ollama VRAM arbitration (D7), system-snapshot tool (D8), briefing curation (D9), dashboard streaming UX (D10); adopt list D1–D15 (face-auth / 3D-printing / FunctionGemma-router parked — hardware + no-training directive) |
 
 ## Cross-doc decisions (the 2026 stack, in one place)
 
@@ -29,6 +30,8 @@ to `../ROADMAP.md`. Sources in each doc verified Sep 2026.*
   already exists (`kernel/voice/tts.py`, report 10 A1–A6).
 - **Perception:** mss capture → UIA tree first → OmniParser/Qwen3-VL only when pixels
   are needed → consent + dry-run. Cameras: OpenCV/YOLO gate → VLM describe-on-event.
+  Web-agent pixel tier (report 12 D1): Gemini 2.5 Computer Use over Playwright —
+  same gateway provider, no second brain; complements UIA-first, doesn't replace it.
 - **Kernel:** own thin loop + FastMCP client/server + SQLite durable queue + policy
   engine. No framework runtime, no second anything (kill-list).
 - **Memory:** SQLite + FTS5 + sqlite-vec, typed stores, idle-time consolidation,
