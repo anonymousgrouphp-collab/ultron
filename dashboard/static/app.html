@@ -741,7 +741,10 @@ window.closeModal = id => $(id).classList.remove('active');
 window.sendBackendCommand = t => {
   if (!t) return;
   document.title = 'CMD:' + t;              // local HUD channel (file:// → ui.py)
-  if (local) return;
+  if (local) {
+    setTimeout(() => { if (document.title === 'CMD:' + t) document.title = 'ULTRON'; }, 50);
+    return;
+  }
   const enc = encryptCommand(t);            // P0-B4: server rejects plaintext
   if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'command', enc }));
   else fetch('/api/command', {

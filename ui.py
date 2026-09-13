@@ -6,6 +6,8 @@ import platform
 import subprocess
 import sys
 import time
+import uuid
+from typing import Any
 
 from config import loader
 from kernel.gateway import (
@@ -338,8 +340,8 @@ class EngineSettingsDialog(QDialog):
             self.model_label.setText("Model:")
             self.model_input.setText(DEFAULT_OLLAMA_MODEL)
             self.hint_label.setText(
-                f"💡 100% Offline & Free. Requires Ollama installed "
-                f"(run: 'ollama run {DEFAULT_OLLAMA_MODEL}')"
+                f"💡 100% Offline & Free for text/reasoning (run: 'ollama run {DEFAULT_OLLAMA_MODEL}'). "
+                f"Note: Real-time Live voice streaming requires a Gemini API key."
             )
         elif prov == "openai":
             self.api_key_label.setVisible(True)
@@ -436,6 +438,9 @@ class EngineSettingsDialog(QDialog):
         elif prov == "ollama":
             cfg["ollama_base_url"] = self.url_input.text().strip()
             cfg["ollama_model"] = self.model_input.text().strip()
+            key = self.api_key_input.text().strip()
+            if key and key != loader.PLACEHOLDER_KEY:
+                cfg["gemini_api_key"] = key
             self.result_key = "ollama"
         else:  # openai + groq both map to the gateway's openai provider
             key = self.api_key_input.text().strip()
@@ -475,7 +480,7 @@ class UltronWebWindow(QMainWindow):
     _reconfig_sig = pyqtSignal()
     _camera_sig = pyqtSignal(bytes)
     _phone_sig = pyqtSignal()   # cross-thread: dashboard login → toast on the Qt thread
-    _consent_sig = pyqtSignal(str, str, str)   # Phase R1: (tool, risk, args) -> dialog on the Qt thread
+    _consent_sig = pyqtSignal(str, str, str, str)   # Phase R1: (req_id, tool, risk, args) -> dialog on the Qt thread
 
     def __init__(self, face_path: str = "face.png"):
         super().__init__()
@@ -535,6 +540,7 @@ class UltronWebWindow(QMainWindow):
         self._reconfig_sig.connect(self._on_reconfig)
         self._consent_sig.connect(self._on_consent_request)
         self._phone_sig.connect(self._on_phone_toast)
+        self._pending_consents: dict[str, Any] = {}
         self._consent_callback = None
 
         # Keyboard shortcuts for settings
@@ -550,6 +556,7 @@ class UltronWebWindow(QMainWindow):
     def _on_title_changed(self, title: str):
         if title.startswith("CMD:"):
             cmd = title[4:].strip()
+            self._eval_js("if (document.title.startsWith('CMD:')) document.title = 'ULTRON';")
             if cmd in ("__OPEN_SETTINGS__", "/settings", "settings"):
                 self._on_reconfig("")
                 return
@@ -592,13 +599,13 @@ class UltronWebWindow(QMainWindow):
         `callback(allowed: bool)` runs on the main thread after the dialog
         closes. Timeout/broken paths deny — the gate on the caller side is
         fail-closed, so a missing callback here is a deny too."""
-        self._consent_callback = callback
-        self._consent_sig.emit(tool_name, risk, args_summary)
+        req_id = uuid.uuid4().hex
+        self._pending_consents[req_id] = callback
+        self._consent_sig.emit(req_id, tool_name, risk, args_summary)
 
-    def _on_consent_request(self, tool_name: str, risk: str, args_summary: str):
+    def _on_consent_request(self, req_id: str, tool_name: str, risk: str, args_summary: str):
         """Runs ON the Qt main thread (queued connection)."""
-        cb = self._consent_callback
-        self._consent_callback = None
+        cb = self._pending_consents.pop(req_id, None)
         if not callable(cb):
             return
         try:
@@ -618,7 +625,10 @@ class UltronWebWindow(QMainWindow):
             box.exec()
             cb(box.clickedButton() is allow)
         except Exception:
-            cb(False)
+            try:
+                cb(False)
+            except Exception:
+                pass
 
     def _on_reconfig(self, error_message: str = ""):
         dlg = EngineSettingsDialog(self, error_message)

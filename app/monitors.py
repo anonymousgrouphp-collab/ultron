@@ -142,9 +142,7 @@ class MonitorTasksMixin:
     async def _process_dashboard_commands(self) -> None:
         while True:
             try:
-                item = await asyncio.wait_for(
-                    self._dashboard._command_queue.get(), timeout=0.02
-                )
+                item = await self._dashboard._command_queue.get()
                 if not item:
                     continue
 
@@ -187,8 +185,8 @@ class MonitorTasksMixin:
                         self.ui.write_log(f"[Web]: {text}")
                         if hasattr(self, "_on_text_command"):
                             self._on_text_command(text)
-            except asyncio.TimeoutError:
-                pass
+            except asyncio.CancelledError:
+                break
             except Exception as e:
                 print(f"[Dashboard] Command error: {e}")
                 await asyncio.sleep(0.1)

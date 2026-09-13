@@ -21,6 +21,7 @@ from datetime import datetime
 import sounddevice as sd
 
 from app.text import clean_transcript as _clean_transcript
+from kernel.voice import GateState
 
 
 class AudioTasksMixin:
@@ -56,14 +57,28 @@ class AudioTasksMixin:
                 pass
 
         def callback(indata, frames, time_info, status):
-            with self._speaking_lock:
-                ultron_speaking = self._is_speaking
-            if not ultron_speaking and not self.ui.muted and not self._phone_active:
-                data = indata.tobytes()
-                loop.call_soon_threadsafe(
-                    _safe_put,
-                    {"data": data, "mime_type": "audio/pcm"}
-                )
+            if self.ui.muted or self._phone_active:
+                return
+
+            voice_gate = getattr(self, "_voice_gate", None)
+            if voice_gate is not None:
+                gated = self.gate_mic_frame(indata)
+                if gated is None:
+                    return
+                # If barge-in occurred, interrupt TTS playback
+                if self._is_speaking and getattr(voice_gate, "state", None) == GateState.OPEN:
+                    self.interrupt()
+            else:
+                with self._speaking_lock:
+                    if self._is_speaking:
+                        return
+                gated = indata
+
+            data = gated.tobytes()
+            loop.call_soon_threadsafe(
+                _safe_put,
+                {"data": data, "mime_type": "audio/pcm"}
+            )
 
         try:
             with sd.InputStream(
@@ -249,20 +264,23 @@ class AudioTasksMixin:
 
         try:
             while True:
-                try:
-                    chunk = await asyncio.wait_for(
-                        self.audio_in_queue.get(),
-                        timeout=0.02
-                    )
-                except asyncio.TimeoutError:
-                    if (
-                        self._turn_done_event
-                        and self._turn_done_event.is_set()
-                        and self.audio_in_queue.empty()
-                    ):
-                        self.set_speaking(False)
-                        self._turn_done_event.clear()
-                    continue
+                if not self._is_speaking:
+                    chunk = await self.audio_in_queue.get()
+                else:
+                    try:
+                        chunk = await asyncio.wait_for(
+                            self.audio_in_queue.get(),
+                            timeout=0.05,
+                        )
+                    except asyncio.TimeoutError:
+                        if (
+                            self._turn_done_event
+                            and self._turn_done_event.is_set()
+                            and self.audio_in_queue.empty()
+                        ):
+                            self.set_speaking(False)
+                            self._turn_done_event.clear()
+                        continue
                 self.set_speaking(True)
                 try:
                     await asyncio.to_thread(stream.write, chunk)
