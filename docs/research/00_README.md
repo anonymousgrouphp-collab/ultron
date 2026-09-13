@@ -18,12 +18,15 @@ to `../ROADMAP.md`. Sources in each doc verified Sep 2026.*
 | [08_integration_automation.md](08_integration_automation.md) | Home, media, briefing, cameras, proactive | **HA via MCP-Assist** (~95% token cut) is the mansion moment; ytmusicapi → Spotify; Frigate+MQTT for cameras; ntfy/Telegram reach; briefing as a scheduled job |
 | [09_k9_repo_analysis.md](09_k9_repo_analysis.md) | K9 (parmarth-kumar) repo deep-read | Adopt: Open-Meteo weather, search cascade + TTL cache, recency recall re-scoring, entity/pronoun layer, anti-echo guards, bus backpressure |
 | [10_tts_research.md](10_tts_research.md) | TTS deep-read: piper1-gpl, rhasspy/piper, Kokoro (+space), Cartesia Sonic | ULTRON has NO local TTS — add `TtsEngine` seam + piper-tts 1.8.0 (py-3.14 verified) + kokoro-onnx ack voice; port kokoro.js TextSplitterStream for sentence-streamed speech; pronunciation lexicon; code-level adopt list A1–A8 |
+| [11_stt_research.md](11_stt_research.md) | STT deep-read: RealtimeSTT, AssemblyAI SDK (streaming v3 + dictation), Deepgram SDK (listen v1/v2) | ULTRON has NO local STT and no STT seam — only Gemini Live `input_transcription`. Adopt: `SttEngine` seam + faster-whisper (py-3.14 verified) for the offline voice loop; port RealtimeSTT's zero-dep text stabilizer + numpy boundary detector; speculative finalize + pre-roll trim + VAD cascade patterns; adopt list S1–S10 (both cloud SDKs = protocol reference only, voice_agent/LLM-gateway anti-adopt) |
 
 ## Cross-doc decisions (the 2026 stack, in one place)
 
 - **Voice:** openWakeWord → Silero VAD → faster-whisper (int8) → gateway (Gemini Live
   flagship / Ollama fallback) → Kokoro (acks) + Chatterbox (signature voice);
-  SpeechBrain ECAPA for "who's speaking" → per-person memory.
+  SpeechBrain ECAPA for "who's speaking" → per-person memory. Local STT via the
+  `SttEngine` seam (report 11 S1) gives the Ollama path ears — TTS fallback
+  already exists (`kernel/voice/tts.py`, report 10 A1–A6).
 - **Perception:** mss capture → UIA tree first → OmniParser/Qwen3-VL only when pixels
   are needed → consent + dry-run. Cameras: OpenCV/YOLO gate → VLM describe-on-event.
 - **Kernel:** own thin loop + FastMCP client/server + SQLite durable queue + policy
