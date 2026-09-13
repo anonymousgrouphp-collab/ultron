@@ -15,8 +15,8 @@ Semantics (fail-safe by design):
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass, field
 from enum import Enum
 
 from kernel.bus import EventBus
@@ -33,9 +33,18 @@ class Decision(str, Enum):
 
 @dataclass(frozen=True)
 class Policy:
-    """RiskClass → Decision map. Build via Policy.default() or explicit rules."""
+    """RiskClass → Decision map, with optional per-tool overrides.
+    Build via Policy.default() or explicit rules.
+
+    `tool_rules` (research/12 D2): name → Decision overrides consulted BEFORE
+    the risk-class rule, so an operator can tighten (e.g. deny `shutdown_ultron`)
+    or relax (e.g. allow `weather_report` without asking) individual tools
+    without touching the class posture. Tool rules never widen DESTRUCTIVE:
+    an explicit DENY rule always wins, but no rule can grant access to a tool
+    the operator did not name."""
 
     rules: dict[RiskClass, Decision]
+    tool_rules: Mapping[str, Decision] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         missing = set(RiskClass) - set(self.rules)
@@ -52,7 +61,11 @@ class Policy:
             RiskClass.DESTRUCTIVE: Decision.DENY,
         })
 
-    def decide(self, risk: RiskClass) -> Decision:
+    def decide(self, risk: RiskClass, tool_name: str | None = None) -> Decision:
+        if tool_name is not None:
+            override = self.tool_rules.get(tool_name)
+            if override is not None:
+                return override
         return self.rules[risk]
 
 
@@ -66,8 +79,8 @@ class PolicyEngine:
         self.policy = policy or Policy.default()
         self.audit = audit          # AuditLog or None (None = decide, don't record)
 
-    def decide(self, risk: RiskClass) -> Decision:
-        return self.policy.decide(risk)
+    def decide(self, risk: RiskClass, tool_name: str | None = None) -> Decision:
+        return self.policy.decide(risk, tool_name)
 
     async def run(self, call: ToolCall, registry, bus: EventBus | None = None,
                   consent: ConsentCallback | None = None) -> ToolResult:
@@ -100,7 +113,7 @@ class PolicyEngine:
             if parsed.query or parsed.username or parsed.password or is_internal:
                 risk = RiskClass.WRITE
 
-        decision = self.decide(risk)
+        decision = self.decide(risk, call.name)
 
         if decision is Decision.DENY:
             return await self._deny(call, risk, "denied by policy", bus=bus)

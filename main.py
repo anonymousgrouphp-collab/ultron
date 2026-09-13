@@ -51,6 +51,7 @@ from kernel.gateway.live import FunctionResponse, LiveSession, build_live_config
 from kernel.loop.provider_test import ProviderTestRunner
 from kernel.loop.runner import AgentRunner
 from kernel.persona import PromptAssembler
+from kernel.policy import Decision
 from kernel.proactive.dashboard_bridge import BusDashboardBridge
 from kernel.computer.planner import GUIPlanner
 from kernel.loop.research_runner import ResearchRunner
@@ -104,6 +105,24 @@ def _load_system_prompt() -> str:
             "Be concise, direct, and always use the provided tools to complete tasks. "
             "Never simulate or guess results — always call the appropriate tool."
         )
+
+
+def _tool_rules_from_config(cfg) -> dict:
+    """research/12 D2: config `tool_risk_overrides` maps tool name →
+    "allow" | "ask" | "deny", layered over the default risk-class posture
+    (e.g. trust `weather_report` without asking, or hard-deny
+    `shutdown_ultron`). Bad entries are ignored loudly, never silently."""
+    mapping = {"allow": Decision.ALLOW, "ask": Decision.ASK,
+               "deny": Decision.DENY}
+    rules: dict = {}
+    for name, raw in dict(cfg.get("tool_risk_overrides") or {}).items():
+        decision = mapping.get(str(raw).strip().lower())
+        if decision is None:
+            print(f"[Policy] ignoring bad tool_risk_overrides entry: "
+                  f"{name}={raw!r} (expected allow/ask/deny)")
+            continue
+        rules[str(name)] = decision
+    return rules
 
 class UltronLive(
     LegacyHandlersMixin,    # the 20 _handle_* legacy bridges (Phase W0)
@@ -168,11 +187,14 @@ class UltronLive(
         )
         self._proactive.attach(self._bus)
         self._bus.subscribe("proactive.decision", self._on_proactive_decision)
-        self._consent_gate = ConsentGate(ui)
+        # research/12 D2: the consent gate publishes confirmation requests on
+        # the bus (dashboard observability + external resolvers).
+        self._consent_gate = ConsentGate(ui, bus=self._bus)
         self._tool_runtime = LegacyToolRuntime(
             declarations=TOOL_DECLARATIONS,
             handlers=self._build_legacy_handlers(),
             audit_path=BASE_DIR / ".ultron" / "audit.sqlite3",
+            tool_rules=_tool_rules_from_config(loader.load_config()),
         )
         # Phase W2: the kernel tool families go LIVE — the same registry the
         # voice session and orchestrator already execute through gains the
@@ -194,6 +216,24 @@ class UltronLive(
             self._tool_runtime.registry,
             consent=lambda: bool(loader.load_config().get("web_research_enabled", False)),
         )
+        # research/12 D1: the computer-use web agent (J-05's pixel tier).
+        # The CU model string lives in kernel.gateway.cu (Kill List #3);
+        # the app layer only decides whether a key exists and whether the
+        # config gate is open. Every run is WRITE-risk → the D2 gate asks.
+        from kernel.gateway.cu import ComputerUseGateway
+        from kernel.webagent import build_web_agent_tools
+
+        def _make_cu_gateway():
+            key = loader.get_api_key()
+            if key is None:
+                return None
+            return ComputerUseGateway(api_key=key)
+
+        build_web_agent_tools(
+            self._tool_runtime.registry,
+            gateway_factory=_make_cu_gateway,
+            consent=lambda: bool(loader.load_config().get("web_agent_enabled", True)),
+        )
         # Phase W gate: the two live-research pieces the P2-D plan expects —
         # a URL-returning search (the legacy web_search speaks prose; the
         # orchestrator plan needs `first_url`) and the report writer. Both go
@@ -207,6 +247,15 @@ class UltronLive(
         # No new kernel code: JobQueue + Orchestrator exist (P2-C); this is
         # the composition the audit found missing (zero production callers).
         self._job_queue = JobQueue(BASE_DIR / ".ultron" / "jobs.sqlite3")
+        # research/12 D8: the one-call ULTRON-state snapshot tool (jobs +
+        # memory + active user) — composes the stores this class owns.
+        from kernel.diagnostics.snapshot import build_snapshot_tools
+        build_snapshot_tools(
+            self._tool_runtime.registry,
+            job_queue=self._job_queue,
+            memory=self._memory,
+            users=self._users,
+        )
         self._orchestrator = Orchestrator(
             self._job_queue,
             self._tool_runtime.registry,

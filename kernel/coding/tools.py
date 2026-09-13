@@ -1,8 +1,19 @@
-"""kernel/coding/tools.py — P2-E: the workspace-jailed coding toolset (J-11)."""
+"""kernel/coding/tools.py — P2-E: the workspace-jailed coding toolset (J-11).
+
+research/12 D3 adds `run_python`: the ada_v2 CadAgent's self-healing loop,
+compressed into one tool. The script is written into the workspace's
+`scripts/` folder and KEPT as an artifact (provenance: timestamped filename),
+then executed in the same sandbox as run_command. A failing run returns the
+script path + stderr in one observation, so the calling model fixes and
+re-runs without any extra orchestration — the AgentLoop's plan→act→observe
+cycle IS the repair loop.
+"""
 
 from __future__ import annotations
 
 import logging
+import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -14,10 +25,12 @@ log = logging.getLogger(__name__)
 
 __all__ = ["CODING_TOOLS", "build_coding_tools", "spawn_coding_job"]
 
-CODING_TOOLS = ("list_files", "read_file", "write_file", "run_command")
+CODING_TOOLS = ("list_files", "read_file", "write_file", "run_command",
+                "run_python")
 _MAX_FILE_BYTES = 256_000
 _SKIP_DIRS = {".git", "__pycache__", ".venv", "node_modules", ".ultron"}
-_BLOCKED_FRAGMENTS = ("pip install", "pip3 install")
+_BLOCKED_FRAGMENTS = ("pip install", "pip3 install", "python -m pip",
+                      "easy_install", "uv pip")
 
 
 def _jailed(workspace: Path, relative: str) -> Path:
@@ -106,6 +119,85 @@ def build_coding_tools(registry, workspace: Path, *, run_timeout_s: float = 30.0
         return {"written": str(call.args["path"]), "bytes": len(text.encode("utf-8"))}
 
     if allow_run:
+        @registry.tool(
+            name="run_python",
+            description="Write a Python script into the workspace scripts/ "
+                        "folder (kept as a timestamped artifact) and execute "
+                        "it in the sandbox. The result carries the script "
+                        "path, exit code, stdout and stderr — fix the code "
+                        "and call again to iterate on a failing run.",
+            parameters={"type": "object",
+                        "properties": {
+                            "code": {"type": "string",
+                                     "description": "python source to run"},
+                            "filename": {"type": "string",
+                                         "description": "optional base "
+                                                        "filename, e.g. "
+                                                        "process_csv.py"}},
+                        "required": ["code"]},
+            risk=RiskClass.EXECUTE,
+        )
+        def run_python(call: ToolCall) -> ToolResult | dict[str, Any]:
+            code = call.args.get("code")
+            if not isinstance(code, str) or not code.strip():
+                return ToolResult.fail(
+                    call, "run_python needs non-empty python code")
+            joined = code.lower()
+            # Normalized scan: `['pip', 'install']`-style lists and python
+            # `-m pip install` both resolve to the blocked fragment after
+            # quotes/brackets collapse to spaces (run_command's check, made
+            # text-shape-proof for source code).
+            for ch in "'\"[](),\n\t":
+                joined = joined.replace(ch, " ")
+            joined = " ".join(joined.split())
+            if any(fragment in joined for fragment in _BLOCKED_FRAGMENTS):
+                return ToolResult.fail(
+                    call, "package installation is disabled in the coding "
+                          "sandbox (no ambient pip-install)")
+            # basename only + safe charset: a hostile filename stays inside
+            # the scripts/ folder (the _jailed workspace rule, applied early).
+            base = Path(str(call.args.get("filename") or "script")).name
+            safe = "".join(ch for ch in base
+                           if ch.isalnum() or ch in "._-").strip("._-")
+            if not safe:
+                safe = "script"
+            if not safe.endswith(".py"):
+                safe += ".py"
+            scripts_dir = ws / "scripts"
+            scripts_dir.mkdir(parents=True, exist_ok=True)
+            stamp = time.strftime("%Y%m%d_%H%M%S")
+            path = scripts_dir / f"{stamp}_{safe}"
+            counter = 1
+            while path.exists():
+                path = scripts_dir / f"{stamp}_{counter}_{safe}"
+                counter += 1
+            # newline="": byte-exact source, same rule as write_file.
+            path.write_text(code, encoding="utf-8", newline="")
+            script_rel = str(path.relative_to(ws))
+            try:
+                outcome = run_sandboxed(
+                    [sys.executable, str(path)], cwd=ws,
+                    timeout_s=run_timeout_s, output_cap=output_cap,
+                    memory_limit_mb=memory_limit_mb)
+            except (OSError, ValueError) as exc:
+                return ToolResult.fail(
+                    call, f"could not run python ({type(exc).__name__})")
+            if outcome.exit_code is None:  # timeout — tree terminated
+                return ToolResult.fail(
+                    call, outcome.stderr.strip()
+                    or f"execution timed out after {run_timeout_s:g}s "
+                       f"(script kept at {script_rel})")
+            return ToolResult.success(call, risk=RiskClass.EXECUTE,
+                                      artifacts=(script_rel,),
+                                      data={
+                                          "script": script_rel,
+                                          "exit_code": outcome.exit_code,
+                                          "stdout": outcome.stdout,
+                                          "stderr": outcome.stderr,
+                                          "duration_ms": round(
+                                              outcome.duration_ms, 1),
+                                      })
+
         @registry.tool(
             name="run_command",
             description="Run a program with arguments inside the coding "

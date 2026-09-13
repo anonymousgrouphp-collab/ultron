@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from kernel.bus import EventBus
-from kernel.policy import AuditLog, ConsentCallback, PolicyEngine
+from kernel.policy import AuditLog, ConsentCallback, Decision, Policy, PolicyEngine
 from kernel.tools import Tool, ToolRegistry
 from kernel.types import RiskClass, ToolCall, ToolResult
 
@@ -77,13 +77,20 @@ class LegacyToolRuntime:
         handlers: Mapping[str, LegacyHandler],
         audit_path: str | Path | None = None,
         risks: Mapping[str, RiskClass] | None = None,
+        tool_rules: Mapping[str, "Decision"] | None = None,
     ) -> None:
         self.bus = EventBus()
         self.registry = ToolRegistry()
         if audit_path is not None:
             Path(audit_path).parent.mkdir(parents=True, exist_ok=True)
         self.audit = AuditLog(audit_path)
-        self.policy = PolicyEngine(audit=self.audit)
+        # research/12 D2: config-derived per-tool overrides ride the SAME
+        # default posture (built here so the audit log stays attached).
+        policy_obj = Policy.default()
+        if tool_rules:
+            policy_obj = Policy(rules=dict(policy_obj.rules),
+                                tool_rules=dict(tool_rules))
+        self.policy = PolicyEngine(policy_obj, audit=self.audit)
 
         risk_map = dict(risks or LEGACY_TOOL_RISKS)
         declared = {str(item.get("name", "")) for item in declarations}
