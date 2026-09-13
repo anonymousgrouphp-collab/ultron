@@ -14,9 +14,19 @@ path is untouched until a live-mic A/B validates the gate:
 
 The wake-word lane: openwakeword (in-process) replaces wake_service.py per
 the Kill List once installed + A/B'd; the launcher stays until then.
+
+Local TTS lane (research adopt A1, docs/research/10_tts_research.md):
+- tts_backend: none (default, zero change) | kokoro | piper.
+- speak() falls back to local synthesis when the Live session is absent
+  (today that path is mute); tts_prefer_local=true forces local even with
+  Live up. Speech reuses audio_in_queue when a live player exists, else a
+  one-shot sounddevice stream; barge-in drains/stop-event cover both.
 """
 
 from __future__ import annotations
+
+import asyncio
+import threading
 
 import numpy as np
 
@@ -29,6 +39,10 @@ class VoiceStackMixin:
 
     _voice_gate: EchoGate | None = None
     _speaker_engine: object | None = None
+    _tts = None  # TtsEngine | None (kernel/voice/tts.py)
+    _tts_prefer_local: bool = False
+    _tts_stop: threading.Event | None = None
+    _tts_busy = threading.Lock()
 
     def _setup_voice_stack(self) -> None:
         """Phase P1: build the voice engines the config asks for. Everything
@@ -47,6 +61,104 @@ class VoiceStackMixin:
                 self.ui.write_log(
                     f"SYS: Speaker ID unavailable ({exc}) — install "
                     "requirements-voice.txt to enable it.")
+        self._setup_tts(cfg)
+
+    def _setup_tts(self, cfg: dict) -> None:
+        """Local TTS engine (tts_backend: kokoro|piper). Default none = the
+        Live session keeps speaking; a broken engine logs and never blocks."""
+        backend = (cfg.get("tts_backend") or "none").strip().lower()
+        if backend in ("", "none", "off"):
+            return
+        try:
+            from kernel.voice import tts as tts_mod
+            self._tts = tts_mod.load_from_config(cfg)
+            self._tts_prefer_local = bool(cfg.get("tts_prefer_local", False))
+            self._tts_stop = threading.Event()
+            voice = cfg.get("tts_voice") or backend
+            self.ui.write_log(
+                f"SYS: Local TTS armed ({backend}, voice={voice}, "
+                f"prefer_local={self._tts_prefer_local}).")
+        except Exception as exc:
+            self._tts = None
+            self.ui.write_log(
+                f"SYS: Local TTS unavailable ({exc}) — install "
+                "requirements-tts.txt and run the voice download to enable it.")
+
+    def tts_should_speak(self) -> bool:
+        """True when speak() should use the local engine instead of the cloud
+        session: engine armed AND (no session OR prefer_local)."""
+        return self._tts is not None and (
+            self.session is None or self._tts_prefer_local
+        )
+
+    def speak_local(self, text: str) -> None:
+        """Non-blocking local synthesis: splits text, queues 24 kHz int16 PCM
+        into audio_in_queue when a live player exists, else plays directly."""
+        if self._tts is None or not text.strip():
+            return
+        threading.Thread(target=self._tts_worker, args=(text,), daemon=True).start()
+
+    def _tts_worker(self, text: str) -> None:
+        if not self._tts_busy.acquire(blocking=False):
+            return  # a previous utterance is still speaking; drop new one
+        self._tts_stop.clear()
+        self.note_tts_started()
+        try:
+            from kernel.voice import tts as tts_mod
+
+            target_rate = getattr(self, "RECEIVE_SAMPLE_RATE", 24000)
+            queued = False
+            for chunk in self._tts.synthesize(text):
+                if self._tts_stop.is_set():
+                    break
+                pcm = tts_mod.resample_linear(
+                    chunk.audio_int16, chunk.sample_rate, target_rate
+                )
+                data = pcm.tobytes()
+                queue = getattr(self, "audio_in_queue", None)
+                loop = getattr(self, "_loop", None)
+                if queue is not None and loop is not None:
+                    queued = True
+                    asyncio.run_coroutine_threadsafe(
+                        queue.put(data), loop
+                    ).result(timeout=5)
+                else:
+                    self._play_direct(pcm, target_rate)
+            if queued:
+                # let _play_audio finish the tail before unblocking EchoGate
+                import time
+
+                time.sleep(0.15)
+        except Exception as exc:
+            try:
+                self.ui.write_log(f"SYS: local TTS failed: {exc}")
+            except Exception:
+                pass
+        finally:
+            self.note_tts_finished()
+            self._tts_busy.release()
+
+    def _play_direct(self, pcm: np.ndarray, rate: int) -> None:
+        """Fallback playback when no live player exists (Live session down)."""
+        import sounddevice as sd
+
+        with sd.RawOutputStream(
+            samplerate=rate, channels=1, dtype="int16", blocksize=0
+        ) as stream:
+            stream.start()
+            # write in ~100 ms slices so stop is responsive
+            slice_len = rate // 10
+            data = memoryview(pcm.tobytes())
+            step = slice_len * 2  # int16 = 2 bytes
+            for off in range(0, len(data), step):
+                if self._tts_stop.is_set():
+                    break
+                stream.write(bytes(data[off : off + step]))
+
+    def stop_local_speech(self) -> None:
+        """Barge-in hook for the local TTS lane (interrupt() calls this)."""
+        if self._tts_stop is not None:
+            self._tts_stop.set()
 
     def gate_mic_frame(self, frame: np.ndarray) -> np.ndarray | None:
         """One mic frame through the EchoGate when armed; identity when not.

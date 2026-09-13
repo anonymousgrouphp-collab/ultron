@@ -1,0 +1,18 @@
+# ULTRON optional local-TTS extras (research adopt A1 — docs/research/10_tts_research.md)
+# NOT installed by default; the app degrades to cloud-only speech without them.
+# Install with:  py -3.14 -m pip install -r requirements-tts.txt
+#
+# kokoro-onnx  — RECOMMENDED backend (tts_backend=kokoro). MIT; pulls onnxruntime
+#                + phonemizer-fork + espeakng-loader (bundled espeak-ng — no
+#                system install). Voice assets auto-download to .ultron/voices/
+#                on first use (kernel/voice/voice_manager.py). The fp32 model
+#                is the default: on py-3.14 ORT 1.30 CPU it benchmarks RTF ~3.0
+#                vs ~5.1 (int8) — and DirectML crashes on Kokoro's ConvTranspose
+#                node, so onnxruntime-directml is NOT useful for this engine.
+kokoro-onnx>=0.4.7,<0.5
+# piper-tts    — alternative backend (tts_backend=piper). GPL-3.0-or-later:
+#                local/personal use only, keep it optional in any distribution.
+#                NOTE: hardened Windows setups (WDAC) block its espeakbridge
+#                C extension — the engine then reports EngineUnavailable at
+#                load and the kokoro backend remains the default.
+piper-tts>=1.8.0,<2
