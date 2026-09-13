@@ -256,12 +256,17 @@ class Orchestrator:
                     await self._publish("job.canceled", {"job": job.id}, job.id)
                     return
             self._queue.complete(job.id, {"outputs": outputs}, worker)
+            # title rides along (research/12 D5): the app-layer announcement
+            # rule formats {title}; without it the KeyError-guard in
+            # TriggerRule.render made completions speak the RAW template.
             await self._publish("job.completed",
-                                {"job": job.id, "outputs": outputs}, job.id)
+                                {"job": job.id, "title": job.title,
+                                 "outputs": outputs}, job.id)
         except StepFailure as failure:
             self._queue.fail(job.id, str(failure), worker=worker, retry=False)
             await self._publish("job.failed",
-                                {"job": job.id, "error": str(failure),
+                                {"job": job.id, "title": job.title,
+                                 "error": str(failure),
                                  "retry": False}, job.id)
         except asyncio.CancelledError:
             self._queue.fail(job.id, "worker canceled", worker=worker, retry=True)

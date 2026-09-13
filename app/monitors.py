@@ -5,22 +5,58 @@ Extracted verbatim from main.py: the emergency system monitor
 the phone-audio relay (`_relay_phone_audio` + `_on_phone_connected`), and
 the dashboard command pump (`_process_dashboard_commands`). Mixin for
 UltronLive.
+
+research/12 D4 adds `_run_live_vision`: the screen-frame warmer that keeps
+the latest capture ready for the mic-side VAD-gated onset push.
 """
 
 from __future__ import annotations
 
 import asyncio
 import base64
+import io
 import time
 from datetime import datetime
 
+from config import loader
 from kernel.types import Event
 
 
 class MonitorTasksMixin:
     """Expects the host to provide: _sys_monitor, _bus, session, ui,
     _dashboard, _speaking_lock, _is_speaking, _phone_active,
-    _last_user_speech, out_queue, set_app_state()."""
+    _last_user_speech, out_queue, set_app_state(), and the D4 live-vision
+    state (_live_vision_enabled, _live_vision_frame, _live_vision_lock)."""
+
+    async def _run_live_vision(self) -> None:
+        """research/12 D4: keep the latest screen capture warm so the
+        mic-side onset detector can push ONE frame at speech onset. JPEG
+        conversion keeps the Live uplink small; a missing PIL ships PNG."""
+        from actions.screen_processor import _capture_screen
+
+        interval = float(loader.load_config().get(
+            "live_vision_interval_s", 2.0) or 2.0)
+        while True:
+            try:
+                if self.session and not self.ui.muted:
+                    img_b, mime_t = await asyncio.get_running_loop().run_in_executor(
+                        None, _capture_screen)
+                    if mime_t != "image/jpeg":
+                        try:
+                            from PIL import Image
+                            img = Image.open(io.BytesIO(img_b)).convert("RGB")
+                            buf = io.BytesIO()
+                            img.save(buf, format="JPEG", quality=70)
+                            img_b, mime_t = buf.getvalue(), "image/jpeg"
+                        except Exception:  # noqa: BLE001 — ship the PNG as-is
+                            pass
+                    with self._live_vision_lock:
+                        self._live_vision_frame = (img_b, mime_t)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001 — a dead capture can't kill the task
+                print(f"[LiveVision] capture error: {exc}")
+            await asyncio.sleep(interval)
 
     async def _run_system_monitor(self) -> None:
         """Background task: emergency alerts and non-destructive suggestions."""

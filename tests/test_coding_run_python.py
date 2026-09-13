@@ -5,7 +5,7 @@ import asyncio
 import pytest
 
 from kernel.coding.tools import build_coding_tools
-from kernel.types import RiskClass, ToolCall
+from kernel.types import ToolCall
 
 
 def make_call(name, **args):

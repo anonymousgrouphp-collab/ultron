@@ -8,6 +8,12 @@ speaker playback with 50 ms barge-in slicing (`_play_audio`).
 Kept as a mixin: `UltronLive` inherits these so existing call sites and the
 characterization tests keep working unchanged. No behavior edits — the
 extraction is the change (main.py must shrink, ROADMAP §0 rule).
+
+research/12 additions (both flag/state-gated on the host):
+- D4 `_vision_onset_check`: RMS speech-onset detector pushing ONE latest
+  screen frame per utterance into the Live upqueue (never a stream).
+- D6 `_recent_transcript` appends: the rolling transcript the reconnect
+  path replays to restore conversation continuity.
 """
 
 from __future__ import annotations
@@ -18,6 +24,7 @@ import time
 import traceback
 from datetime import datetime
 
+import numpy as np
 import sounddevice as sd
 
 from app.text import clean_transcript as _clean_transcript
@@ -34,6 +41,9 @@ class AudioTasksMixin:
     _session_user_messages, _session_assistant_responses,
     _session_tool_calls, _dashboard, _asst_name, set_app_state(),
     set_speaking(), _execute_tool().
+    research/12 additions: D6 `_recent_transcript` (rolling transcript) and
+    the D4 vision state (_live_vision_enabled, _lv_rms_threshold,
+    _live_vision_frame, _live_vision_lock, _lv_speech_on, _lv_last_push).
     """
 
     SEND_SAMPLE_RATE = 16000
@@ -80,6 +90,13 @@ class AudioTasksMixin:
                 {"data": data, "mime_type": "audio/pcm"}
             )
 
+            # research/12 D4: VAD-gated vision — ONE latest screen frame at
+            # speech onset (refractory-limited), never a continuous stream.
+            # Skipped while ULTRON is speaking: its own TTS must not count
+            # as the user talking.
+            if getattr(self, "_live_vision_enabled", False) and not self._is_speaking:
+                self._vision_onset_check(gated)
+
         try:
             with sd.InputStream(
                 samplerate=self.SEND_SAMPLE_RATE,
@@ -94,6 +111,37 @@ class AudioTasksMixin:
         except Exception as e:
             print(f"[ULTRON] ❌ Mic: {e}")
             raise
+
+    def _vision_onset_check(self, frame) -> None:
+        """research/12 D4: RMS speech-onset detector. On each rising edge
+        (silence → loud) the latest captured screen frame is pushed into the
+        Live upqueue once, refractory-limited. Runs on the sounddevice
+        callback thread; all state it touches is simple and host-owned."""
+        try:
+            rms = float(np.sqrt(np.mean(np.square(frame.astype(np.float32)))))
+        except Exception:  # noqa: BLE001 — a bad frame must not kill the mic
+            return
+        now = time.monotonic()
+        if rms > self._lv_rms_threshold:
+            if self._lv_speech_on:
+                return
+            self._lv_speech_on = True
+            if (now - self._lv_last_push) < 12.0:   # refractory window
+                return
+            with self._live_vision_lock:
+                captured = self._live_vision_frame
+            if captured is None:
+                return
+            self._lv_last_push = now
+            try:
+                self.out_queue.put_nowait(
+                    {"data": captured[0], "mime_type": captured[1]})
+                print(f"[LiveVision] 🖼️ speech onset → "
+                      f"{len(captured[0]):,}B frame pushed")
+            except asyncio.QueueFull:
+                pass
+        else:
+            self._lv_speech_on = False
 
     async def _receive_audio(self):
         print("[ULTRON] 👂 Recv started")
@@ -147,6 +195,8 @@ class AudioTasksMixin:
                             if full_in:
                                 self.ui.write_log(f"You: {full_in}")
                                 self._session_user_messages.append(full_in)  # Phase I3: track for session summary
+                                self._recent_transcript.append(              # research/12 D6: reconnect context
+                                    f"You: {full_in}")
                                 if self._dashboard:
                                     asyncio.create_task(self._dashboard.broadcast({
                                         "type": "log", "speaker": "user",
@@ -183,6 +233,8 @@ class AudioTasksMixin:
                             if full_out:
                                 self.ui.write_log(f"{self._asst_name}: {full_out}")
                                 self._session_assistant_responses.append(full_out)  # Phase I3
+                                self._recent_transcript.append(                     # research/12 D6
+                                    f"{self._asst_name}: {full_out}")
                                 if self._dashboard:
                                     asyncio.create_task(self._dashboard.broadcast({
                                         "type": "log", "speaker": "ultron",

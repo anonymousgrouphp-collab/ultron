@@ -234,6 +234,13 @@ class UltronLive(
             gateway_factory=_make_cu_gateway,
             consent=lambda: bool(loader.load_config().get("web_agent_enabled", True)),
         )
+        # research/12 D9: RSS headlines with a per-feed TTL cache — the
+        # brain curates; the tool only fetches.
+        from kernel.briefing.tools import build_news_tools
+        build_news_tools(
+            self._tool_runtime.registry,
+            consent=lambda: bool(loader.load_config().get("news_enabled", True)),
+        )
         # Phase W gate: the two live-research pieces the P2-D plan expects —
         # a URL-returning search (the legacy web_search speaks prose; the
         # orchestrator plan needs `first_url`) and the report writer. Both go
@@ -264,6 +271,19 @@ class UltronLive(
             consent=self._consent_gate.request if self._consent_gate else None,
             source="live",
         )
+        # research/12 D5: long voice-tier tools run as background jobs — the
+        # spoken turn gets an immediate ack, completion is announced later.
+        _bg_raw = loader.load_config().get("background_tools")
+        _bg_list = (_bg_raw if isinstance(_bg_raw, list)
+                    else str(_bg_raw or "run_web_agent").split(","))
+        self._background_tools = {str(s).strip() for s in _bg_list if str(s).strip()}
+        self._background_jobs: dict[str, str] = {}   # job_id → tool name
+        self._bus.subscribe("job.completed", self._on_background_job_event)
+        self._bus.subscribe("job.failed", self._on_background_job_event)
+        # research/12 D7: Ollama VRAM arbitration — only meaningful when
+        # Ollama IS the brain (the cloud path holds no VRAM).
+        from app.local_models import OllamaModelManager
+        self._local_models = OllamaModelManager.from_config(loader.load_config())
         # Phase I1: autonomous GUI planner (W1: real orchestrator injected)
         self._gui_planner = GUIPlanner(
             orchestrator=self._orchestrator,
@@ -278,6 +298,20 @@ class UltronLive(
         self._session_user_messages: list[str] = []
         self._session_tool_calls: list[str] = []
         self._session_assistant_responses: list[str] = []
+        # research/12 D6: rolling transcript for reconnect context restore.
+        from collections import deque
+        self._recent_transcript = deque(maxlen=24)
+        self._reconnect_context_due = False
+        # research/12 D4: VAD-gated live vision (flag-gated, default OFF —
+        # the proven audio path is untouched until live-mic A/B).
+        _lv_cfg = loader.load_config()
+        self._live_vision_enabled = bool(_lv_cfg.get("live_vision_enabled", False))
+        self._lv_rms_threshold = float(
+            _lv_cfg.get("live_vision_rms_threshold", 800) or 800)
+        self._live_vision_frame = None          # (image bytes, mime) latest capture
+        self._live_vision_lock = threading.Lock()
+        self._lv_speech_on = False              # onset-detector state
+        self._lv_last_push = 0.0                # refractory timestamp
         # Phase I4: multi-provider testing
         self._provider_test: ProviderTestRunner | None = None
         # Phase Q3: self-diagnostics
@@ -407,6 +441,18 @@ class UltronLive(
         )
         assembled = assembler.assemble(conversation_summary=recent_topics)
 
+        # research/12 D4: when live frames are pushed at speech onset, the
+        # anti-distraction rule keeps the model from narrating the screen
+        # uninvited (ada.py's system-instruction hygiene, ported).
+        if self._live_vision_enabled:
+            import dataclasses as _dc
+            assembled = _dc.replace(
+                assembled,
+                system_instruction=assembled.system_instruction + (
+                    "\n\n[A live screen frame may be attached whenever the "
+                    "user starts speaking. IGNORE screen content unless the "
+                    "user explicitly asks about what is on their screen.]"))
+
         return build_live_config(
             system_prompt=assembled.system_instruction,
             # Phase W2: the LIVE session now declares the full registry —
@@ -431,10 +477,14 @@ class UltronLive(
                 "Sir, I detected motion in the {zone}.",
                 consent=ProactiveConsentClass.NEVER_WHEN_BUSY,
             ),
+            # research/12 D5: ONE announcer for all orchestrator jobs —
+            # main._on_background_job_event renders title + outputs summary
+            # into a job.announcement event; the raw "{title}" template bug
+            # (job.completed carried no title) is fixed at the source.
             TriggerRule(
-                "job-done", "job.completed",
-                "Sir, your background task '{title}' finished.",
-                consent=ProactiveConsentClass.ALWAYS, cooldown_s=60.0,
+                "job-announce", "job.announcement",
+                "{summary}",
+                consent=ProactiveConsentClass.ALWAYS, cooldown_s=5.0,
             ),
             TriggerRule(
                 "check-in", "system.tick",
@@ -443,6 +493,71 @@ class UltronLive(
                 cooldown_s=1800, max_per_hour=2,
             ),
         ]
+
+    async def _warm_local_models(self) -> None:
+        """research/12 D7: boot pre-load of the configured local brain —
+        evict strangers first, then pin the brain under a keep_alive lease."""
+        if self._local_models is None:
+            return
+        cfg = loader.load_config()
+        model = str(cfg.get("ollama_model") or "").strip()
+        if not model:
+            return
+        evicted = await asyncio.to_thread(self._local_models.ensure_exclusive,
+                                          [model])
+        if evicted:
+            print(f"[LocalModels] evicted: {', '.join(evicted)}")
+        if await asyncio.to_thread(self._local_models.warm, model):
+            lease = str(cfg.get("ollama_keep_alive") or "30m")
+            print(f"[LocalModels] {model} warm ({lease} lease)")
+
+    async def _on_background_job_event(self, event: Event) -> None:
+        """research/12 D5: ONE spoken announcement per orchestrator job —
+        research/GUI/background-tool alike. Renders the title plus (for the
+        background tools dispatched in _execute_tool) a short outcome
+        summary into a job.announcement event the proactive rule speaks."""
+        try:
+            job_id = str(event.payload.get("job") or "")
+            title = str(event.payload.get("title") or "task")
+            if event.type == "job.failed":
+                error = str(event.payload.get("error") or "unknown error")
+                summary = (f"Sir, the background task '{title}' failed: "
+                           f"{error[:200]}")
+            else:
+                detail = ""
+                if job_id in self._background_jobs:
+                    self._background_jobs.pop(job_id, None)
+                    outputs = event.payload.get("outputs")
+                    rendered = self._summarize_job_outputs(outputs)
+                    if rendered:
+                        detail = f" {rendered}"
+                summary = (f"Sir, your background task '{title}' finished."
+                           f"{detail}")
+            await self._bus.publish(Event(
+                type="job.announcement",
+                payload={"summary": summary[:600]},
+                source="live",
+            ))
+        except Exception as exc:
+            print(f"[ULTRON] background announcement failed: {exc}")
+
+    @staticmethod
+    def _summarize_job_outputs(outputs) -> str:
+        """Render job outputs as one short speakable line (never a raw dump)."""
+        texts: list[str] = []
+        items = (outputs.values() if isinstance(outputs, dict)
+                 else [outputs] if outputs is not None else [])
+        for item in items:
+            if isinstance(item, dict) and item.get("summary"):
+                status = str(item.get("status") or "").strip()
+                prefix = f"{status}: " if status else ""
+                texts.append(f"{prefix}{item['summary']}")
+            elif isinstance(item, str):
+                texts.append(item[:200])
+            elif item is not None:
+                texts.append(str(item)[:200])
+        joined = " | ".join(t for t in texts if t)
+        return joined[:400] if joined else "it completed without details."
 
     def _proactive_busy(self) -> bool:
         """NEVER_WHEN_BUSY gate: ULTRON is speaking, or the user muted us
@@ -515,6 +630,30 @@ class UltronLive(
 
         print(f"[ULTRON] 🔧 {name}  {args}")
         self.set_app_state("THINKING")
+
+        # research/12 D5: configured long tools ride the orchestrator as
+        # durable background jobs; the voice turn gets an immediate ack and
+        # the completion is announced via the job-announcement rule.
+        # getattr defaults: characterization hosts bypass __init__.
+        if name in getattr(self, "_background_tools", ()) and \
+                getattr(self, "_orchestrator", None) is not None:
+            try:
+                job_id = self._orchestrator.enqueue(
+                    [{"kind": "tool", "path": name, "args": args}],
+                    title=f"{name} (background)", max_attempts=1)
+                self._background_jobs[job_id] = name
+                print(f"[ULTRON] ⏳ {name} → background job {job_id}")
+                return FunctionResponse(
+                    id=fc.id, name=name,
+                    response={"result": (
+                        f"Started '{name}' in the background (job {job_id}). "
+                        "Tell the user it is running and that you will "
+                        "announce the result when it finishes. Do not call "
+                        "this tool again for the same task.")},
+                )
+            except Exception as exc:
+                print(f"[ULTRON] background dispatch failed ({exc}) — "
+                      "falling back to direct execution")
 
         call = ToolCall(
             id=str(getattr(fc, "id", "") or f"live-{time.monotonic_ns()}"),
@@ -619,6 +758,13 @@ class UltronLive(
                     tg.create_task(self._play_audio())
                     tg.create_task(self._run_system_monitor())
                     tg.create_task(self._run_proactive_mode())
+                    # research/12 D4: screen-frame warmer (flag-gated).
+                    if self._live_vision_enabled:
+                        tg.create_task(self._run_live_vision())
+                    # research/12 D7: idle VRAM sweeper + boot warm-up.
+                    if self._local_models is not None:
+                        tg.create_task(self._local_models.run_idle_sweeper())
+                        tg.create_task(self._warm_local_models())
                     # Phase W1: the durable orchestrator worker goes live —
                     # background jobs (research/GUI plans) now actually run.
                     tg.create_task(self._orchestrator.run_worker(max_jobs=None))
@@ -638,6 +784,25 @@ class UltronLive(
                         elif loader.load_config().get("morning_brief_enabled", True):
                             tg.create_task(self._send_startup_briefing())
 
+                    # research/12 D6: after a reconnect, restore conversation
+                    # continuity (ada_v2's reconnect-with-context pattern).
+                    elif self._reconnect_context_due:
+                        self._reconnect_context_due = False
+                        recent = list(self._recent_transcript)[-10:]
+                        if recent:
+                            context = (
+                                "[SYSTEM] The live session dropped and just "
+                                "reconnected. Recent conversation, for "
+                                "continuity:\n" + "\n".join(recent)
+                                + "\nAcknowledge the reconnection in ONE "
+                                  "short sentence and continue helping. "
+                                  "Do not call tools."
+                            )
+                            tg.create_task(self.session.send_client_content(
+                                turns={"parts": [{"text": context}]},
+                                turn_complete=True,
+                            ))
+
             except (KeyboardInterrupt, SystemExit):
                 self._persist_session_summary()
                 raise
@@ -655,6 +820,10 @@ class UltronLive(
                 # the reconnect. generate_session_summary consumes the I3
                 # tracking lists and writes a session_summary fact.
                 self._persist_session_summary()
+                # research/12 D6: a transcript exists → the NEXT successful
+                # connect restores continuity instead of starting cold.
+                if self._recent_transcript:
+                    self._reconnect_context_due = True
 
                 # Invalid / missing / broken API key — stop hammering the API, prompt re-configuration
                 if (

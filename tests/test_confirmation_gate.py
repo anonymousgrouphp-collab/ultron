@@ -2,10 +2,9 @@
 
 import asyncio
 
-import pytest
 
 from app.consent import ConsentGate
-from kernel import EventBus, RiskClass, ToolCall, ToolRegistry
+from kernel import RiskClass, ToolCall, ToolRegistry
 from kernel.policy import Decision, Policy, PolicyEngine
 from kernel.tools.base import Tool
 
