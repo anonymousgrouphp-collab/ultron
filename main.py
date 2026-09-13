@@ -81,6 +81,14 @@ CHUNK_SIZE          = 512
 def _get_api_key() -> str:
     key = loader.get_api_key()   # None when missing, empty, or placeholder
     if key is None:
+        cfg = loader.load_config()
+        provider = str(cfg.get("llm_provider", "gemini")).strip().lower()
+        if provider == "ollama":
+            raise ApiKeyMissing(
+                "Ollama is configured for gateway text completion, but ULTRON's real-time "
+                "voice session requires a Gemini API key. Please configure a Gemini API key "
+                "in Settings (Ctrl+,) or config/api_keys.json to enable live audio streaming."
+            )
         raise ApiKeyMissing(
             "config/api_keys.json is missing, invalid, or has no real Gemini key"
         )
@@ -230,6 +238,10 @@ class UltronLive(
         # Phase P1: the kernel voice engines arm here (flag-gated, default
         # off — the proven audio path is untouched until live-mic A/B).
         self._setup_voice_stack()
+        # Phase P5: procedural skill capture listener — completed agent jobs become skills
+        from kernel.memory.improve import SkillCaptureListener
+        self._skill_listener = SkillCaptureListener(self._memory)
+        self._skill_listener.attach(self._bus)
 
     def _make_remote_key(self):
         """Called from Qt main thread when user presses Remote Control."""
@@ -264,13 +276,17 @@ class UltronLive(
         with self._speaking_lock:
             self._is_speaking = value
         if value:
+            self.note_tts_started()
             self.set_app_state("SPEAKING")
-        elif not self.ui.muted:
-            self.set_app_state("LISTENING")
+        else:
+            self.note_tts_finished()
+            if not self.ui.muted:
+                self.set_app_state("LISTENING")
 
     def interrupt(self) -> None:
         """Stop ULTRON mid-speech: drain queued audio and open mic immediately."""
         self._interrupted = True
+        self.stop_local_speech()  # local TTS lane (barge-in, adopt A1)
         q = self.audio_in_queue
         if q:
             drained = 0
@@ -288,6 +304,12 @@ class UltronLive(
         self.ui.write_log("SYS: Interrupted — listening...")
 
     def speak(self, text: str):
+        # Local TTS fallback (research adopt A1): when the Live session is
+        # absent this path was previously mute; with tts_prefer_local=true it
+        # takes over even with Live up (A/B switch).
+        if self.tts_should_speak():
+            self.speak_local(text)
+            return
         if not self._loop or not self.session:
             return
         asyncio.run_coroutine_threadsafe(
