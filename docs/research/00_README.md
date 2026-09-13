@@ -16,6 +16,8 @@ to `../ROADMAP.md`. Sources in each doc verified Sep 2026.*
 | [06_local_models.md](06_local_models.md) | Runtimes & model menu per hardware tier | Ollama as the only local server; Qwen3 family + gpt-oss-20b menu; tier table N/S/M/L probed by `ULTRON_SETUP.py`; structured outputs via Ollama JSON-schema |
 | [07_open_source_jarvis_projects.md](07_open_source_jarvis_projects.md) | Who's who + HUD ideas | No pivot needed — Leon 2.0 & OVOS validate our direction; steal UX details (interrupt word, dictation) + HUD widget set for J-20 |
 | [08_integration_automation.md](08_integration_automation.md) | Home, media, briefing, cameras, proactive | **HA via MCP-Assist** (~95% token cut) is the mansion moment; ytmusicapi → Spotify; Frigate+MQTT for cameras; ntfy/Telegram reach; briefing as a scheduled job |
+| [09_k9_repo_analysis.md](09_k9_repo_analysis.md) | K9 (parmarth-kumar) repo deep-read | Adopt: Open-Meteo weather, search cascade + TTL cache, recency recall re-scoring, entity/pronoun layer, anti-echo guards, bus backpressure |
+| [10_tts_research.md](10_tts_research.md) | TTS deep-read: piper1-gpl, rhasspy/piper, Kokoro (+space), Cartesia Sonic | ULTRON has NO local TTS — add `TtsEngine` seam + piper-tts 1.8.0 (py-3.14 verified) + kokoro-onnx ack voice; port kokoro.js TextSplitterStream for sentence-streamed speech; pronunciation lexicon; code-level adopt list A1–A8 |
 
 ## Cross-doc decisions (the 2026 stack, in one place)
 
