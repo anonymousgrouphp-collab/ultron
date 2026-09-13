@@ -119,14 +119,73 @@ def _gemini_headlines(n: int = 5) -> tuple[list[str], str]:
 
 # ── Modes ──────────────────────────────────────────────────────────────────────
 
-def _search(query: str) -> str:
-    """Default search — Gemini grounded, DDG fallback."""
+def _format_provider_results(query: str, results: list) -> str:
+    """Format key-provider SearchResult items like the DDG listing."""
+    from utils.search_providers import normalize_snippet
+    if not results:
+        return f"No results found for: {query}"
+    lines = [f"Search results for: {query}\n"]
+    for i, r in enumerate(results, 1):
+        if r.title:
+            lines.append(f"{i}. {r.title}")
+        snippet = normalize_snippet(r.snippet)
+        if snippet:
+            lines.append(f"   {snippet}")
+        if r.url:
+            lines.append(f"   Source: {r.url}")
+        lines.append("")
+    return "\n".join(lines).strip()
+
+
+def _cascade_query(query: str, *, use_cache: bool = True) -> str:
+    """§P1-B cascade: factual cache → Gemini grounded → key-provider cascade
+    → keyless DDG. First leg with a usable answer wins; the winner is cached
+    with a per-query TTL (10 min news/price-style, 24 h stable facts)."""
+    from utils.search_providers import cascade_search, factual_cache
+
+    if use_cache:
+        try:
+            cached = factual_cache.get(query)
+        except Exception:
+            cached = None
+        if cached:
+            print(f"[WebSearch] 💨 factual cache hit: {query!r}")
+            return cached
+
     try:
-        return _gemini_search(query)
+        answer = _gemini_search(query)
+        if answer and answer.strip():
+            if use_cache:
+                try:
+                    factual_cache.put(query, answer)
+                except Exception:
+                    pass
+            return answer
     except Exception as e:
-        print(f"[WebSearch] ⚠️ Gemini failed ({e}) — trying DDG...")
-        results = _ddg_search(query)
-        return _format_ddg(query, results)
+        print(f"[WebSearch] ⚠️ Gemini failed ({e}) — trying provider cascade...")
+
+    try:
+        results = cascade_search(query, max_results=6)
+    except Exception as e:  # defensive: the cascade never raises, but be safe
+        results = None
+        print(f"[WebSearch] ⚠️ provider cascade error ({e})")
+    if results:
+        answer = _format_provider_results(query, results)
+        if use_cache:
+            try:
+                factual_cache.put(query, answer)
+            except Exception:
+                pass
+        return answer
+
+    print("[WebSearch] ⚠️ no key-based provider answered — trying DDG...")
+    results = _ddg_search(query)
+    return _format_ddg(query, results)
+
+
+def _search(query: str) -> str:
+    """Default search — cache → Gemini grounded → provider cascade → DDG."""
+    return _cascade_query(query)
 
 
 def _news(query: str) -> str:
@@ -181,29 +240,20 @@ def _news(query: str) -> str:
 def _research(query: str) -> str:
     """
     Deep dive — asks Gemini for a comprehensive answer with context.
-    Falls back to a wider DDG fetch.
+    Falls back through the §P1-B cascade to DDG (no cache: the rewritten
+    research query is single-use phrasing anyway).
     """
     research_query = (
         f"Comprehensive, detailed explanation of: {query}. "
         "Include background context, key facts, current state, and important nuances."
     )
-    try:
-        return _gemini_search(research_query)
-    except Exception as e:
-        print(f"[WebSearch] ⚠️ Research Gemini failed ({e}) — DDG fallback...")
-        results = _ddg_search(query, max_results=10)
-        return _format_ddg(query, results)
+    return _cascade_query(research_query, use_cache=False)
 
 
 def _price(query: str) -> str:
-    """Product price lookup — searches for current market prices."""
+    """Product price lookup — cache-aware cascade with news-style TTL."""
     price_query = f"current price of {query} — how much does it cost today"
-    try:
-        return _gemini_search(price_query)
-    except Exception as e:
-        print(f"[WebSearch] ⚠️ Price Gemini failed ({e}) — DDG fallback...")
-        results = _ddg_search(f"{query} price buy", max_results=6)
-        return _format_ddg(query, results)
+    return _cascade_query(price_query)
 
 
 def _compare(items: list[str], aspect: str) -> str:

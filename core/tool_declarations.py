@@ -51,7 +51,11 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "weather_report",
-        "description": "Gives the weather report to user",
+        "description": (
+            "Returns the current real weather for a city as a spoken answer: "
+            "temperature, sky condition, humidity and wind. Use for any "
+            "weather, temperature, or 'how hot/cold is it' question."
+        ),
         "parameters": {
             "type": "OBJECT",
             "properties": {

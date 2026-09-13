@@ -103,10 +103,27 @@ _P3C_PROCEDURE_COLUMNS: tuple[tuple[str, str], ...] = (
 
 _RRF_K = 60  # standard RRF constant
 
+# ---------------------------------------------------------------------------
+# Query-time re-ranking (research/09 §P1-C, K9-derived): RRF only knows lexical
+# ⊕ vector overlap — it is blind to WHEN a fact was learned and how important
+# it is. The fused candidate set is re-scored with:
+#     final = 0.60 * similarity (normalized RRF) + 0.30 * recency + 0.10 * importance
+# where recency is a 3-day-half-life exponential decay. A minimum-score gate
+# drops stale, weakly-matching candidates before they can pollute a prompt.
+_SIMILARITY_WEIGHT = 0.60
+_RECENCY_WEIGHT = 0.30
+_RECENCY_HALF_LIFE_H = 72.0
+_IMPORTANCE_WEIGHT = 0.10
+# Final-score floor. Fresh, well-matched facts sit far above it (sim ≥ 0.5
+# gives ≥ 0.36 even with decayed recency); it only excludes facts that are
+# BOTH weakly matched AND stale — never a fresh exact match.
+_RECALL_MIN_SCORE = 0.15
+
 
 @dataclass(frozen=True)
 class SearchHit:
-    """One recalled fact. `score` is the fused RRF score (0.0 for page walks)."""
+    """One recalled fact. `score` is the final re-ranked relevance (normalized
+    similarity + recency + importance; 0.0 for page walks)."""
 
     id: int
     content: str
@@ -394,29 +411,50 @@ class MemoryEngine:
     # ------------------------------------------------------------ read ----
 
     def search(self, query: str, *, k: int = 8) -> list[SearchHit]:
-        """Recall: RRF fusion of the FTS5 leg and the vector-cosine leg."""
+        """Recall: RRF fusion of the FTS5 leg and the vector-cosine leg (both
+        depth-k — fusion semantics unchanged), then a recency/importance
+        re-ranking pass over the fused pool (§P1-C). Expired facts (expires_at
+        in the past) are excluded even when both retrieval legs match them."""
         if not query or not query.strip():
             return []
+        now = time.time()
         with self._lock:
             fts_ids = self._fts_leg(query, k)
             vec_ids = self._vector_leg(query, k)
             fused = _reciprocal_rank_fusion([fts_ids, vec_ids])[:k]
+            if not fused:
+                return []
+            max_fused = fused[0][1] or 1.0
             hits: list[SearchHit] = []
-            for rank, (fact_id, score) in enumerate(fused, 1):
+            for fact_id, score in fused:
                 row = self._conn.execute(
                     "SELECT id, content, entity, topic, importance, known_at,"
-                    " source_ref FROM semantic_facts WHERE id = ?"
-                    " AND status = 'active'",
+                    " source_ref, expires_at FROM semantic_facts"
+                    " WHERE id = ? AND status = 'active'",
                     (fact_id,),
                 ).fetchone()
-                if row is not None:
-                    hits.append(SearchHit(
-                        id=row[0], content=row[1], entity=row[2], topic=row[3],
-                        importance=row[4], known_at=row[5], source_ref=row[6],
-                        score=score,
-                    ))
+                if row is None:
+                    continue
+                expires_at = row[7]
+                if expires_at is not None and float(expires_at) <= now:
+                    continue  # per-fact TTL (§P1-C): expired — never recalled
+                age_hours = max(0.0, (now - float(row[5])) / 3600.0)
+                recency = 0.5 ** (age_hours / _RECENCY_HALF_LIFE_H)
+                similarity = score / max_fused
+                final = (
+                    _SIMILARITY_WEIGHT * similarity
+                    + _RECENCY_WEIGHT * recency
+                    + _IMPORTANCE_WEIGHT * float(row[4])
+                )
+                if final < _RECALL_MIN_SCORE:
+                    continue
+                hits.append(SearchHit(
+                    id=row[0], content=row[1], entity=row[2], topic=row[3],
+                    importance=row[4], known_at=row[5], source_ref=row[6],
+                    score=final,
+                ))
         hits.sort(key=lambda h: -h.score)
-        return hits
+        return hits[:k]
 
     def page(
         self,

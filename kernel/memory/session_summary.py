@@ -100,6 +100,19 @@ def generate_session_summary(
             logging.getLogger("ultron.memory").warning(
                 "Failed to store session summary in memory: %s", exc
             )
+        # §P2-A cross-session entity recall: persist the people/places/orgs
+        # the user talked about so auto-RAG resolves "he/she/they" next
+        # session (K9-derived entity memory, research/09).
+        try:
+            from kernel.memory.entities import EntityStore, extract_entities, \
+                remember_entities
+            store = EntityStore()
+            for message in user_messages:
+                for name, type_, _gender, conf in extract_entities(message):
+                    store.update(name, type_, _gender, conf)
+            remember_entities(store, memory)
+        except Exception:  # noqa: BLE001 — entity persistence is best-effort
+            pass
 
     return summary
 

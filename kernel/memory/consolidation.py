@@ -161,9 +161,18 @@ class Consolidator:
             report.noops += 1
             return
         if op.op == "ADD":
+            # §P2-B anti-echo guard: the judge sometimes re-proposes assistant
+            # narration ("based on my memory, you like X") as a new fact —
+            # storing it would make memory echo itself. Reject instead.
+            from kernel.memory.guards import is_echo_narrative, tech_state_importance
+            if op.content and is_echo_narrative(op.content):
+                report.rejected.append(
+                    (_render_op(op), "echoed assistant narrative"))
+                return
             report.added.append(self._engine.remember(
                 op.content, entity=op.entity, topic=op.topic,
-                importance=0.5 if op.importance is None else op.importance,
+                importance=tech_state_importance(
+                    op.content, 0.5 if op.importance is None else op.importance),
                 source_ref=source_ref or "consolidation",
             ))
             return

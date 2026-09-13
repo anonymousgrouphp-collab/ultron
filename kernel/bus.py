@@ -15,6 +15,7 @@ again (roadmap §4 Phase 1). Delivery semantics (v0, deliberately simple):
 
 from __future__ import annotations
 
+import asyncio
 import dataclasses
 import inspect
 import logging
@@ -58,14 +59,26 @@ def _matches(pattern: str, event_type: str) -> bool:
 
 
 class EventBus:
-    """Typed async pub/sub with a bounded history ring (debug + eval traces)."""
+    """Typed async pub/sub with a bounded history ring (debug + eval traces).
 
-    def __init__(self, history_size: int = 500) -> None:
+    §P3 hardening (K9-derived, research/09): each awaited subscriber runs
+    under a per-subscriber timeout (`handler_timeout_s`, default 10 s,
+    None = unbounded legacy behavior). A hung async subscriber — a dead
+    dashboard socket, a stuck background task — can no longer freeze the
+    publisher; it is cancelled, logged, and the remaining subscribers still
+    get the event. Sync handlers run inline as before (blocking sync code is
+    the handler author's contract violation, not a bus concern)."""
+
+    def __init__(self, history_size: int = 500,
+                 handler_timeout_s: float | None = 10.0) -> None:
         if history_size < 1:
             raise ValueError("history_size must be >= 1")
+        if handler_timeout_s is not None and handler_timeout_s <= 0:
+            raise ValueError("handler_timeout_s must be > 0 or None")
         self._subs: list[Subscription] = []
         self._history: deque[Event] = deque(maxlen=history_size)
         self._seq = 0
+        self._handler_timeout_s = handler_timeout_s
 
     # -- subscription ------------------------------------------------------
 
@@ -92,7 +105,15 @@ class EventBus:
             try:
                 result = sub.handler(stamped)
                 if inspect.isawaitable(result):
-                    await result
+                    if self._handler_timeout_s is not None:
+                        await asyncio.wait_for(
+                            result, timeout=self._handler_timeout_s)
+                    else:
+                        await result
+            except asyncio.TimeoutError:
+                log.warning(
+                    "bus: subscriber %r timed out after %ss on %s — cancelled",
+                    sub.pattern, self._handler_timeout_s, stamped.type)
             except Exception:  # subscriber isolation — never break the publisher
                 log.exception("bus: subscriber %r failed on %s",
                               sub.pattern, stamped.type)

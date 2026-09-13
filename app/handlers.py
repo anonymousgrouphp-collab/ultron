@@ -168,10 +168,16 @@ class LegacyHandlersMixin:
         value = args.get("value", "")
         if not key or not value:
             return "Memory was not saved because key or value was missing."
+        # §P2-B anti-echo guards: store the payload, not the speech-act
+        # wrapper ("remember that …"), and lift first-person tech-state
+        # updates to the importance floor.
+        from kernel.memory.guards import strip_store_prefix, tech_state_importance
+        content = strip_store_prefix(str(value))
         self._memory.remember(
-            str(value).strip(),
+            content,
             entity=str(category).strip() or "notes",
             topic=str(key).strip(),
+            importance=tech_state_importance(content, 0.5),
             source_ref="voice-live",
         )
         print(f"[Memory] saved {category}/{key}")
