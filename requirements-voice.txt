@@ -12,3 +12,6 @@ speechbrain==1.0.2
 # torch (CPU)   — required by speechbrain/openwakeword backends
 torch==2.9.1
 torchaudio==2.9.1
+# faster-whisper — local STT (report 11 S1): offline ears when Live is down;
+# ctranslate2 int8 CPU is the default. py-3.14 wheels verified 2026-09-13.
+faster-whisper==1.2.1

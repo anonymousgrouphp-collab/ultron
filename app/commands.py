@@ -96,8 +96,15 @@ class CommandMixin:
             )
             return
 
-        # Default: send to voice session
-        if not self._loop or not self.session:
+        # Default: send to the voice session. Live down (offline voice loop,
+        # dashboard text while reconnecting) → the AgentLoop IS the brain:
+        # the text still gets answered and spoken via the local TTS fallback.
+        if not self._loop:
+            return
+        if not self.session:
+            asyncio.run_coroutine_threadsafe(
+                self._run_offline_answer(clean_text), self._loop
+            )
             return
         asyncio.run_coroutine_threadsafe(
             self.session.send_client_content(
@@ -106,6 +113,17 @@ class CommandMixin:
             ),
             self._loop
         )
+
+    async def _run_offline_answer(self, text: str) -> str:
+        """Answer without a Live session: run the request through the
+        AgentLoop (the same gateway/tool choke point as /agent) and speak the
+        result. This is what makes the offline voice loop a full loop."""
+        try:
+            return await self._run_agent_task(text)
+        except Exception as exc:
+            self.ui.write_log(f"ERR: offline answer failed — {exc}")
+            self.speak("Sir, my local brain is not reachable right now.")
+            return ""
 
 
     def _get_agent_runner(self) -> AgentRunner:

@@ -9,9 +9,10 @@ from kernel.voice.engines import (
     load_silero_vad,
     load_speechbrain,
 )
+from kernel.voice.stt import SttEngine, SttResult
 
 __all__ = [
     "EchoGate", "EngineUnavailable", "GateState", "SpeakerIdEngine",
-    "VadEngine", "WakeWordEngine", "load_openwakeword", "load_silero_vad",
-    "load_speechbrain",
+    "SttEngine", "SttResult", "VadEngine", "WakeWordEngine",
+    "load_openwakeword", "load_silero_vad", "load_speechbrain",
 ]

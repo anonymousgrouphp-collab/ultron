@@ -558,6 +558,8 @@ class UltronLive(
                     print("[ULTRON] Connected.")
                     self.set_app_state("LISTENING")
                     self.ui.write_log("SYS: ULTRON online.")
+                    # Offline loop (report 11 S1) yields the mic back to Live.
+                    self.sync_local_voice()
 
                     if self._dashboard:
                         await self._dashboard.broadcast({"type": "status", "state": "active"})
@@ -641,6 +643,9 @@ class UltronLive(
 
             self.set_speaking(False)
             self.set_app_state("SLEEPING")
+            # Live is down — if local STT is armed, the offline loop becomes
+            # the ears until the reconnect lands (report 11 S1).
+            self.sync_local_voice()
 
             if self._dashboard:
                 await self._dashboard.broadcast({"type": "status", "state": "sleeping"})

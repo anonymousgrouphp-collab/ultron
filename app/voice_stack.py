@@ -43,6 +43,8 @@ class VoiceStackMixin:
     _tts_prefer_local: bool = False
     _tts_stop: threading.Event | None = None
     _tts_busy = threading.Lock()
+    _stt = None        # SttEngine | None (kernel/voice/stt.py, report 11 S1)
+    _local_voice = None  # LocalVoiceLoop | None (app/local_voice.py)
 
     def _setup_voice_stack(self) -> None:
         """Phase P1: build the voice engines the config asks for. Everything
@@ -62,6 +64,87 @@ class VoiceStackMixin:
                     f"SYS: Speaker ID unavailable ({exc}) — install "
                     "requirements-voice.txt to enable it.")
         self._setup_tts(cfg)
+        self._setup_stt(cfg)
+
+    def _setup_stt(self, cfg: dict) -> None:
+        """Local STT + offline voice loop (research adopt S1, report 11).
+        stt_backend: none (default, zero change) | faster_whisper. The loop
+        only ever runs while the Live session is down (sync_local_voice), so
+        arming it never touches the proven audio path."""
+        backend = (cfg.get("stt_backend") or "none").strip().lower()
+        if backend in ("", "none", "off"):
+            return
+        try:
+            from kernel.voice import stt as stt_mod
+
+            engine = stt_mod.load_from_config(cfg)
+        except Exception as exc:
+            self._stt = None
+            self.ui.write_log(
+                f"SYS: Local STT unavailable ({exc}) — install "
+                "requirements-voice.txt to enable offline ears.")
+            return
+        try:
+            from kernel.voice.engines import load_silero_vad
+
+            vad = load_silero_vad()
+        except Exception as exc:
+            self._stt = None
+            self.ui.write_log(
+                f"SYS: Local STT unavailable ({exc}) — the voice loop needs "
+                "Silero VAD (requirements-voice.txt).")
+            return
+        try:
+            from app.local_voice import LocalVoiceConfig, LocalVoiceLoop
+
+            self._stt = engine
+            self._local_voice = LocalVoiceLoop(
+                host=self,
+                engine=engine,
+                vad=vad,
+                on_text=self._on_local_voice_text,
+                on_partial=self._on_local_voice_partial,
+                config=LocalVoiceConfig.from_cfg(cfg),
+            )
+        except Exception as exc:
+            self._stt = None
+            self._local_voice = None
+            self.ui.write_log(f"SYS: Local voice loop failed to arm ({exc}).")
+            return
+        self.ui.write_log(
+            f"SYS: Local STT armed ({backend}) — offline ears active when "
+            "Live is down.")
+
+    def _on_local_voice_text(self, text: str) -> None:
+        """Final offline utterance → the ONE text router (both tiers)."""
+        clean = str(text or "").strip()
+        if not clean:
+            return
+        self.ui.write_log(f"You: {clean}")
+        self._on_text_command(clean)
+
+    def _on_local_voice_partial(self, text: str) -> None:
+        """Stabilized partial caption from the offline loop (S2)."""
+        clean = str(text or "").strip()
+        if clean:
+            self.ui.write_log(f"You: {clean} …")
+
+    def sync_local_voice(self) -> None:
+        """Start/stop the offline loop to match session liveness. Live up →
+        the session owns the mic; Live down → the local loop is the ears."""
+        loop = self._local_voice
+        if loop is None:
+            return
+        should_run = self.session is None
+        try:
+            if should_run and not loop.running:
+                loop.start()
+                if loop.running:
+                    self.ui.write_log("SYS: Offline voice loop active (listening locally).")
+            elif not should_run and loop.running:
+                loop.stop()
+        except Exception as exc:
+            self.ui.write_log(f"SYS: Local voice loop sync failed: {exc}")
 
     def _setup_tts(self, cfg: dict) -> None:
         """Local TTS engine (tts_backend: kokoro|piper). Default none = the
