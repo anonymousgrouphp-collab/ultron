@@ -72,6 +72,16 @@ button,input,select{font:inherit}
 #toasts{position:fixed;z-index:30;top:74px;right:18px;width:min(330px,80vw);pointer-events:none}
 .toast{padding:10px 12px;margin-bottom:8px;border:1px solid var(--l);background:rgba(24,0,5,.92);box-shadow:0 0 22px rgba(255,19,32,.16);color:var(--m)}
 .toast strong{display:block;color:var(--h);font-size:10px;letter-spacing:.14em;margin-bottom:3px}
+.consent-card{position:fixed;z-index:40;bottom:18px;right:18px;width:min(340px,86vw);padding:12px;border:1px solid var(--l);background:rgba(24,0,5,.96);box-shadow:0 0 30px rgba(255,19,32,.3);color:var(--m)}
+.consent-title{font:700 11px Consolas,monospace;color:var(--h);letter-spacing:.12em;margin-bottom:8px}
+.consent-risk{color:var(--r);margin-left:6px}
+.consent-args{max-height:110px;overflow:auto;margin:0 0 10px;padding:8px;border:1px solid var(--l);background:#080001;color:var(--i);font:10px Consolas,monospace;white-space:pre-wrap;word-break:break-all}
+.consent-actions{display:flex;gap:8px}
+.consent-approve,.consent-deny{flex:1;padding:9px;border:1px solid var(--l);background:#080001;color:var(--m);font:700 11px Consolas,monospace;letter-spacing:.1em;cursor:pointer}
+.consent-approve{border-color:#37ff8b;color:#37ff8b}
+.consent-approve:hover{background:#37ff8b;color:#080001}
+.consent-deny{border-color:#ff5d5d;color:#ff5d5d}
+.consent-deny:hover{background:#ff5d5d;color:#080001}
 @media(max-width:850px){#app{grid-template-columns:1fr;padding:10px}.side,.tele{display:none}.copy{margin-top:20vh}.dock .btn:nth-child(n+5),.buttons .btn:not(.keep){display:none}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important}}
 .reactor-readout { position:absolute; top:17%; left:50%; transform:translateX(-50%); width:min(680px,86%); height:340px; pointer-events:none; }
@@ -701,6 +711,52 @@ window.showToast = (title, msg) => {
   setTimeout(() => x.remove(), 4200);
 };
 
+// ── research/12 D2: consent popup ─────────────────────────────────────────
+let consentEl = null;
+function consentArgsText(a) {
+  try {
+    const s = typeof a === 'string' ? a : JSON.stringify(a);
+    return s.length > 300 ? s.slice(0, 297) + '…' : (s || '{}');
+  } catch { return String(a); }
+}
+function dismissConsentPopup(id) {
+  if (consentEl && (!id || consentEl.dataset.id === id)) {
+    consentEl.remove(); consentEl = null;
+  }
+}
+function showConsentPopup(m) {
+  const id = m.id || '';
+  if (!id) return;
+  dismissConsentPopup();                     // one pending request at a time
+  const el = document.createElement('div');
+  el.className = 'consent-card';
+  el.dataset.id = id;
+  el.innerHTML = `
+    <div class="consent-title">🔒 ${esc(m.name || 'tool')} <span class="consent-risk">${esc(m.risk || '')}</span></div>
+    <pre class="consent-args">${esc(consentArgsText(m.args))}</pre>
+    <div class="consent-actions">
+      <button class="consent-approve">Approve</button>
+      <button class="consent-deny">Deny</button>
+    </div>`;
+  const settle = approved => {
+    fetch('/api/consent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token !== '__TOKEN__' ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ id, approved })
+    }).then(r => r.json()).then(d => {
+      if (!d.settled) showToast('CONSENT', 'Already answered elsewhere.');
+      dismissConsentPopup(id);               // resolution event will log it
+    }).catch(() => {
+      showToast('CONSENT', 'Answer failed — the local dialog still works.');
+      dismissConsentPopup(id);
+    });
+  };
+  el.querySelector('.consent-approve').onclick = () => settle(true);
+  el.querySelector('.consent-deny').onclick = () => settle(false);
+  document.body.append(el);
+  consentEl = el;
+}
+
 window.addMemoryLog = t => {
   let x = document.createElement('div');
   x.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong> ${esc(t)}`;
@@ -1062,6 +1118,15 @@ function receive(m) {
       const stateStr = m.fired ? 'FIRED' : (m.suppressed ? 'SUPPRESSED' : 'EVAL');
       cardText = `[PROACTIVE ${stateStr}] ${m.rule || 'rule'}: ${m.message || ''}`;
       if (m.fired) showToast('PROACTIVE', m.message || m.rule);
+    } else if (et === 'tool.confirmation_request') {
+      showConsentPopup(m);
+      cardText = `[CONSENT] approval needed: ${m.name || 'tool'} (${m.risk || '?'})`;
+    } else if (et === 'tool.confirmation_resolved') {
+      const via = m.via || 'unknown';
+      const verdict = m.allowed ? 'APPROVED' : 'DENIED';
+      dismissConsentPopup(m.id);
+      cardText = `[CONSENT] ${verdict} via ${via}`;
+      if (via === 'dialog') showToast('CONSENT', `Settled locally: ${verdict}`);
     } else if (et.startsWith('tool.') || m.tool) {
       const etName = et || 'tool.event';
       const stat = m.error ? `FAILED (${m.error})` : (m.ok ? 'OK' : 'DONE');

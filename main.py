@@ -212,6 +212,12 @@ class UltronLive(
             self._tool_runtime.registry,
             BASE_DIR / ".ultron" / "coding_workspace",
         )
+        # research/12 D11: named project workspaces under the same jail.
+        from kernel.coding import build_project_tools
+        build_project_tools(
+            self._tool_runtime.registry,
+            BASE_DIR / ".ultron" / "coding_workspace",
+        )
         build_research_tools(
             self._tool_runtime.registry,
             consent=lambda: bool(loader.load_config().get("web_research_enabled", False)),
@@ -262,6 +268,14 @@ class UltronLive(
             job_queue=self._job_queue,
             memory=self._memory,
             users=self._users,
+        )
+        # research/12 D12: transcript export (writes a file → WRITE risk,
+        # so the D2 gate asks on first use).
+        from kernel.diagnostics.snapshot import build_transcript_tools
+        build_transcript_tools(
+            self._tool_runtime.registry,
+            transcript_provider=lambda: list(self._recent_transcript),
+            out_dir=BASE_DIR / ".ultron" / "transcripts",
         )
         self._orchestrator = Orchestrator(
             self._job_queue,
@@ -703,6 +717,8 @@ class UltronLive(
             from dashboard.server import DashboardServer
             self._dashboard = DashboardServer()
             self._dashboard.set_connect_callback(self._on_phone_connected)
+            # research/12 D2: dashboard popup settles consent by request id.
+            self._dashboard.set_consent_resolver(self._consent_gate.resolve)
             asyncio.create_task(self._dashboard.serve())
             asyncio.create_task(self._process_dashboard_commands())
             # Phase O4: bridge kernel EventBus → dashboard WebSocket

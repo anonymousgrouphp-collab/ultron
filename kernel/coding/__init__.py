@@ -14,6 +14,7 @@ stronger rung (Windows Sandbox / WSL2 container) — out of v0 scope, documented
 residual risk.
 """
 
+from kernel.coding.projects import build_project_tools
 from kernel.coding.sandbox import JOB_OBJECT_AVAILABLE, run_sandboxed
 from kernel.coding.tools import CODING_TOOLS, build_coding_tools, spawn_coding_job
 
@@ -21,6 +22,7 @@ __all__ = [
     "CODING_TOOLS",
     "JOB_OBJECT_AVAILABLE",
     "build_coding_tools",
+    "build_project_tools",
     "run_sandboxed",
     "spawn_coding_job",
 ]

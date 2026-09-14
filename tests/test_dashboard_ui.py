@@ -356,3 +356,55 @@ class TestStaticHygiene:
         queued = server._phone_audio_queue.get_nowait()
         assert queued["data"] == pcm_data
         assert queued["mime_type"] == "audio/pcm"
+
+
+class TestConsentEndpoint:
+    """research/12 D2: the dashboard settles pending consent requests."""
+
+    def _login(self, dashboard, client):
+        pin = dashboard.new_key(expiry_secs=60)
+        resp = client.post("/login", json={"pin": pin})
+        assert resp.status_code == 200
+        return {"Authorization": f"Bearer {resp.json()['token']}"}
+
+    def test_consent_requires_auth(self, client):
+        resp = client.post("/api/consent", json={"id": "x", "approved": True})
+        assert resp.status_code == 401
+
+    def test_consent_requires_request_id(self, dashboard, client):
+        headers = self._login(dashboard, client)
+        resp = client.post("/api/consent", json={"approved": True},
+                           headers=headers)
+        assert resp.status_code == 400
+
+    def test_consent_without_resolver_returns_503(self, dashboard, client):
+        headers = self._login(dashboard, client)
+        resp = client.post("/api/consent", json={"id": "abc", "approved": True},
+                           headers=headers)
+        assert resp.status_code == 503
+
+    def test_consent_round_trip_resolves_pending(self, dashboard, client):
+        """An attached resolver receives (id, approved) and its return value
+        ('did this call settle it?') surfaces in the response."""
+
+        resolved: dict = {}
+
+        def fake_resolver(request_id: str, approved: bool) -> bool:
+            resolved["args"] = (request_id, approved)
+            return True
+
+        dashboard.set_consent_resolver(fake_resolver)
+        headers = self._login(dashboard, client)
+        resp = client.post("/api/consent",
+                           json={"id": "req-1", "approved": False},
+                           headers=headers)
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True, "settled": True}
+        assert resolved["args"] == ("req-1", False)
+
+    def test_consent_resolver_reports_already_settled(self, dashboard, client):
+        dashboard.set_consent_resolver(lambda rid, approved: False)
+        headers = self._login(dashboard, client)
+        resp = client.post("/api/consent", json={"id": "req-2", "approved": True},
+                           headers=headers)
+        assert resp.json()["settled"] is False

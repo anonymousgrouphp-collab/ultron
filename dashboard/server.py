@@ -193,6 +193,7 @@ class DashboardServer:
         self._command_queue               = asyncio.Queue()
         self._wake_callback               = None
         self._connect_callback            = None
+        self._consent_resolver            = None   # research/12 D2: id→bool resolver
         self._pending_keys: dict[str, float] = {}
         self._device_sessions: dict[str, dict] = {}  # device_token → {session_key}
         self._phone_audio_queue: asyncio.Queue    = asyncio.Queue(maxsize=200)
@@ -277,6 +278,11 @@ class DashboardServer:
 
     def set_connect_callback(self, fn) -> None:
         self._connect_callback = fn
+
+    def set_consent_resolver(self, fn) -> None:
+        """research/12 D2: the app wires ConsentGate.resolve here so the
+        dashboard popup can settle pending consent requests by id."""
+        self._consent_resolver = fn
 
     # ── broadcast ────────────────────────────────────────────────────────
 
@@ -445,6 +451,26 @@ class DashboardServer:
                 if self._wake_callback:
                     self._wake_callback()
             return JSONResponse({"ok": True})
+
+        @app.post("/api/consent")
+        async def consent_ep(req: Request):
+            # research/12 D2: settle a pending consent request by id.
+            # Auth (Bearer) required; the request id is a uuid that only
+            # travels on the authenticated WS feed — guessing it is not a
+            # realistic path, and an authenticated client could already run
+            # arbitrary commands via /api/command (same trust level).
+            if not _auth(req):
+                return JSONResponse({"error": "Unauthorized"}, status_code=401)
+            body = await req.json()
+            rid = str(body.get("id") or "")
+            if not rid:
+                return JSONResponse({"error": "request id required"}, status_code=400)
+            resolver = self._consent_resolver
+            if resolver is None:
+                return JSONResponse({"error": "no consent resolver attached"},
+                                    status_code=503)
+            settled = bool(resolver(rid, bool(body.get("approved"))))
+            return JSONResponse({"ok": True, "settled": settled})
 
         @app.post("/api/wake")
         async def wake_ep(req: Request):

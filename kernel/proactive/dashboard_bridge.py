@@ -93,6 +93,11 @@ class BusDashboardBridge:
         detail = (getattr(event, "payload", None)
                   or getattr(event, "detail", None) or {})
         segment = getattr(event, "type", getattr(event, "segment", ""))
+        # research/12 D2: consent requests/resolutions pass through WHOLE —
+        # the dashboard popup needs id + args (fixed-key shaping drops them).
+        if segment.startswith("tool.confirmation"):
+            self._broadcast(segment, dict(detail))
+            return
         self._broadcast(segment, {
             "tool": detail.get("name", ""),
             "ok": detail.get("ok", None),
