@@ -105,28 +105,57 @@ class MediaController:
         """Get current media state."""
         return self._state
 
+    # -- brightness (PJ-01, research/13) -------------------------------------
+    # Display brightness via screen-brightness-control (WMI/DDC-CI under the
+    # hood). Structured results — {ok, detail, value} — because these are
+    # tool-facing; the legacy string methods above stay for compatibility.
+
+    def brightness(self) -> dict[str, object]:
+        """Read the primary display's brightness (0-100)."""
+        try:
+            import screen_brightness_control as sbc
+        except ImportError:
+            return {"ok": False, "value": None,
+                    "detail": "screen-brightness-control is not installed"}
+        try:
+            values = sbc.get_brightness()
+        except Exception as exc:  # noqa: BLE001 — WMI/DDL failures → clean result
+            return {"ok": False, "value": None,
+                    "detail": f"brightness read failed: {type(exc).__name__}"}
+        if not values:
+            return {"ok": False, "value": None, "detail": "no brightness-capable display found"}
+        return {"ok": True, "value": int(values[0]),
+                "detail": f"brightness is {int(values[0])}%"}
+
+    def set_brightness(self, value: int) -> dict[str, object]:
+        """Set brightness on all displays; value clamped to 0-100."""
+        try:
+            import screen_brightness_control as sbc
+        except ImportError:
+            return {"ok": False, "value": None,
+                    "detail": "screen-brightness-control is not installed"}
+        clamped = max(0, min(100, int(value)))
+        try:
+            sbc.set_brightness(clamped)
+        except Exception as exc:  # noqa: BLE001
+            return {"ok": False, "value": clamped,
+                    "detail": f"brightness set failed: {type(exc).__name__}"}
+        return {"ok": True, "value": clamped,
+                "detail": f"brightness set to {clamped}%"}
+
+    def adjust_brightness(self, delta: int) -> dict[str, object]:
+        """Relative brightness change (clamped); fails clean when the current
+        value cannot be read."""
+        current = self.brightness()
+        value = current["value"]
+        if not current["ok"] or not isinstance(value, int):
+            return {"ok": False, "value": None, "detail": str(current["detail"])}
+        return self.set_brightness(value + int(delta))
+
     def register_tools(self, registry: Any) -> None:
-        """Register media tools with a ToolRegistry."""
-        from kernel.types import RiskClass
-        from kernel.tools import Tool
+        """Register the media/brightness tools — delegates to the ONE builder
+        in kernel/media/tools.py (the old _noop_handler registration is gone;
+        the audit's 'media tools absent from declarations' finding closed)."""
+        from kernel.media.tools import build_media_tools
 
-        def _noop_handler() -> str:
-            return "ok"
-
-        media_handlers = {
-            "media_play_pause": self.play_pause,
-            "media_next": self.next_track,
-            "media_previous": self.previous_track,
-            "media_volume_up": self.volume_up,
-            "media_volume_down": self.volume_down,
-            "media_mute": self.mute,
-        }
-
-        for name, handler_fn in media_handlers.items():
-            registry.register(Tool(
-                name=name,
-                description=f"Media control: {name}",
-                parameters={"type": "object", "properties": {}},
-                handler=_noop_handler,  # type: ignore[arg-type]  # TODO: wire real handlers
-                risk=RiskClass.READ,
-            ))
+        build_media_tools(registry, self)

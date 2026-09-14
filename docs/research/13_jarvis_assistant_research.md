@@ -224,3 +224,37 @@ desktop-env gaps (PJ-01/02/03).
   `app/text_splitter.py` + `app/local_voice.py` stop/splitter seams read.
 - Residual risk: report is docs-only (no code changed); PJ-01 wheel verification for
   py-3.14 deliberately deferred to its implementation stream.
+
+## 8. Implementation addendum (2026-09-14, same-day pass)
+
+User authorized a direct-main implementation pass ("implement everything you liked").
+Landed (see PROGRESS.md → "PJ Adoption — research 13 adopt PJ-01..PJ-05" for the full
+evidence table):
+
+- **PJ-01** — `kernel/media/tools.py`: `brightness_get` (READ) + `brightness_set`
+  (set/adjust, clamp, WRITE) over `screen-brightness-control` (lazy import, clean
+  degradation); the Phase-P4 `_noop_handler` media registration replaced by the real
+  `media_control` tool. py-3.14 wheel VERIFIED and installed (sbc 0.27.2 + WMI 1.5.1);
+  REAL probe on the user machine: read 30% → set-to-30 → adjust+0, all ok via WMI.
+- **PJ-02** — `kernel/computer/power.py` + `system_power` tool (WRITE): lock_workstation
+  / shutdown / restart (5–600s abortable grace) / sign_out / abort (`shutdown /a`).
+- **PJ-03** — `kernel/computer/raw_input.py` (the ONE SendInput seam) + `raw_click`/
+  `raw_move`/`raw_scroll` verbs inside InputGateway (`kind="pixels"`, the lane P4-A's
+  docstring anticipated): window-relative coords resolved to absolute against the
+  admitted window's rect (outside → refuse), foreground raised + verified before every
+  event; `raw_act` tool (EXECUTE, dry-run default) registered only behind
+  `raw_input_enabled` (default OFF).
+- **PJ-04** — `kernel/computer/whatsapp.py` + `whatsapp_send` tool (WRITE): pywinauto
+  over the admitted WhatsApp window, foreground re-verified before EVERY keystroke
+  burst — drift aborts before anything further is typed. Config `whatsapp_send_enabled`,
+  default OFF (the report's "adopt-if-demanded" posture).
+- **PJ-05** — `kernel/home/serial_bridge.py` (pyserial lazy, port opened ONCE — MCU
+  reboots on DTR) + `hardware_cmd` tool (WRITE) behind `serial_bridge_enabled` +
+  `serial_port` (default OFF). HID-unlock itself parks with the hardware stream; the
+  command channel is ready.
+- **PJ-06** — note-only (no edge-tts in ULTRON).
+
+Registry 41 → **45 tools** (media_control, brightness_get, brightness_set, system_power
+always on; raw_act / whatsapp_send / hardware_cmd config-gated). Suite **938 passed /
+4 skipped** (from 868), ruff clean, mypy Success 105 files, killlist PASS. Requirements
+pinned (win32): screen-brightness-control==0.27.2, WMI==1.5.1, pyserial==3.5.

@@ -203,11 +203,39 @@ class UltronLive(
         # and drive the desktop. No new kernel code: registration is the fix
         # (the audit's "zero production callers" finding, closed).
         register_memory_tools(self._tool_runtime.registry, self._memory)
-        self._input_gateway = InputGateway()
+        # research/13 PJ-03: the raw pixel-lane verbs (SendInput mouse) —
+        # config-gated OFF by default; when on, the gateway resolves raw_*
+        # verbs and raw_act joins the registry.
+        _raw_ok = bool(loader.load_config().get("raw_input_enabled", False))
+        self._input_gateway = InputGateway(raw_enabled=_raw_ok)
         build_computer_tools(
             self._tool_runtime.registry, self._input_gateway,
-            spawn_allowed=True,
+            spawn_allowed=True, raw_allowed=_raw_ok,
         )
+        # research/13 PJ-02: OS power verbs — WRITE risk, consent-gated,
+        # shutdown/restart carry an abortable 5s grace.
+        from kernel.computer import build_power_tools
+        build_power_tools(self._tool_runtime.registry)
+        # research/13 PJ-01: media + brightness — the real registration the
+        # audit's "media tools absent" finding wanted (replaces the noop path).
+        from kernel.media import build_media_tools
+        build_media_tools(self._tool_runtime.registry)
+        # research/13 PJ-04: WhatsApp Desktop send — flag-gated OFF by
+        # default (blind-UI risk); when on, still consent-gated per send and
+        # aborts on foreground drift.
+        if loader.load_config().get("whatsapp_send_enabled", False):
+            from kernel.computer import build_whatsapp_tool
+            build_whatsapp_tool(self._tool_runtime.registry, self._input_gateway)
+        # research/13 PJ-05: MCU serial bridge (ESP32/Arduino) — flag-gated
+        # OFF by default; the HID-unlock trick parks with the hardware stream.
+        _serial_cfg = loader.load_config()
+        if _serial_cfg.get("serial_bridge_enabled", False) and _serial_cfg.get("serial_port"):
+            from kernel.home import SerialBridge, build_hardware_tool
+            build_hardware_tool(
+                self._tool_runtime.registry,
+                SerialBridge(str(_serial_cfg["serial_port"]),
+                             baud=int(_serial_cfg.get("serial_baud", 115200))),
+            )
         build_coding_tools(
             self._tool_runtime.registry,
             BASE_DIR / ".ultron" / "coding_workspace",

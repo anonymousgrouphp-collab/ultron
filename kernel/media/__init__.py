@@ -1,9 +1,10 @@
-"""kernel/media — Phase P4: media control via MCP.
+"""kernel/media — Phase P4 + PJ-01: media & brightness control.
 
-Provides media playback control (play, pause, next, previous, volume)
-as MCP-compatible tools that can be mounted via the kernel's MCP client.
+Media playback (play/pause/next/previous/volume) + display brightness —
+kernel tools via kernel/media/tools.py (the ONE registration path).
 """
 
 from kernel.media.controller import MediaController
+from kernel.media.tools import build_media_tools
 
-__all__ = ["MediaController"]
+__all__ = ["MediaController", "build_media_tools"]

@@ -2,9 +2,11 @@
 
 Research/03 doctrine: every action is UIA-first — find the control by
 name/automation_id, actuate via its pattern (Invoke/Toggle/SetValue). Pixels
-are a fallback that P4-A deliberately does NOT include (one stack; the
-pixel lane lands with OmniParser/Qwen3-VL later — the kernel interface
-already anticipates it via `kind="uia"|"pixels"` on the resolved plan).
+are the fallback lane for surfaces UIA cannot see (games, canvas apps,
+remote sessions) — the `raw_*` verbs here are that lane (PJ-03, research/13):
+real mouse events via the ONE SendInput seam (kernel/computer/raw_input.py),
+gated behind config `raw_input_enabled` (default OFF), coordinate-scoped to
+an admitted window's rect, foreground-verified before each event.
 
 Consent + dry-run (roadmap Phase-4 gate):
 - `dry_run=True` resolves the target (window + element + verb) and returns a
@@ -14,7 +16,7 @@ Consent + dry-run (roadmap Phase-4 gate):
   maps — enforced here at the verb layer, before the policy engine sees them.
 
 Timing doctrine from the probes: real store apps need settle time (Calculator
-~8 s to map its window) and type_keys at high speed drops characters
+~8 s to map their window) and type_keys at high speed drops characters
 (pause=0.01 lost one char in a probe). Defaults: settle 3.0 s, type pause
 0.03.
 """
@@ -34,15 +36,33 @@ from kernel.computer.observe import (
 
 log = logging.getLogger(__name__)
 
-__all__ = ["ActionPlan", "ActionResult", "InputGateway", "VERBS"]
+__all__ = ["ActionPlan", "ActionResult", "InputGateway", "RAW_VERBS", "VERBS"]
 
 # Verbs the gateway can execute (kernel verbs from research/03 §3 pattern table).
 VERBS = ("invoke", "toggle", "set_value", "type_keys", "press_hotkey", "close_window")
+
+# PJ-03 raw pixel-lane verbs (research/13): only resolvable when the gateway
+# was built with raw_enabled=True. All coordinates are window-RELATIVE from
+# the model; resolve converts them to absolute against the window rect and
+# refuses points outside it.
+RAW_VERBS = ("raw_click", "raw_move", "raw_scroll")
+_BUTTONS = ("left", "right", "middle")
 
 # Act defaults from live probes on this machine (Win11 + store apps).
 SETTLE_S = 3.0
 TYPE_PAUSE = 0.03
 TYPE_WITH_SPACES = True
+
+
+def _parse_pair(text: str, what: str) -> tuple[int, int]:
+    """Parse "x,y" / "dx,dy" integer pairs from the raw-verb argument."""
+    parts = (text or "").split(",")
+    if len(parts) != 2:
+        raise DesktopError(f'raw verb argument must be "{what}" integers, got {text!r}')
+    try:
+        return int(parts[0].strip()), int(parts[1].strip())
+    except ValueError as exc:
+        raise DesktopError(f'raw verb argument must be "{what}" integers, got {text!r}') from exc
 
 
 @dataclass(frozen=True)
@@ -54,9 +74,10 @@ class ActionPlan:
     pid: int
     handle: int
     target: str                     # control name or automation_id
-    target_type: str                 # control type when known
-    argument: str = ""               # text to type / value to set / hotkey
-    kind: str = "uia"                # "uia" today; "pixels" is the future lane
+    target_type: str                 # control type when known (raw_click: button)
+    argument: str = ""               # text / value / hotkey; raw verbs: absolute
+                                     # "x,y" px or "dx,dy" scroll notches
+    kind: str = "uia"                # "uia"; raw_* verbs resolve as "pixels"
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -91,8 +112,15 @@ class InputGateway:
     type into it. `allow_*` is the only way a window enters the set.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, raw_enabled: bool = False) -> None:
         self._allowed: dict[int, tuple[str, int]] = {}  # handle -> (title, pid)
+        self._raw_enabled = raw_enabled
+
+    @property
+    def raw_enabled(self) -> bool:
+        """Whether the raw pixel-lane verbs resolve on this gateway
+        (config `raw_input_enabled`; default off)."""
+        return self._raw_enabled
 
     # -- scope management ---------------------------------------------------
 
@@ -153,10 +181,14 @@ class InputGateway:
         """Resolve verb+window+target to a concrete plan WITHOUT executing.
 
         The resolution is what makes dry-run honest: a preview names the exact
-        control (name, type, automation_id, window) that will be actuated."""
-        if verb not in VERBS:
+        control (name, type, automation_id, window) that will be actuated —
+        or, for the raw verbs, the exact absolute point/delta inside an
+        admitted window's rect that will receive the event."""
+        if verb not in VERBS and verb not in RAW_VERBS:
             raise DesktopError(
-                f"unknown verb {verb!r} — supported: {', '.join(VERBS)}")
+                f"unknown verb {verb!r} — supported: {', '.join(VERBS + RAW_VERBS)}")
+        if verb in RAW_VERBS:
+            return self._resolve_raw(verb, window, argument, target_type)
         if verb == "close_window":
             if target:
                 raise DesktopError("close_window takes no target")
@@ -189,8 +221,58 @@ class InputGateway:
                           target=snap.name or snap.automation_id,
                           target_type=snap.control_type, argument=argument)
 
+    def _resolve_raw(self, verb: str, window: str, argument: str,
+                     target_type: str | None) -> ActionPlan:
+        """Resolve a raw pixel-lane verb: coordinate-scoped to the admitted
+        window's rect, foreground-verified at act time by raw_input."""
+        if not self._raw_enabled:
+            raise DesktopError(
+                "raw input tier is disabled — enable config raw_input_enabled")
+        from kernel.computer import raw_input as raw  # local: Windows-only ctypes
+
+        arg = (argument or "").strip()
+        handle, bound_title, pid = self._find_allowed_by_title(window)
+        self._scope(handle, bound_title, pid)
+
+        if verb == "raw_scroll":
+            dx, dy = _parse_pair(arg, "dx,dy")
+            if dx == 0 and dy == 0:
+                raise DesktopError("scroll delta is zero — nothing to do")
+            return ActionPlan(verb=verb, window=bound_title, pid=pid, handle=handle,
+                              target="", target_type="", argument=f"{dx},{dy}",
+                              kind="pixels")
+        x, y = _parse_pair(arg, "x,y")
+        left, top, right, bottom = raw.window_rect(handle)
+        ax, ay = left + x, top + y
+        if not (left <= ax < right and top <= ay < bottom):
+            raise DesktopError(
+                f"point ({x},{y}) relative to {bound_title!r} resolves to absolute "
+                f"({ax},{ay}) — outside the window rect "
+                f"({left},{top},{right},{bottom}); refusing")
+        if verb == "raw_move":
+            return ActionPlan(verb=verb, window=bound_title, pid=pid, handle=handle,
+                              target="", target_type="", argument=f"{ax},{ay}",
+                              kind="pixels")
+        button = (target_type or "left").lower()
+        if button not in _BUTTONS:
+            raise DesktopError(
+                f"unsupported button {button!r} — left/right/middle")
+        return ActionPlan(verb=verb, window=bound_title, pid=pid, handle=handle,
+                          target="", target_type=button, argument=f"{ax},{ay}",
+                          kind="pixels")
+
     def preview(self, plan: ActionPlan) -> dict[str, object]:
         """Human/model-readable statement of what `execute(plan)` will do."""
+        if plan.verb in RAW_VERBS:
+            if plan.verb == "raw_scroll":
+                what = f"scroll by ({plan.argument}) notches over {plan.window!r}"
+            elif plan.verb == "raw_move":
+                what = f"move the cursor to ({plan.argument}) over {plan.window!r}"
+            else:
+                what = (f"{plan.target_type}-click at ({plan.argument}) "
+                        f"in {plan.window!r}")
+            return {"what": what, "act": "raw mouse event (SendInput)",
+                    "argument": plan.argument}
         if plan.verb == "close_window":
             return {"what": f"close window {plan.window!r}", "act": "none",
                     "details": f"pid {plan.pid}, handle {plan.handle}"}
@@ -217,6 +299,8 @@ class InputGateway:
         try:
             if plan.verb == "close_window":
                 return self._close(plan)
+            if plan.verb in RAW_VERBS:
+                return self._raw_act(plan)
             return self._act_on_element(plan)
         except DesktopError as exc:
             return ActionResult(ok=False, plan=plan, dry_run=False, detail=str(exc))
@@ -226,6 +310,20 @@ class InputGateway:
                                 detail=f"action failed: {type(exc).__name__}")
 
     # individual verbs ------------------------------------------------------
+
+    def _raw_act(self, plan: ActionPlan) -> ActionResult:
+        """Fire a resolved raw event (foreground re-verified inside raw_input —
+        a covered point would hit whatever is on top, never the approved
+        window)."""
+        from kernel.computer import raw_input as raw  # local: Windows-only ctypes
+
+        try:
+            data = raw.execute_plan(plan.verb, plan.argument, plan.handle,
+                                    target_type=plan.target_type)
+        except DesktopError as exc:
+            return ActionResult(ok=False, plan=plan, dry_run=False, detail=str(exc))
+        return ActionResult(ok=True, plan=plan, dry_run=False,
+                            detail=str(data.get("detail", "")))
 
     def _element_for(self, plan: ActionPlan):
         """Re-resolve the element at act time (windows change between preview

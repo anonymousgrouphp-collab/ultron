@@ -9,7 +9,13 @@ tools; no second stack is added, the first UIA-first one is built.
 - tools: kernel Tool registrations behind PolicyEngine consent
 """
 
-from kernel.computer.act import ActionPlan, ActionResult, InputGateway, VERBS
+from kernel.computer.act import (
+    RAW_VERBS,
+    ActionPlan,
+    ActionResult,
+    InputGateway,
+    VERBS,
+)
 from kernel.computer.observe import (
     DesktopError,
     ElementSnapshot,
@@ -20,11 +26,18 @@ from kernel.computer.observe import (
     read_text,
     top_windows,
 )
-from kernel.computer.tools import COMPUTER_TOOLS, build_computer_tools
+from kernel.computer.tools import (
+    COMPUTER_TOOLS,
+    RAW_TOOLS,
+    build_computer_tools,
+    build_power_tools,
+    build_whatsapp_tool,
+)
 
 __all__ = [
     "ActionPlan", "ActionResult", "COMPUTER_TOOLS", "DesktopError",
-    "ElementSnapshot", "InputGateway", "UIA_AVAILABLE", "VERBS", "WindowInfo",
-    "build_computer_tools", "dump_tree", "find_elements", "read_text",
-    "top_windows",
+    "ElementSnapshot", "InputGateway", "RAW_TOOLS", "RAW_VERBS",
+    "UIA_AVAILABLE", "VERBS", "WindowInfo",
+    "build_computer_tools", "build_power_tools", "build_whatsapp_tool",
+    "dump_tree", "find_elements", "read_text", "top_windows",
 ]

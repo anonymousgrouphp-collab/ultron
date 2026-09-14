@@ -9,10 +9,21 @@ the rest of the kernel. Risk classes (the consent posture, roadmap §3.4):
 - act with execute=True              → EXECUTE (consent; the UIA verbs type/click)
 - close_window                       → DESTRUCTIVE-class consent at the VERB layer
                                        + WRITE risk (a close can lose work)
+- raw_act (PJ-03, research/13)       → EXECUTE; registered ONLY when the caller
+                                       passes raw_allowed=True (config
+                                       `raw_input_enabled`, default OFF)
+- system_power (PJ-02)               → WRITE   (consent; verb visible in args;
+                                       shutdown/restart keep a 5s abortable grace)
+- whatsapp_send (PJ-04)              → WRITE   (consent; registered only when the
+                                       caller passes whatsapp_allowed=True — config
+                                       `whatsapp_send_enabled`, default OFF)
 
 `spawn_app` admits windows into the InputGateway's allowed set ONLY for
 processes it spawned itself (pid diffed before/after) — a live user's window
-can never be admitted by name confusion.
+can never be admitted by name confusion. The ONE deliberate exception is
+whatsapp_send, which must act on the user's own running WhatsApp window: it
+admits exactly the window it verified (process/title matched) and aborts the
+moment the foreground drifts from it.
 """
 
 from __future__ import annotations
@@ -31,12 +42,15 @@ from kernel.computer.observe import (
     read_text,
     top_windows,
 )
+from kernel.computer.power import PowerError, run_power_verb
+from kernel.computer import whatsapp as whatsapp_mod
 from kernel.tools import ToolRegistry
 from kernel.types import RiskClass, ToolCall, ToolResult
 
 log = logging.getLogger(__name__)
 
-__all__ = ["COMPUTER_TOOLS", "InputGateway", "build_computer_tools", "spawn_window_for"]
+__all__ = ["COMPUTER_TOOLS", "InputGateway", "build_computer_tools",
+           "build_power_tools", "build_whatsapp_tool", "spawn_window_for"]
 
 COMPUTER_TOOLS = (
     "screen_describe",   # J-06: enumerate windows (+ optional UIA text)
@@ -44,6 +58,7 @@ COMPUTER_TOOLS = (
     "spawn_app",         # launch an app; returns the fresh window (allowed set)
     "ui_act",            # J-07 act: resolve + preview/execute a UIA verb
 )
+RAW_TOOLS = ("raw_act",)  # PJ-03 — registered only when raw_allowed=True
 
 _SPAWN_SETTLE_S = 8.0     # store apps need seconds to map their window (probes)
 _SPAWN_TIMEOUT_S = 30.0
@@ -102,8 +117,10 @@ def _kill_quietly(proc: subprocess.Popen) -> None:
 
 
 def build_computer_tools(registry: ToolRegistry, gateway: InputGateway,
-                         *, spawn_allowed: bool = True) -> None:
-    """Register the computer-control tools on `registry`."""
+                         *, spawn_allowed: bool = True,
+                         raw_allowed: bool = False) -> None:
+    """Register the computer-control tools on `registry`. raw_allowed=True
+    additionally registers the raw pixel-lane tool (PJ-03)."""
 
     @registry.tool(
         name="screen_describe",
@@ -242,3 +259,113 @@ def build_computer_tools(registry: ToolRegistry, gateway: InputGateway,
         return ToolResult.success(call, data=result.as_dict(),
                                   risk=RiskClass.EXECUTE) if result.ok \
             else ToolResult.fail(call, result.detail, risk=RiskClass.EXECUTE)
+
+    if not raw_allowed:  # PJ-03: the pixel lane is config-gated, default OFF
+        return
+
+    @registry.tool(
+        name="raw_act",
+        description="Raw mouse input for surfaces UI Automation cannot see "
+                    "(games, canvas apps, remote sessions). Coordinates are "
+                    "RELATIVE to the admitted window's top-left and are "
+                    "refused if they fall outside it; the window is brought "
+                    "to the foreground and verified before each event. Verbs: "
+                    "raw_click (x,y; button left/right/middle), raw_move "
+                    "(x,y), raw_scroll (dx,dy notches; positive dy = up). "
+                    "Default is dry-run: resolves the exact point and "
+                    "previews without acting. Pass execute=true only after "
+                    "the user consents.",
+        parameters={"type": "object", "properties": {
+            "verb": {"type": "string", "enum": ["raw_click", "raw_move", "raw_scroll"]},
+            "window_title": {"type": "string", "description": "window title from screen_describe/spawn_app"},
+            "x": {"type": "integer", "description": "pixels right of the window's top-left (raw_click/raw_move)"},
+            "y": {"type": "integer", "description": "pixels down from the window's top-left (raw_click/raw_move)"},
+            "dx": {"type": "integer", "description": "horizontal notches (raw_scroll)"},
+            "dy": {"type": "integer", "description": "vertical notches, positive = up (raw_scroll)"},
+            "button": {"type": "string", "enum": ["left", "right", "middle"],
+                       "description": "click button (default left)"},
+            "execute": {"type": "boolean", "description": "false (default) = dry-run preview; true = execute"},
+        }, "required": ["verb", "window_title"]},
+        risk=RiskClass.EXECUTE, timeout_s=30.0, max_retries=0)
+    def raw_act(call: ToolCall) -> ToolResult:
+        verb = str(call.args["verb"])
+        window = str(call.args["window_title"])
+        button = str(call.args.get("button") or "left")
+        if verb == "raw_scroll":
+            argument = f"{int(call.args.get('dx') or 0)},{int(call.args.get('dy') or 0)}"
+            target_type = None
+        else:
+            x = int(call.args.get("x") or 0)
+            y = int(call.args.get("y") or 0)
+            argument = f"{x},{y}"
+            target_type = button if verb == "raw_click" else None
+        execute = bool(call.args.get("execute", False))
+        try:
+            plan = gateway.resolve(verb=verb, window=window,
+                                   target_type=target_type, argument=argument)
+        except DesktopError as exc:
+            return ToolResult.fail(call, str(exc), risk=RiskClass.EXECUTE)
+        preview = gateway.preview(plan)
+        if not execute:
+            return ToolResult.success(call, data={
+                "dry_run": True, "plan": plan.as_dict(), "preview": preview,
+                "note": "pass execute=true to perform this action",
+            }, risk=RiskClass.EXECUTE)
+        result = gateway.execute(plan, dry_run=False)
+        return ToolResult.success(call, data=result.as_dict(),
+                                  risk=RiskClass.EXECUTE) if result.ok \
+            else ToolResult.fail(call, result.detail, risk=RiskClass.EXECUTE)
+
+
+def build_power_tools(registry: ToolRegistry) -> None:
+    """Register `system_power` (PJ-02, research/13) — WRITE risk, so the
+    consent gate asks with the verb visible; shutdown/restart carry an
+    abortable 5s grace window."""
+    @registry.tool(
+        name="system_power",
+        description="Windows power verbs: lock_workstation (reversible), "
+                    "shutdown / restart (5s default delay, abortable), "
+                    "sign_out, abort (cancel a pending shutdown/restart). "
+                    "Every verb requires consent.",
+        parameters={"type": "object", "properties": {
+            "verb": {"type": "string",
+                     "enum": ["lock_workstation", "shutdown", "restart",
+                              "sign_out", "abort"]},
+            "delay_s": {"type": "integer",
+                        "description": "shutdown/restart grace in seconds (5-600, default 5)"},
+        }, "required": ["verb"]},
+        risk=RiskClass.WRITE, timeout_s=15.0, max_retries=0)
+    def system_power(call: ToolCall) -> ToolResult:
+        verb = str(call.args.get("verb") or "")
+        raw_delay = call.args.get("delay_s")
+        try:
+            data = run_power_verb(
+                verb, delay_s=int(raw_delay) if raw_delay is not None else 5)
+        except PowerError as exc:
+            return ToolResult.fail(call, str(exc), risk=RiskClass.WRITE)
+        return ToolResult.success(call, data=data, risk=RiskClass.WRITE)
+
+
+def build_whatsapp_tool(registry: ToolRegistry, gateway: InputGateway) -> None:
+    """Register `whatsapp_send` (PJ-04, research/13) — flag-gated OFF by
+    default; WRITE risk; aborts clean when the foreground drifts from the
+    verified WhatsApp window (see kernel/computer/whatsapp.py)."""
+    @registry.tool(
+        name="whatsapp_send",
+        description="Send a WhatsApp message to a contact via the WhatsApp "
+                    "Desktop app (opens search by name, sends in the focused "
+                    "chat). Aborts without sending if the window loses focus. "
+                    "Requires the WhatsApp Desktop app to be running.",
+        parameters={"type": "object", "properties": {
+            "contact": {"type": "string", "description": "contact name as it appears in WhatsApp"},
+            "message": {"type": "string", "description": "message text to send"},
+        }, "required": ["contact", "message"]},
+        risk=RiskClass.WRITE, timeout_s=30.0, max_retries=0)
+    def whatsapp_send(call: ToolCall) -> ToolResult:
+        contact = str(call.args.get("contact") or "")
+        message = str(call.args.get("message") or "")
+        try:
+            data = whatsapp_mod.send_message(gateway, contact, message)
+        except DesktopError as exc:
+            return ToolResult.fail(call, str(exc), risk=RiskClass.WRITE)
+        return ToolResult.success(call, data=data, risk=RiskClass.WRITE)
