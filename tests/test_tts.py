@@ -57,7 +57,9 @@ def test_resample_preserves_energy_shape() -> None:
 
 def test_pronouncer_piper_wraps_ipa(tmp_path: Path) -> None:
     f = tmp_path / "pronounce.json"
-    f.write_text('{"terms": {"ultron": {"ipa": "ˈʌl.tɹən", "say": "UL-tron"}}}')
+    f.write_text(
+        '{"terms": {"ultron": {"ipa": "ˈʌl.tɹən", "say": "UL-tron"}}}', encoding="utf-8"
+    )
     p = Pronouncer(f)
     assert p.apply("Hello ULTRON here", "piper") == "Hello [[ˈʌl.tɹən]] here"
     assert p.apply("Hello Ultron here", "kokoro") == "Hello UL-tron here"
@@ -70,7 +72,7 @@ def test_pronouncer_missing_file_is_noop(tmp_path: Path) -> None:
 
 def test_pronouncer_partial_spec_falls_back(tmp_path: Path) -> None:
     f = tmp_path / "pronounce.json"
-    f.write_text('{"terms": {"jarvis": {"ipa": "ˈdʒɑː.vɪs"}}}')  # no "say"
+    f.write_text('{"terms": {"jarvis": {"ipa": "ˈdʒɑː.vɪs"}}}', encoding="utf-8")  # no "say"
     p = Pronouncer(f)
     assert p.apply("JARVIS online", "kokoro") == "JARVIS online"  # term kept
 
@@ -88,9 +90,15 @@ def test_load_from_config_unknown_backend() -> None:
 
 
 def _patch_fake_kokoro(monkeypatch, create_fn=None):
-    """Install a FakeKokoro so engine tests never touch onnxruntime/espeak."""
+    """Install a FakeKokoro so engine tests never touch onnxruntime/espeak.
+
+    The fake is injected into sys.modules instead of patching the real
+    kokoro_onnx package — CI does not install kokoro-onnx (hermetic tests).
+    """
+    import sys
+    import types
+
     import numpy as np
-    import kokoro_onnx
 
     class FakeKokoro:
         def __init__(self, voices_path):
@@ -105,7 +113,10 @@ def _patch_fake_kokoro(monkeypatch, create_fn=None):
                 return create_fn(text, voice, speed, lang)
             return np.zeros(24000, dtype=np.float32), 24000
 
-    monkeypatch.setattr(kokoro_onnx, "Kokoro", FakeKokoro)
+    fake = types.ModuleType("kokoro_onnx")
+    fake.Kokoro = FakeKokoro  # type: ignore[attr-defined]
+    fake.SAMPLE_RATE = 24000  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "kokoro_onnx", fake)
     monkeypatch.setattr(tts_mod, "_make_session", lambda model_path: object())
     return FakeKokoro
 

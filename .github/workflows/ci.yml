@@ -17,6 +17,12 @@ jobs:
     defaults:
       run:
         shell: pwsh
+    env:
+      # The deployment machine runs Python with UTF-8 as the default text
+      # encoding; hosted Windows runners default to cp1252, which broke tests
+      # writing IPA text (UnicodeEncodeError: charmap). Pin UTF-8 so CI env ==
+      # deployment env.
+      PYTHONUTF8: "1"
     steps:
       - uses: actions/checkout@v4
 
